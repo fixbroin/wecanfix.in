@@ -28,7 +28,7 @@ import { logUserActivity } from '@/lib/activityLogger';
 import { getGuestId, clearGuestId } from '@/lib/guestIdManager';
 
 // Define and export ADMIN_EMAIL here
-export const ADMIN_EMAIL = "fixbro.in@gmail.com";
+export const ADMIN_EMAIL = "wecanfix.in@gmail.com";
 
 export interface SignUpData {
   fullName: string;
@@ -204,7 +204,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setIsCompletingProfile(false);
       setUserCredentialForProfileCompletion(null);
       
-      toast({ title: "Account Created!", description: "Welcome to FixBro!" });
+      toast({ title: "Account Created!", description: "Welcome to wecanfix!" });
 
       const redirectPathFromQuery = searchParams.get('redirect');
       let finalRedirectPath = '/';

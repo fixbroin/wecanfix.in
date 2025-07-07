@@ -253,7 +253,7 @@ export const whyChooseUsItems = [
 ];
 
 export const testimonials: Testimonial[] = [
-  { id: 'test1', name: 'Rahul Sharma', text: 'FixBro provided excellent carpenter service. Quick and efficient!', rating: 5, avatarUrl: '/default-image.png' },
+  { id: 'test1', name: 'Rahul Sharma', text: 'wecanfix provided excellent carpenter service. Quick and efficient!', rating: 5, avatarUrl: '/default-image.png' },
   { id: 'test2', name: 'Priya Singh', text: 'My Doors is working like new after their servicing. Highly recommend.', rating: 4, avatarUrl: '/default-image.png' },
   { id: 'test3', name: 'Amit Patel', text: 'The home cleaning team was thorough and professional. Great job!', rating: 5, avatarUrl: '/default-image.png' },
 ];

@@ -68,39 +68,39 @@ const providerApplicationStatusEmailFlow = ai.defineFlow(
 
       switch (applicationStatus) {
         case 'approved':
-          emailSubject = "Your FixBro Provider Application has been Approved!";
+          emailSubject = "Your wecanfix Provider Application has been Approved!";
           emailBody = `
             Dear ${providerName},
 
-            Congratulations! We are pleased to inform you that your provider application with FixBro has been approved.
+            Congratulations! We are pleased to inform you that your provider application with wecanfix has been approved.
             You can now access your provider dashboard and start managing your services and jobs.
 
             Access your dashboard here: ${applicationUrl.replace('provider-registration', 'provider')}
 
             Welcome aboard!
-            The FixBro Team
+            The wecanfix Team
           `;
           break;
         case 'rejected':
-          emailSubject = "Update Regarding Your FixBro Provider Application";
+          emailSubject = "Update Regarding Your wecanfix Provider Application";
           emailBody = `
             Dear ${providerName},
 
-            Thank you for your interest in becoming a provider with FixBro.
+            Thank you for your interest in becoming a provider with wecanfix.
             After careful review, we regret to inform you that your application was not approved at this time.
             ${adminReviewNotes ? `\nReason/Feedback: ${adminReviewNotes}\n` : ''}
             If you have questions or wish to discuss this further, please contact our support team.
 
             Sincerely,
-            The FixBro Team
+            The wecanfix Team
           `;
           break;
         case 'needs_update':
-          emailSubject = "Action Required: Update Your FixBro Provider Application";
+          emailSubject = "Action Required: Update Your wecanfix Provider Application";
           emailBody = `
             Dear ${providerName},
 
-            We have reviewed your provider application for FixBro and require some additional information or corrections.
+            We have reviewed your provider application for wecanfix and require some additional information or corrections.
             ${adminReviewNotes ? `\nSpecific areas needing attention: ${adminReviewNotes}\n` : ''}
             Please log in to your application to make the necessary updates:
             ${applicationUrl}
@@ -108,7 +108,7 @@ const providerApplicationStatusEmailFlow = ai.defineFlow(
             Once updated, your application will be re-reviewed.
 
             Thank you,
-            The FixBro Team
+            The wecanfix Team
           `;
           break;
         default:
@@ -142,7 +142,7 @@ const providerApplicationStatusEmailFlow = ai.defineFlow(
       
       console.log(`Attempting to send provider status email to: ${providerEmail}`);
       await transporter.sendMail({
-        from: `FixBro Team <${senderEmail}>`, to: providerEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
+        from: `wecanfix Team <${senderEmail}>`, to: providerEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
       });
       console.log("Provider status email sent.");
       console.log("====== PROVIDER APP STATUS EMAIL FLOW END (SUCCESS) ======");

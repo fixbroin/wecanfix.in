@@ -48,7 +48,7 @@ const AdminPageLoader = () => (
   </div>
 );
 
-const PROCESSED_BOOKING_NOTIFICATIONS_KEY = 'fixbro_processedBookingNotifications';
+const PROCESSED_BOOKING_NOTIFICATIONS_KEY = 'wecanfix_processedBookingNotifications';
 
 export default function AdminLayout({ children }: PropsWithChildren) {
   const { user: adminUser, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();

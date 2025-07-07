@@ -8,7 +8,7 @@ export interface CartEntry {
   quantity: number;
 }
 
-const CART_STORAGE_KEY = 'fixbroUserCart';
+const CART_STORAGE_KEY = 'wecanfixUserCart';
 
 export const getCartEntries = (): CartEntry[] => {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {

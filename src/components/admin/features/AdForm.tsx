@@ -21,7 +21,7 @@ import { Progress } from "@/components/ui/progress";
 import { nanoid } from 'nanoid'; // Import nanoid
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com/v0/b/fixbroweb.firebasestorage.app/o/public%2Fuploads%2Fads");
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com/v0/b/wecanfix-2.firebasestorage.app/o/public%2Fuploads%2Fads");
 const isValidImageSrc = (url: string | null | undefined): url is string => {
     if (!url || url.trim() === '') return false;
     return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('http:') || url.startsWith('https:') || url.startsWith('/');

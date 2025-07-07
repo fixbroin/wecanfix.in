@@ -142,7 +142,7 @@ export const generateProviderApplicationPdf = async (
   let y = 22;
 
   const defaultCompanyDetails: CompanyDetailsForPdf = {
-    name: companyDetails?.name || "FixBro.in",
+    name: companyDetails?.name || "wecanfix.in",
     address: companyDetails?.address || "Company Address Placeholder",
     contactEmail: companyDetails?.contactEmail || 'support@example.com',
     contactMobile: companyDetails?.contactMobile || '+91-XXXXXXXXXX',

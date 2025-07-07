@@ -39,7 +39,7 @@ const generateBookingId = () => {
   const now = new Date();
   const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
   const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `FIXBRO-${timestamp}-${randomSuffix}`;
+  return `wecanfix-${timestamp}-${randomSuffix}`;
 };
 
 const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean, taxPercent?: number): number => {
@@ -130,7 +130,7 @@ export default function ThankYouPage() {
         return; 
       }
 
-      const lastBookingIdFromStorage = localStorage.getItem('fixbroLastSuccessfulBookingId');
+      const lastBookingIdFromStorage = localStorage.getItem('wecanfixLastSuccessfulBookingId');
       const cartEntriesFromStorage = getCartEntries();
 
       if (cartEntriesFromStorage.length === 0 && !lastBookingIdFromStorage) {
@@ -152,20 +152,20 @@ export default function ThankYouPage() {
         let storedAppliedPlatformFees: AppliedPlatformFeeItem[] = [];
 
         if (typeof window !== 'undefined') {
-          customerEmail = localStorage.getItem('fixbroCustomerEmail') || customerEmail;
-          paymentMethod = localStorage.getItem('fixbroPaymentMethod') || paymentMethod;
-          scheduledDateStored = localStorage.getItem('fixbroScheduledDate') || scheduledDateStored; // This is YYYY-MM-DD
-          scheduledTimeSlot = localStorage.getItem('fixbroScheduledTimeSlot') || scheduledTimeSlot;
+          customerEmail = localStorage.getItem('wecanfixCustomerEmail') || customerEmail;
+          paymentMethod = localStorage.getItem('wecanfixPaymentMethod') || paymentMethod;
+          scheduledDateStored = localStorage.getItem('wecanfixScheduledDate') || scheduledDateStored; // This is YYYY-MM-DD
+          scheduledTimeSlot = localStorage.getItem('wecanfixScheduledTimeSlot') || scheduledTimeSlot;
           storedRazorpayPaymentId = localStorage.getItem('razorpayPaymentId') || undefined;
           storedRazorpayOrderId = localStorage.getItem('razorpayOrderId') || undefined;
           storedRazorpaySignature = localStorage.getItem('razorpaySignature') || undefined;
-          bookingDiscountCode = localStorage.getItem('fixbroBookingDiscountCode') || undefined;
-          const discountAmountStr = localStorage.getItem('fixbroBookingDiscountAmount');
+          bookingDiscountCode = localStorage.getItem('wecanfixBookingDiscountCode') || undefined;
+          const discountAmountStr = localStorage.getItem('wecanfixBookingDiscountAmount');
           bookingDiscountAmount = discountAmountStr ? parseFloat(discountAmountStr) : undefined;
-          appliedPromoCodeId = localStorage.getItem('fixbroAppliedPromoCodeId') || undefined;
-          const platformFeesStr = localStorage.getItem('fixbroAppliedPlatformFees');
+          appliedPromoCodeId = localStorage.getItem('wecanfixAppliedPromoCodeId') || undefined;
+          const platformFeesStr = localStorage.getItem('wecanfixAppliedPlatformFees');
           if (platformFeesStr) { try { storedAppliedPlatformFees = JSON.parse(platformFeesStr); } catch (e) { console.error("Error parsing stored platform fees:", e); } }
-          const addressDataString = localStorage.getItem('fixbroCustomerAddress');
+          const addressDataString = localStorage.getItem('wecanfixCustomerAddress');
           if (addressDataString) { const addressData = JSON.parse(addressDataString); customerName = addressData.fullName || customerName; customerPhone = addressData.phone || customerPhone; addressLine1 = addressData.addressLine1 || addressLine1; addressLine2 = addressData.addressLine2 || undefined; city = addressData.city || city; state = addressData.state || state; pincode = addressData.pincode || pincode; latitude = addressData.latitude === null ? undefined : addressData.latitude; longitude = addressData.longitude === null ? undefined : addressData.longitude; }
         }
 
@@ -217,7 +217,7 @@ export default function ThankYouPage() {
 
         const docRef = await addDoc(collection(db, "bookings"), newBookingData);
         toast({ title: "Booking Confirmed!", description: `Your booking ID is ${newBookingId}.`});
-        localStorage.setItem('fixbroLastSuccessfulBookingId', newBookingId);
+        localStorage.setItem('wecanfixLastSuccessfulBookingId', newBookingId);
         logUserActivity('newBooking', { bookingId: newBookingId, totalAmount: totalAmountForBooking, itemCount: resolvedServiceItems.length, paymentMethod: paymentMethod, services: resolvedServiceItems.map(s => ({id: s.serviceId, name: s.name, quantity: s.quantity})) }, currentUser?.uid, !currentUser ? getGuestId() : null);
 
         if (currentUser?.uid) { const userNotificationData: FirestoreNotification = { userId: currentUser.uid, title: "Booking Confirmed!", message: `Your booking ${newBookingData.bookingId} for ${newBookingData.services.map(s => s.name).join(', ')} on ${formatDateForDisplay(newBookingData.scheduledDate)} is ${newBookingData.status}.`, type: 'success', href: `/my-bookings`, read: false, createdAt: Timestamp.now() }; await addDoc(collection(db, "userNotifications"), userNotificationData); }
@@ -245,7 +245,7 @@ export default function ThankYouPage() {
         try { const emailResult = await sendBookingConfirmationEmail(emailFlowInput); if (!emailResult.success) toast({ title: "Email Notification Issue", description: emailResult.message || "Could not send confirmation email(s). Please check admin console logs for details.", variant: "default", duration: 10000 }); } catch (emailError: any) { console.error("ThankYouPage: Exception calling sendBookingConfirmationEmail:", emailError); toast({ title: "Email System Error", description: `Failed to invoke email sending process: ${emailError.message || 'Unknown error'}. Check admin console logs.`, variant: "default", duration: 10000 }); }
 
         saveCartEntries([]);
-        if (typeof window !== 'undefined') { window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' })); localStorage.removeItem('fixbroScheduledDate'); localStorage.removeItem('fixbroScheduledTimeSlot'); localStorage.removeItem('fixbroCustomerAddress'); localStorage.removeItem('razorpayPaymentId'); localStorage.removeItem('razorpayOrderId'); localStorage.removeItem('razorpaySignature'); localStorage.removeItem('fixbroAppliedPromoCode'); localStorage.removeItem('fixbroBookingDiscountCode'); localStorage.removeItem('fixbroBookingDiscountAmount'); localStorage.removeItem('fixbroAppliedPromoCodeId'); localStorage.removeItem('fixbroAppliedPlatformFees'); localStorage.removeItem('isProcessingCancellationFee'); localStorage.removeItem('bookingIdForCancellationFee'); localStorage.removeItem('cancellationFeeAmount'); }
+        if (typeof window !== 'undefined') { window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' })); localStorage.removeItem('wecanfixScheduledDate'); localStorage.removeItem('wecanfixScheduledTimeSlot'); localStorage.removeItem('wecanfixCustomerAddress'); localStorage.removeItem('razorpayPaymentId'); localStorage.removeItem('razorpayOrderId'); localStorage.removeItem('razorpaySignature'); localStorage.removeItem('wecanfixAppliedPromoCode'); localStorage.removeItem('wecanfixBookingDiscountCode'); localStorage.removeItem('wecanfixBookingDiscountAmount'); localStorage.removeItem('wecanfixAppliedPromoCodeId'); localStorage.removeItem('wecanfixAppliedPlatformFees'); localStorage.removeItem('isProcessingCancellationFee'); localStorage.removeItem('bookingIdForCancellationFee'); localStorage.removeItem('cancellationFeeAmount'); }
       } catch (error) { console.error("Error creating booking:", error); toast({ title: "Booking Failed", description: (error as Error).message || "Could not complete booking.", variant: "destructive" });
       } finally { setIsLoadingPage(false); }
     };

@@ -237,9 +237,9 @@ export default function MyBookingsPage() {
     setIsDownloadingInvoice(booking.id);
     try {
       const companyDetailsForInvoice = {
-        name: globalCompanySettings?.websiteName || "FixBro.in",
+        name: globalCompanySettings?.websiteName || "wecanfix.in",
         address: globalCompanySettings?.address || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-        contactEmail: globalCompanySettings?.contactEmail || "support@fixbro.in",
+        contactEmail: globalCompanySettings?.contactEmail || "support@wecanfix.in",
         contactMobile: globalCompanySettings?.contactMobile || "+91-7353113455",
         logoUrl: globalCompanySettings?.logoUrl || undefined,
       };
@@ -279,7 +279,7 @@ export default function MyBookingsPage() {
           <div className="text-center py-12">
             <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
             <h2 className="text-2xl font-semibold mb-2">No Bookings Yet</h2>
-            <p className="text-muted-foreground mb-6">You haven't made any bookings with FixBro.</p>
+            <p className="text-muted-foreground mb-6">You haven't made any bookings with wecanfix.</p>
             <Link href="/categories" passHref>
               <Button>Book a Service</Button>
             </Link>

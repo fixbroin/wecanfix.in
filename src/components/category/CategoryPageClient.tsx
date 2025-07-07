@@ -177,7 +177,7 @@ export default function CategoryPageClient({ categorySlug, citySlug, areaSlug, b
   useEffect(() => {
     if (typeof window === 'undefined' || !category || !isMounted) return;
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroCategoryNameOverrides' && category && !initialBreadcrumbItems) { 
+      if (event.key === 'wecanfixCategoryNameOverrides' && category && !initialBreadcrumbItems) { 
         
       }
     };

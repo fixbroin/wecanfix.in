@@ -84,7 +84,7 @@ export default function AdminSubCategoriesPage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !isMounted) return;
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroCategoryNameOverrides') {
+      if (event.key === 'wecanfixCategoryNameOverrides') {
         fetchData(); // Re-fetch all data if category names might have changed
       }
     };

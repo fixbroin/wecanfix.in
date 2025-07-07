@@ -70,7 +70,7 @@ export default function AdminCategoriesPage() {
   useEffect(() => {
     if (typeof window === 'undefined' || !isMounted) return;
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroCategoryNameOverrides') {
+      if (event.key === 'wecanfixCategoryNameOverrides') {
         setCategories(prevCategories =>
           prevCategories.map(cat => ({
             ...cat,

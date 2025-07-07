@@ -40,7 +40,7 @@ export async function generateStaticParams() {
 export async function generateMetadata({ params }: BlogPostPageProps, parent: ResolvingMetadata): Promise<Metadata> {
   const post = await getPostData(params.slug);
   const seoSettings = await getGlobalSEOSettings();
-  const siteName = seoSettings.siteName || "FixBro";
+  const siteName = seoSettings.siteName || "wecanfix";
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl();
 
@@ -95,7 +95,7 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               {post.h1_title || post.title}
             </h1>
             <p className="text-sm text-muted-foreground">
-              By {post.authorName || 'FixBro Team'} · Published on {post.createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+              By {post.authorName || 'wecanfix Team'} · Published on {post.createdAt.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
             </p>
           </header>
           {post.coverImageUrl && (

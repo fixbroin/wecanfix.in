@@ -98,7 +98,7 @@ export const onForegroundMessage = () => {
       if (payload.notification) {
         new Notification(payload.notification.title || "New Message", {
           body: payload.notification.body || "",
-          icon: payload.notification.icon || "/icons/icon-192x192.png", // default icon
+          icon: payload.notification.icon || "/android-chrome-192x192.png", // default icon
         });
       }
     });

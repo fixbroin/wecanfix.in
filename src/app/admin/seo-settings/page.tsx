@@ -204,16 +204,16 @@ export default function SEOSettingsPage() {
               <Card>
                 <CardHeader><CardTitle>Global Defaults & Homepage SEO</CardTitle></CardHeader>
                 <CardContent className="space-y-6">
-                  {renderFormField("siteName", "Site Name (for OG & Structured Data)", "e.g., FixBro Services", undefined, false, Settings2)}
-                  {renderFormField("defaultMetaTitleSuffix", "Default Meta Title Suffix", "e.g., | FixBro", "Appended to most page titles.")}
+                  {renderFormField("siteName", "Site Name (for OG & Structured Data)", "e.g., wecanfix Services", undefined, false, Settings2)}
+                  {renderFormField("defaultMetaTitleSuffix", "Default Meta Title Suffix", "e.g., | wecanfix", "Appended to most page titles.")}
                   {renderFormField("defaultMetaDescription", "Default Meta Description", "e.g., Quality home services at your doorstep.", "Fallback description if a specific one isn't set.", true)}
                   {renderFormField("defaultMetaKeywords", "Default Meta Keywords (comma-separated)", "e.g., home repair, plumbing, electrician")}
                   <hr className="my-6"/>
                   <h4 className="text-md font-semibold">Homepage Specific SEO:</h4>
                   {renderFormField("homepageH1", "Homepage H1 Title", "e.g., Reliable Home Services")}
-                  {renderFormField("homepageMetaTitle", "Homepage Meta Title", "e.g., FixBro - Trusted Home Services")}
+                  {renderFormField("homepageMetaTitle", "Homepage Meta Title", "e.g., wecanfix - Trusted Home Services")}
                   {renderFormField("homepageMetaDescription", "Homepage Meta Description", "e.g., Book expert home services online.", true)}
-                  {renderFormField("homepageMetaKeywords", "Homepage Meta Keywords (comma-separated)", "e.g., fixbro, home services, repair")}
+                  {renderFormField("homepageMetaKeywords", "Homepage Meta Keywords (comma-separated)", "e.g., wecanfix, home services, repair")}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -226,7 +226,7 @@ export default function SEOSettingsPage() {
                     <h4 className="text-md font-semibold mb-3">Default Category Pages (e.g., /category/slug):</h4>
                     <div className="space-y-4">
                       {renderFormField("categoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} Services")}
-                      {renderFormField("categoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} | FixBro")}
+                      {renderFormField("categoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} | wecanfix")}
                       {renderFormField("categoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Best {{categoryName}} services.", true)}
                       {renderFormField("categoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}}, book {{categoryName}}")}
                     </div>
@@ -237,7 +237,7 @@ export default function SEOSettingsPage() {
                     <CardDescription>Placeholders: <code>{"{{cityName}}"}</code>, <code>{"{{categoryName}}"}</code></CardDescription>
                     <div className="space-y-4 mt-3">
                       {renderFormField("cityCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{cityName}}")}
-                      {renderFormField("cityCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} Services in {{cityName}} | FixBro")}
+                      {renderFormField("cityCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} Services in {{cityName}} | wecanfix")}
                       {renderFormField("cityCategoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Find {{categoryName}} experts in {{cityName}}.", true)}
                       {renderFormField("cityCategoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}} {{cityName}}, {{categoryName}} services")}
                     </div>
@@ -248,7 +248,7 @@ export default function SEOSettingsPage() {
                     <CardDescription>Placeholders: <code>{"{{areaName}}"}</code>, <code>{"{{cityName}}"}</code>, <code>{"{{categoryName}}"}</code></CardDescription>
                     <div className="space-y-4 mt-3">
                       {renderFormField("areaCategoryPageH1Pattern", "H1 Title Pattern", "e.g., {{categoryName}} in {{areaName}}, {{cityName}}")}
-                      {renderFormField("areaCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} - {{areaName}}, {{cityName}} | FixBro")}
+                      {renderFormField("areaCategoryPageTitlePattern", "Meta Title Pattern", "e.g., {{categoryName}} - {{areaName}}, {{cityName}} | wecanfix")}
                       {renderFormField("areaCategoryPageDescriptionPattern", "Meta Description Pattern", "e.g., Best {{categoryName}} in {{areaName}}, {{cityName}}.", true)}
                       {renderFormField("areaCategoryPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{categoryName}} {{areaName}}, {{areaName}} {{cityName}} services")}
                     </div>
@@ -258,7 +258,7 @@ export default function SEOSettingsPage() {
                     <h4 className="text-md font-semibold mb-3">Service Pages:</h4>
                     <div className="space-y-4">
                       {renderFormField("servicePageH1Pattern", "H1 Title Pattern", "e.g., {{serviceName}} in {{areaName}}")}
-                      {renderFormField("servicePageTitlePattern", "Meta Title Pattern", "e.g., {{serviceName}} - {{areaName}}, {{cityName}} | FixBro")}
+                      {renderFormField("servicePageTitlePattern", "Meta Title Pattern", "e.g., {{serviceName}} - {{areaName}}, {{cityName}} | wecanfix")}
                       {renderFormField("servicePageDescriptionPattern", "Meta Description Pattern", "e.g., Get expert {{serviceName}} for {{serviceDescription}} in {{areaName}}.", true)}
                       {renderFormField("servicePageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{serviceName}}, {{categoryName}}, {{areaName}}, order {{serviceName}}")}
                     </div>
@@ -269,7 +269,7 @@ export default function SEOSettingsPage() {
                     <CardDescription>Patterns for pages like <code>/city-slug/area-slug</code>. Use <code>{"{{cityName}}"}</code> and <code>{"{{areaName}}"}</code>.</CardDescription>
                     <div className="space-y-4 mt-3">
                       {renderFormField("areaPageH1Pattern", "H1 Title Pattern", "e.g., Services in {{areaName}}, {{cityName}}")}
-                      {renderFormField("areaPageTitlePattern", "Meta Title Pattern", "e.g., {{areaName}}, {{cityName}} Home Services | FixBro")}
+                      {renderFormField("areaPageTitlePattern", "Meta Title Pattern", "e.g., {{areaName}}, {{cityName}} Home Services | wecanfix")}
                       {renderFormField("areaPageDescriptionPattern", "Meta Description Pattern", "e.g., Find all home services in {{areaName}}, {{cityName}}.", true)}
                       {renderFormField("areaPageKeywordsPattern", "Meta Keywords Pattern", "e.g., {{areaName}}, {{cityName}}, home services, local repair")}
                     </div>
@@ -283,7 +283,7 @@ export default function SEOSettingsPage() {
                 <CardHeader><CardTitle>Structured Data Defaults (LocalBusiness)</CardTitle><CardDescription>Helps search engines understand your business.</CardDescription></CardHeader>
                 <CardContent className="space-y-6">
                   {renderFormField("structuredDataType", "Schema Type", "e.g., LocalBusiness, Organization")}
-                  {renderFormField("structuredDataName", "Business Name", "e.g., FixBro")}
+                  {renderFormField("structuredDataName", "Business Name", "e.g., wecanfix")}
                   {renderFormField("structuredDataStreetAddress", "Street Address", "e.g., 123 Main St")}
                   {renderFormField("structuredDataLocality", "City / Locality", "e.g., Bangalore")}
                   {renderFormField("structuredDataRegion", "State / Region", "e.g., KA")}

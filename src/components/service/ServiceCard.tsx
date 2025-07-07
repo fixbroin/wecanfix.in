@@ -56,7 +56,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service }) => {
     saveCartEntries(cartEntries);
     
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
 
 

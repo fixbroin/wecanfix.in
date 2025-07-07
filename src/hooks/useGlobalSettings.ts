@@ -12,10 +12,10 @@ const WEB_SETTINGS_COLLECTION = "webSettings";
 
 // Define more comprehensive default global settings including theme
 export const defaultGlobalWebSettings: GlobalWebSettings = {
-  websiteName: "FixBro",
-  contactEmail: "support@fixbro.in",
+  websiteName: "wecanfix",
+  contactEmail: "support@wecanfix.in",
   contactMobile: "+919876543210",
-  address: "123 FixBro Lane, Service City, ST 12345",
+  address: "123 wecanfix Lane, Service City, ST 12345",
   logoUrl: "", // Or a default placeholder path
   faviconUrl: "/favicon.ico",
   websiteIconUrl: "/android-chrome-512x512.png",

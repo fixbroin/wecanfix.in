@@ -14,7 +14,7 @@ export type GenerateBlogContentInput = z.infer<typeof GenerateBlogContentInputSc
 
 const GenerateBlogContentOutputSchema = z.object({
   content: z.string().describe("The full blog post content, formatted in HTML with <h2>, <p>, <br>, and <ul> tags. Should be engaging, professional, and at least 400 words, aimed at homeowners. Include 5-7 sections with headers, benefits, service lists, tips, pricing estimates, and a footer with keywords."),
-  h1_title: z.string().describe("An H1 title with the exact format: '{Title Name} Service Near You | FixBro'"),
+  h1_title: z.string().describe("An H1 title with the exact format: '{Title Name} Service Near You | wecanfix'"),
   meta_title: z.string().describe("A meta title with the format: '{Title Name} Near Me {Category Name} Near Me' or '{Title Name} | Home Services Near Me' if no category is provided."),
   meta_description: z.string().describe("An SEO-optimized meta description, under 160 characters, including relevant service keywords (e.g., Carpentry, Plumber, Electrician, Home Cleaning)."),
   meta_keywords: z.string().describe("A comma-separated string of SEO keywords, including the title, Bangalore, and service keywords like Carpentry near me, Plumber near me, etc."),
@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'generateHomeServicesBlogPrompt',
   input: { schema: GenerateBlogContentInputSchema },
   output: { schema: GenerateBlogContentOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "FixBro" based in Bangalore. Your task is to generate an engaging, professional, and informative blog post with SEO metadata based on a given title and an optional category. The content must be formatted in HTML using <h2> for headers, <p> for paragraphs, <br> for line breaks, and <ul> with <li> for lists, matching the style of the provided examples. Do not use markdown symbols (e.g., '#', '**', '!'). Do not reference competitors like Urban Company or NoBroker.
+  prompt: `You are an expert SEO copywriter for a home services company called "wecanfix" based in Bangalore. Your task is to generate an engaging, professional, and informative blog post with SEO metadata based on a given title and an optional category. The content must be formatted in HTML using <h2> for headers, <p> for paragraphs, <br> for line breaks, and <ul> with <li> for lists, matching the style of the provided examples. Do not use markdown symbols (e.g., '#', '**', '!'). Do not reference competitors like Urban Company or NoBroker.
 
 **Input Details:**
 - Blog Post Title: {{title}}
@@ -46,12 +46,12 @@ Generate the following content based on the input details.
    - A section on choosing the right service provider, with tips like checking reviews or verifying experience, using <p> tags with <strong> for points.
    - A section with typical pricing estimates for 2025 in Bangalore (e.g., ₹100–₹500 for specific tasks), formatted in a <ul> with <li> tags.
    - A section with practical DIY tips or common mistakes to avoid, using a <ul> with <li> tags starting with '✔️'.
-   - A concluding section encouraging readers to book FixBro’s professional services, mentioning other services like Carpentry, Plumber, Electrician, etc., wrapped in <h2> and <p> tags.
+   - A concluding section encouraging readers to book wecanfix’s professional services, mentioning other services like Carpentry, Plumber, Electrician, etc., wrapped in <h2> and <p> tags.
    - A final footer section titled 'Related Services and Keywords' under an <h2> header, containing a single <p> tag with a comma-separated list of keywords in the exact format: "{{title}}, Bangalore, Carpentry near me, Plumber near me, Electrician near me, Home Cleaning near me, Painting near me, TV Installation near me, Interior Design near me, Website Design near me".
    - Use <br> tags between sections for spacing, as in the examples.
-   - Incorporate Bangalore-specific references (e.g., local markets like Whitefield or general mentions of FixBro’s services in Bangalore) without mentioning competitors like Urban Company or NoBroker.
+   - Incorporate Bangalore-specific references (e.g., local markets like Whitefield or general mentions of wecanfix’s services in Bangalore) without mentioning competitors like Urban Company or NoBroker.
 
-2. **h1_title**: Create an H1 title with the exact format: "{{title}} Service Near You | FixBro".
+2. **h1_title**: Create an H1 title with the exact format: "{{title}} Service Near You | wecanfix".
 
 3. **meta_title**:
    - If a category is provided, use the format: "{{title}} Near Me | {{categoryName}} Near Me" (under 60 chars).
@@ -69,7 +69,7 @@ Generate the following content based on the input details.
 - Include practical advice, such as how to prepare for a service or what to look for in a provider.
 - Ensure pricing estimates are realistic for Bangalore in 2025 and formatted as a list.
 - Avoid technical jargon unless explained simply for homeowners.
-- Reference FixBro services and other offerings (e.g., Carpentry, Plumber) in the conclusion.
+- Reference wecanfix services and other offerings (e.g., Carpentry, Plumber) in the conclusion.
 - Ensure HTML tags are properly closed and content is valid for rendering.
 - Include the footer section with the exact keyword format as specified, under an <h2><strong> header titled 'Related Services and Keywords'.
 - Do not mention competitors like Urban Company or NoBroker in any section.

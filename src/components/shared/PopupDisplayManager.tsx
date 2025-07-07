@@ -16,8 +16,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { getGuestId } from '@/lib/guestIdManager'; 
 import { useLoading } from '@/contexts/LoadingContext'; // Added useLoading
 
-const POPUP_SESSION_STORAGE_KEY_PREFIX = 'fixbroPopupShown_';
-const POPUP_DAY_STORAGE_KEY_PREFIX = 'fixbroPopupDayShown_'; 
+const POPUP_SESSION_STORAGE_KEY_PREFIX = 'wecanfixPopupShown_';
+const POPUP_DAY_STORAGE_KEY_PREFIX = 'wecanfixPopupDayShown_'; 
 
 const PopupDisplayManager = () => {
   const [allActivePopups, setAllActivePopups] = useState<FirestorePopup[]>([]);
@@ -168,7 +168,7 @@ const PopupDisplayManager = () => {
             document.documentElement.addEventListener('mouseout', handleDesktopMouseOut);
             exitIntentListenerRef.current = () => document.documentElement.removeEventListener('mouseout', handleDesktopMouseOut);
           } else { 
-            const mobileExitIntentStateKey = 'fixbroMobileExitIntentMarker';
+            const mobileExitIntentStateKey = 'wecanfixMobileExitIntentMarker';
             let statePushedByManager = false;
             const pushOurState = () => {
                 if (history.state?.[mobileExitIntentStateKey] !== true) {

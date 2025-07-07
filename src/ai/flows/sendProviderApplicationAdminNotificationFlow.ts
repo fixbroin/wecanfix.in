@@ -61,12 +61,12 @@ const newProviderApplicationAdminEmailFlow = ai.defineFlow(
         applicationId, providerName, providerEmail, providerCategory, applicationUrl
       } = details;
 
-      const adminEmail = "fixbro.in@gmail.com";  // Use the imported admin email
+      const adminEmail = "wecanfix.in@gmail.com";  // Use the imported admin email
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
 
       const emailSubject = `New Provider Application Submitted: ${providerName}`;
       const emailBody = `
-        A new provider application has been submitted on FixBro.
+        A new provider application has been submitted on wecanfix.
 
         Application Details:
         --------------------
@@ -78,7 +78,7 @@ const newProviderApplicationAdminEmailFlow = ai.defineFlow(
         Please review the application at your earliest convenience:
         ${applicationUrl}
 
-        The FixBro System
+        The wecanfix System
       `;
 
       if (!canAttemptRealEmail) {
@@ -103,7 +103,7 @@ const newProviderApplicationAdminEmailFlow = ai.defineFlow(
       
       console.log(`Attempting to send admin notification email to: ${adminEmail}`);
       await transporter.sendMail({
-        from: `FixBro System <${senderEmail}>`, to: adminEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
+        from: `wecanfix System <${senderEmail}>`, to: adminEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
       });
       console.log("Admin notification email sent.");
       console.log("====== NEW PROVIDER APP ADMIN EMAIL FLOW END (SUCCESS) ======");

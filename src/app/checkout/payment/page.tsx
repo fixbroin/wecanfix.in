@@ -176,8 +176,8 @@ export default function PaymentPage() {
         const validCartEntries = currentCartEntries.filter(entry => detailsMap[entry.serviceId]);
         if (validCartEntries.length !== currentCartEntries.length) setCartEntries(validCartEntries);
 
-        const storedPromo = localStorage.getItem('fixbroAppliedPromoCode');
-        if (storedPromo) { try { const parsedPromo: AppliedPromoCodeInfo = JSON.parse(storedPromo); setAppliedPromoCode(parsedPromo); setPromoCodeInput(parsedPromo.code); } catch (e) { localStorage.removeItem('fixbroAppliedPromoCode'); } }
+        const storedPromo = localStorage.getItem('wecanfixAppliedPromoCode');
+        if (storedPromo) { try { const parsedPromo: AppliedPromoCodeInfo = JSON.parse(storedPromo); setAppliedPromoCode(parsedPromo); setPromoCodeInput(parsedPromo.code); } catch (e) { localStorage.removeItem('wecanfixAppliedPromoCode'); } }
 
         const promoQuery = query(collection(db, "adminPromoCodes"), where("isActive", "==", true));
         const promoSnap = await getDocs(promoQuery);
@@ -316,13 +316,13 @@ export default function PaymentPage() {
       let calculatedDiscount = 0; if (promoData.discountType === 'percentage') calculatedDiscount = (sumOfDisplayedItemPrices * promoData.discountValue) / 100; else calculatedDiscount = promoData.discountValue;
       calculatedDiscount = Math.min(calculatedDiscount, sumOfDisplayedItemPrices);
       const appliedInfo: AppliedPromoCodeInfo = { id: promoData.id, code: promoData.code, discountType: promoData.discountType, discountValue: promoData.discountValue, calculatedDiscount: calculatedDiscount };
-      setAppliedPromoCode(appliedInfo); localStorage.setItem('fixbroAppliedPromoCode', JSON.stringify(appliedInfo));
+      setAppliedPromoCode(appliedInfo); localStorage.setItem('wecanfixAppliedPromoCode', JSON.stringify(appliedInfo));
       toast({ title: "Promo Applied!", description: `Discount of ₹${calculatedDiscount.toFixed(2)} applied.`, className: "bg-green-100 border-green-300 text-green-700" });
     } catch (error) { console.error("[PaymentPage] Error applying promo code:", error); toast({ title: "Error", description: "Could not apply promo code.", variant: "destructive" });
     } finally { setIsApplyingPromo(false); }
   };
 
-  const handleRemovePromoCode = () => { setAppliedPromoCode(null); setPromoCodeInput(""); localStorage.removeItem('fixbroAppliedPromoCode'); toast({ title: "Promo Removed", description: "Discount has been removed." }); };
+  const handleRemovePromoCode = () => { setAppliedPromoCode(null); setPromoCodeInput(""); localStorage.removeItem('wecanfixAppliedPromoCode'); toast({ title: "Promo Removed", description: "Discount has been removed." }); };
   const handleSelectAvailablePromo = (code: string) => setPromoCodeInput(code);
 
   const loadRazorpayScript = () => new Promise((resolve) => { if (window.Razorpay) { resolve(true); return; } const script = document.createElement('script'); script.src = 'https://checkout.razorpay.com/v1/checkout.js'; script.onload = () => resolve(true); script.onerror = () => resolve(false); document.body.appendChild(script); });
@@ -332,28 +332,28 @@ export default function PaymentPage() {
     setIsProcessingPayment(true); showLoading();
 
     if (typeof window !== 'undefined') {
-      localStorage.setItem('fixbroPaymentMethod', paymentMethod);
-      localStorage.setItem('fixbroFinalBookingTotal', totalAmountDue.toString());
+      localStorage.setItem('wecanfixPaymentMethod', paymentMethod);
+      localStorage.setItem('wecanfixFinalBookingTotal', totalAmountDue.toString());
       if (isCancellationFeeMode && cancellationFeeDetails) {
         localStorage.setItem('isProcessingCancellationFee', 'true');
         localStorage.setItem('bookingIdForCancellationFee', cancellationFeeDetails.bookingId);
         localStorage.setItem('cancellationFeeAmount', cancellationFeeDetails.feeAmount.toString());
-        localStorage.removeItem('fixbroBookingDiscountCode');
-        localStorage.removeItem('fixbroBookingDiscountAmount');
-        localStorage.removeItem('fixbroAppliedPromoCodeId');
-        localStorage.removeItem('fixbroAppliedPlatformFees');
+        localStorage.removeItem('wecanfixBookingDiscountCode');
+        localStorage.removeItem('wecanfixBookingDiscountAmount');
+        localStorage.removeItem('wecanfixAppliedPromoCodeId');
+        localStorage.removeItem('wecanfixAppliedPlatformFees');
       } else {
         localStorage.removeItem('isProcessingCancellationFee'); 
         if (appliedPromoCode) {
-          localStorage.setItem('fixbroBookingDiscountCode', appliedPromoCode.code);
-          localStorage.setItem('fixbroBookingDiscountAmount', appliedPromoCode.calculatedDiscount.toString());
-          localStorage.setItem('fixbroAppliedPromoCodeId', appliedPromoCode.id);
+          localStorage.setItem('wecanfixBookingDiscountCode', appliedPromoCode.code);
+          localStorage.setItem('wecanfixBookingDiscountAmount', appliedPromoCode.calculatedDiscount.toString());
+          localStorage.setItem('wecanfixAppliedPromoCodeId', appliedPromoCode.id);
         } else {
-          localStorage.removeItem('fixbroBookingDiscountCode');
-          localStorage.removeItem('fixbroBookingDiscountAmount');
-          localStorage.removeItem('fixbroAppliedPromoCodeId');
+          localStorage.removeItem('wecanfixBookingDiscountCode');
+          localStorage.removeItem('wecanfixBookingDiscountAmount');
+          localStorage.removeItem('wecanfixAppliedPromoCodeId');
         }
-        if (calculatedPlatformFees.length > 0) localStorage.setItem('fixbroAppliedPlatformFees', JSON.stringify(calculatedPlatformFees)); else localStorage.removeItem('fixbroAppliedPlatformFees');
+        if (calculatedPlatformFees.length > 0) localStorage.setItem('wecanfixAppliedPlatformFees', JSON.stringify(calculatedPlatformFees)); else localStorage.removeItem('wecanfixAppliedPlatformFees');
       }
     }
 
@@ -365,7 +365,7 @@ export default function PaymentPage() {
     if (!scriptLoaded) { toast({ title: "Error", description: "Could not load Razorpay checkout. Please try again.", variant: "destructive" }); setIsProcessingPayment(false); hideLoading(); return; }
 
     try {
-      const customerAddressDataString = localStorage.getItem('fixbroCustomerAddress');
+      const customerAddressDataString = localStorage.getItem('wecanfixCustomerAddress');
       let customerName = "Guest", customerEmail = "guest@example.com", customerContact = undefined;
       if (customerAddressDataString) { try { const addr = JSON.parse(customerAddressDataString); customerName = addr.fullName || customerName; customerEmail = addr.email || customerEmail; customerContact = addr.phone || undefined; } catch (e) { console.error("Error parsing address for Razorpay:", e); } }
       else if (auth.currentUser) { customerName = auth.currentUser.displayName || customerName; customerEmail = auth.currentUser.email || customerEmail; }
@@ -376,7 +376,7 @@ export default function PaymentPage() {
 
       const options = {
         key: appConfig.razorpayKeyId, amount: Math.round(totalAmountDue * 100), currency: "INR",
-        name: appConfig.websiteName || "FixBro Services", description: paymentDescription,
+        name: appConfig.websiteName || "wecanfix Services", description: paymentDescription,
         handler: (response: any) => {
           localStorage.setItem('razorpayPaymentId', response.razorpay_payment_id);
           if (response.razorpay_order_id) localStorage.setItem('razorpayOrderId', response.razorpay_order_id);
@@ -384,7 +384,7 @@ export default function PaymentPage() {
           router.push('/checkout/thank-you');
         },
         prefill: { name: customerName, email: customerEmail, contact: customerContact },
-        notes: { address: isCancellationFeeMode ? "Cancellation Fee" : "FixBro Service Booking", ...(isCancellationFeeMode && cancellationFeeDetails && {booking_id_cancelled: cancellationFeeDetails.humanReadableBookingId || cancellationFeeDetails.bookingId}), ...(!isCancellationFeeMode && {cart_item_count: cartEntries.length.toString(), applied_promo_code: appliedPromoCode?.code || "N/A"}) },
+        notes: { address: isCancellationFeeMode ? "Cancellation Fee" : "wecanfix Service Booking", ...(isCancellationFeeMode && cancellationFeeDetails && {booking_id_cancelled: cancellationFeeDetails.humanReadableBookingId || cancellationFeeDetails.bookingId}), ...(!isCancellationFeeMode && {cart_item_count: cartEntries.length.toString(), applied_promo_code: appliedPromoCode?.code || "N/A"}) },
         theme: { color: "#45A0A2" },
         modal: { ondismiss: () => { setIsProcessingPayment(false); hideLoading(); }}
       };

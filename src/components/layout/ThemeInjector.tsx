@@ -9,7 +9,7 @@ import { DEFAULT_LIGHT_THEME_COLORS_HSL, DEFAULT_DARK_THEME_COLORS_HSL, THEME_PA
 
 const WEB_SETTINGS_DOC_ID = "global";
 const WEB_SETTINGS_COLLECTION = "webSettings";
-const THEME_STYLE_TAG_ID = "fixbro-dynamic-theme-styles";
+const THEME_STYLE_TAG_ID = "wecanfix-dynamic-theme-styles";
 
 // Simplified function to generate CSS variable declarations for a palette
 const generatePaletteCssVariables = (palette: ThemePalette | undefined, defaultPalette: Required<ThemePalette>): string => {

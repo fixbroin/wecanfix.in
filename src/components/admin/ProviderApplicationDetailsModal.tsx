@@ -124,7 +124,7 @@ export default function ProviderApplicationDetailsModal({
     setIsDownloadingPdf(true);
     try {
       const companyInfo = {
-        name: globalCompanySettings?.websiteName || "FixBro.in",
+        name: globalCompanySettings?.websiteName || "wecanfix.in",
         address: globalCompanySettings?.address || "Company Address Placeholder",
         contactEmail: globalCompanySettings?.contactEmail || 'support@example.com',
         contactMobile: globalCompanySettings?.contactMobile || '+91-XXXXXXXXXX',

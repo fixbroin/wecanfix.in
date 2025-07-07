@@ -88,7 +88,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     setIsSending(quotation.id);
     try {
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro",
+        name: companySettings?.websiteName || "wecanfix",
         address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",
@@ -128,7 +128,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     setIsDownloading(quotation.id);
     try {
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro",
+        name: companySettings?.websiteName || "wecanfix",
         address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "",
         contactMobile: companySettings?.contactMobile || "",

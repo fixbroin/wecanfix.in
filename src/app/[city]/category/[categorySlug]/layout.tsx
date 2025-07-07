@@ -85,7 +85,7 @@ export async function generateMetadata(
   const categoryData = await getCategoryData(categorySlugParam);
   const globalSeoSettings = await getGlobalSEOSettings();
   const webSettings = await getGlobalWebsiteSettings();
-  const siteName = resolvedParent.openGraph?.siteName || globalSeoSettings.siteName || "FixBro";
+  const siteName = resolvedParent.openGraph?.siteName || globalSeoSettings.siteName || "wecanfix";
   const defaultSuffix = globalSeoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl();
 

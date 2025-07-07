@@ -78,7 +78,7 @@ const Header = () => {
 
   useEffect(() => {
     const getInitialTheme = () => {
-        const storedTheme = localStorage.getItem('fixbro-theme') as 'light' | 'dark' | null;
+        const storedTheme = localStorage.getItem('wecanfix-theme') as 'light' | 'dark' | null;
         if (storedTheme) return storedTheme;
         if (typeof window.matchMedia !== 'function') return 'light';
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -95,7 +95,7 @@ const Header = () => {
 
     window.addEventListener('themeChanged', handleThemeChange);
     window.addEventListener('storage', (event) => {
-        if (event.key === 'fixbro-theme') {
+        if (event.key === 'wecanfix-theme') {
             handleThemeChange();
         }
     });
@@ -103,7 +103,7 @@ const Header = () => {
     return () => {
         window.removeEventListener('themeChanged', handleThemeChange);
         window.removeEventListener('storage', (event) => {
-            if (event.key === 'fixbro-theme') handleThemeChange();
+            if (event.key === 'wecanfix-theme') handleThemeChange();
         });
     };
   }, []);
@@ -120,7 +120,7 @@ const Header = () => {
     updateCartCount();
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroUserCart' || event.key === null) {
+      if (event.key === 'wecanfixUserCart' || event.key === null) {
         updateCartCount();
       }
     };

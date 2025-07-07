@@ -40,7 +40,7 @@ const generateReviewsPrompt = ai.definePrompt({
     name: 'generateBulkReviewsPrompt',
     input: { schema: GenerateBulkReviewsInputSchema },
     output: { schema: GenerateBulkReviewsOutputSchema },
-    prompt: `You are an expert content generator for a home services website called "FixBro".
+    prompt: `You are an expert content generator for a home services website called "wecanfix".
 Your task is to generate a batch of realistic customer reviews for a specific service.
 The reviews should sound authentic, use common Indian names, and have a mix of positive tones.
 

@@ -18,7 +18,7 @@ interface LogoProps {
 const Logo = ({ className = "", size = "normal", logoUrl, websiteName, href }: LogoProps) => {
   const textSizeClass = size === "large" ? "text-4xl" : "text-2xl";
   const iconSize = size === "large" ? "h-8 w-8" : "h-6 w-6";
-  const finalWebsiteName = websiteName || "FixBro";
+  const finalWebsiteName = websiteName || "wecanfix";
   const linkTarget = href || "/";
   const { showLoading } = useLoading();
   const currentPathname = usePathname();

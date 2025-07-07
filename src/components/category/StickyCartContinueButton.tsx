@@ -23,7 +23,7 @@ const StickyCartContinueButton = () => {
     updateCartCount(); // Initial count
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroUserCart') {
+      if (event.key === 'wecanfixUserCart') {
         updateCartCount();
       }
     };

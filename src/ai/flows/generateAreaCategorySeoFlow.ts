@@ -30,7 +30,7 @@ const prompt = ai.definePrompt({
   name: 'generateAreaCategorySeoPrompt',
   input: { schema: GenerateAreaCategorySeoInputSchema },
   output: { schema: GenerateAreaCategorySeoOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "FixBro".
+  prompt: `You are an expert SEO copywriter for a home services company called "wecanfix".
 Your task is to generate optimized, hyper-local SEO content for a specific service category within a specific area of a city.
 
 Area Name: {{areaName}}

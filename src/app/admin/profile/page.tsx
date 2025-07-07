@@ -22,7 +22,7 @@ import { Progress } from '@/components/ui/progress';
 
 
 
-const ADMIN_EMAIL = "fixbro.in@gmail.com"; 
+const ADMIN_EMAIL = "wecanfix.in@gmail.com"; 
 
 const profileSchema = z.object({
   displayName: z.string().min(2, { message: "Name must be at least 2 characters." }).max(50, "Name too long."),
