@@ -20,7 +20,7 @@ import {
   verifyBeforeUpdateEmail, // Added import
 } from 'firebase/auth';
 import { auth, db } from '@/lib/firebase';
-import { doc, setDoc, Timestamp, getDoc } from "firebase/firestore";
+import { doc, setDoc, Timestamp, getDoc, onSnapshot } from "firebase/firestore"; // Added onSnapshot
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import type { FirestoreUser } from '@/types/firestore';
@@ -44,6 +44,7 @@ export interface LogInData {
 
 interface AuthContextType {
   user: User | null;
+  firestoreUser: FirestoreUser | null;
   isLoading: boolean;
   authActionRedirectPath: string | null;
   triggerAuthRedirect: (intendedPath: string) => void;
@@ -64,6 +65,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [firestoreUser, setFirestoreUser] = useState<FirestoreUser | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authActionRedirectPath, setAuthActionRedirectPath] = useState<string | null>(null);
   const router = useRouter();
@@ -84,6 +86,28 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
     });
     return () => unsubscribe();
   }, [isCompletingProfile]);
+
+  // NEW: Effect to listen to Firestore document for the logged-in user
+  useEffect(() => {
+    if (user?.uid) {
+        const userDocRef = doc(db, 'users', user.uid);
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                setFirestoreUser({ id: docSnap.id, ...docSnap.data() } as FirestoreUser);
+            } else {
+                // This case can happen if the Firestore doc is deleted but Auth user still exists.
+                setFirestoreUser(null);
+            }
+        }, (error) => {
+            console.error("AuthContext: Error fetching Firestore user data:", error);
+            setFirestoreUser(null);
+        });
+        return () => unsubscribe(); // Cleanup listener when user changes or unmounts
+    } else {
+        // if no user, clear firestore user data
+        setFirestoreUser(null);
+    }
+  }, [user]); // This effect runs whenever the auth user object changes.
 
 
   const internalTriggerAuthRedirect = useCallback((intendedPath: string) => {
@@ -204,7 +228,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setIsCompletingProfile(false);
       setUserCredentialForProfileCompletion(null);
       
-      toast({ title: "Account Created!", description: "Welcome to wecanfix!" });
+      toast({ title: "Account Created!", description: "Welcome to Wecanfix" });
 
       const redirectPathFromQuery = searchParams.get('redirect');
       let finalRedirectPath = '/';
@@ -329,6 +353,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
   const contextValue: AuthContextType = useMemo(() => {
     return {
       user,
+      firestoreUser,
       isLoading,
       authActionRedirectPath,
       triggerAuthRedirect: internalTriggerAuthRedirect,
@@ -343,7 +368,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       cancelProfileCompletion,
       setUser,
     };
-  }, [user, isLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
+  }, [user, firestoreUser, isLoading, authActionRedirectPath, internalTriggerAuthRedirect, signUp, logIn, logOut, signInWithGoogle, handleSuccessfulAuth, isCompletingProfile, userCredentialForProfileCompletion, completeProfileSetup, cancelProfileCompletion, setUser]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 };

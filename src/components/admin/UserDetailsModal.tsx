@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect, useState } from 'react';
@@ -18,7 +17,7 @@ import { ScrollArea } from '../ui/scroll-area';
 interface UserDetailsModalProps {
   user: FirestoreUser;
   onClose: () => void;
-  onUpdateUser: (updatedData: Partial<FirestoreUser>) => Promise<boolean>; 
+  onUpdateUser: (updatedData: Partial<FirestoreUser>) => Promise<boolean>;
 }
 
 const userEditSchema = z.object({
@@ -28,7 +27,7 @@ const userEditSchema = z.object({
     .min(10, "Mobile number must be 10-15 digits.")
     .max(15, "Mobile number cannot exceed 15 digits.")
     .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone format (e.g., +919876543210 or 9876543210).")
-    .optional().or(z.literal('')), 
+    .optional().or(z.literal('')),
 });
 
 type UserEditFormData = z.infer<typeof userEditSchema>;
@@ -59,11 +58,11 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
     const success = await onUpdateUser({
       displayName: data.displayName,
       email: data.email,
-      mobileNumber: data.mobileNumber || null, 
+      mobileNumber: data.mobileNumber || null,
     });
     setIsSubmitting(false);
     if (success) {
-      setIsEditing(false); 
+      setIsEditing(false);
     }
   };
 
@@ -77,16 +76,15 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
         date = new Date(timestamp);
         if (isNaN(date.getTime())) throw new Error("Invalid date from timestamp string");
       } catch (e) {
-        return String(timestamp); 
+        return String(timestamp);
       }
     }
     return date.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
   };
 
-
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="flex flex-col max-h-[80vh] relative">
         <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
           <div className="flex items-center space-x-4">
             <Avatar className="h-16 w-16">
@@ -104,7 +102,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
           </div>
         </DialogHeader>
 
-        <ScrollArea className="flex-grow">
+        <ScrollArea className="flex-grow overflow-y-auto pb-20">
           <div className="p-6 space-y-6">
             {isEditing ? (
               <div className="space-y-4">
@@ -127,7 +125,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
                       <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4 text-muted-foreground"/>Email Address</FormLabel>
                       <FormControl><Input type="email" {...field} disabled={isSubmitting} /></FormControl>
                       <FormMessage />
-                       <FormDescription className="text-xs">Changing this only updates Firestore record, not Firebase Auth login email without Admin SDK.</FormDescription>
+                      <FormDescription className="text-xs">Changing this only updates Firestore record, not Firebase Auth login email without Admin SDK.</FormDescription>
                     </FormItem>
                   )}
                 />
@@ -152,18 +150,17 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
                   <div><strong>User ID (UID):</strong> <span className="text-xs">{user.uid}</span></div>
                   <div><strong>Created At:</strong> {formatTimestampForIndia(user.createdAt)}</div>
                   <div><strong>Last Login:</strong> {formatTimestampForIndia(user.lastLoginAt)}</div>
-                   <div>
-                     <strong>Status:</strong> 
-                     <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
-                       {user.isActive ? <CheckCircle className="mr-1 h-3 w-3"/> : <XCircle className="mr-1 h-3 w-3"/>}
-                       {user.isActive ? "Active" : "Disabled"}
-                     </span>
-                   </div>
+                  <div>
+                    <strong>Status:</strong>
+                    <span className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${user.isActive ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"}`}>
+                      {user.isActive ? <CheckCircle className="mr-1 h-3 w-3"/> : <XCircle className="mr-1 h-3 w-3"/>}
+                      {user.isActive ? "Active" : "Disabled"}
+                    </span>
+                  </div>
                   {user.roles && user.roles.length > 0 && <div><strong>Roles:</strong> {user.roles.join(', ')}</div>}
                 </div>
               </div>
             )}
-            
             <Separator className="my-4"/>
             <div>
               <h3 className="text-lg font-semibold mb-3">Saved Addresses ({user.addresses?.length || 0})</h3>
@@ -177,7 +174,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
                       <p>Ph: {address.phone}</p>
                       {address.latitude && address.longitude && (
                         <a href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 mt-1">
-                            <MapPin size={12}/> View on Map
+                          <MapPin size={12}/> View on Map
                         </a>
                       )}
                     </div>
@@ -189,8 +186,8 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
             </div>
           </div>
         </ScrollArea>
-        
-        <DialogFooter className="p-6 border-t bg-muted/50 flex-shrink-0">
+
+        <DialogFooter className="p-6 border-t bg-muted/50 flex-shrink-0 fixed bottom-0 left-0 right-0 z-10">
           <DialogClose asChild>
             <Button type="button" variant="outline" onClick={() => { onClose(); setIsEditing(false); }} disabled={isSubmitting}>Close</Button>
           </DialogClose>
@@ -200,8 +197,8 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
               Save Changes
             </Button>
           ) : (
-            <Button 
-              type="button" 
+            <Button
+              type="button"
               onClick={() => {
                 setTimeout(() => {
                   setIsEditing(true);
