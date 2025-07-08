@@ -5,14 +5,15 @@ import { useEffect, useState } from 'react';
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import type { FirestoreUser } from '@/types/firestore';
+import type { FirestoreUser, Address } from '@/types/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Separator } from '@/components/ui/separator';
-import { UserCircle, Mail, Phone, CalendarDays, CheckCircle, XCircle, Loader2, Edit3, Save } from 'lucide-react';
+import { UserCircle, Mail, Phone, CalendarDays, CheckCircle, XCircle, Loader2, Edit3, Save, MapPin } from 'lucide-react';
+import { ScrollArea } from '../ui/scroll-area';
 
 interface UserDetailsModalProps {
   user: FirestoreUser;
@@ -25,8 +26,8 @@ const userEditSchema = z.object({
   email: z.string().email("Invalid email address."),
   mobileNumber: z.string()
     .min(10, "Mobile number must be 10-15 digits.")
-    .max(15, "Mobile number must be 10-15 digits.")
-    .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone format (e.g., +919876543210).")
+    .max(15, "Mobile number cannot exceed 15 digits.")
+    .regex(/^\+?[1-9]\d{1,14}$/, "Invalid phone format (e.g., +919876543210 or 9876543210).")
     .optional().or(z.literal('')), 
 });
 
@@ -102,11 +103,12 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
         </div>
       </DialogHeader>
 
-      <div className="overflow-y-auto flex-grow p-6">
+      <ScrollArea className="flex-grow">
+      <div className="p-6">
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             {isEditing ? (
-              <>
+              <div className="space-y-4">
                 <FormField
                   control={form.control}
                   name="displayName"
@@ -141,7 +143,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
                     </FormItem>
                   )}
                 />
-              </>
+              </div>
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2 text-sm">
@@ -163,9 +165,31 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
               </div>
             )}
             
-            <Separator className={isEditing ? "my-6" : "hidden"}/>
+            <Separator className="my-4"/>
+            <div>
+              <h3 className="text-lg font-semibold mb-3">Saved Addresses ({user.addresses?.length || 0})</h3>
+              {user.addresses && user.addresses.length > 0 ? (
+                <div className="space-y-3">
+                  {user.addresses.map((address) => (
+                    <div key={address.id} className="p-3 border rounded-md text-xs bg-muted/30">
+                      <p className="font-semibold">{address.fullName}</p>
+                      <p>{address.addressLine1}{address.addressLine2 ? `, ${address.addressLine2}` : ''}</p>
+                      <p>{address.city}, {address.state} - {address.pincode}</p>
+                      <p>Ph: {address.phone}</p>
+                      {address.latitude && address.longitude && (
+                        <a href={`https://www.google.com/maps?q=${address.latitude},${address.longitude}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline flex items-center gap-1 mt-1">
+                            <MapPin size={12}/> View on Map
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">No saved addresses for this user.</p>
+              )}
+            </div>
             
-            <DialogFooter className="p-6 border-t -mx-6 -mb-6 bg-muted/30">
+            <DialogFooter className="p-6 border-t -mx-6 -mb-6 bg-muted/50">
               <DialogClose asChild>
                 <Button type="button" variant="outline" onClick={() => { onClose(); setIsEditing(false); }} disabled={isSubmitting}>Close</Button>
               </DialogClose>
@@ -190,7 +214,7 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
           </form>
         </Form>
       </div>
+      </ScrollArea>
     </>
   );
 }
-

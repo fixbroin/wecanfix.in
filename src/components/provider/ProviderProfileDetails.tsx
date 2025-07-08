@@ -20,7 +20,7 @@ interface ProviderProfileDetailsProps {
     onSendVerificationOtp: () => void;
     isSendingOtp: boolean;
     isPhoneVerified?: boolean;
-    onEditName?: () => void; // New prop to handle name edit action
+    onEditName?: () => void; 
 }
 
 export default function ProviderProfileDetails({
@@ -29,13 +29,14 @@ export default function ProviderProfileDetails({
     onSendVerificationOtp,
     isSendingOtp,
     isPhoneVerified,
-    onEditName, // Destructure new prop
+    onEditName,
 }: ProviderProfileDetailsProps) {
     const { toast } = useToast();
     const [isSendingVerification, setIsSendingVerification] = useState(false);
 
     if (!user) return null;
 
+    const displayName = firestoreUser?.displayName || user.displayName;
     const displayEmail = user.email || firestoreUser?.email;
     const isEmailVerified = user.emailVerified;
 
@@ -47,8 +48,6 @@ export default function ProviderProfileDetails({
             return;
         }
 
-        // Case 1: The email is already on the auth object but not verified.
-        // This happens if a user signed up with email but never clicked the verification link.
         if (auth.currentUser.email === emailToVerify && !auth.currentUser.emailVerified) {
              setIsSendingVerification(true);
              try {
@@ -61,8 +60,6 @@ export default function ProviderProfileDetails({
                 setIsSendingVerification(false);
             }
         }
-        // Case 2: The email is in Firestore but NOT on the auth object (e.g., phone sign-up).
-        // Use `verifyBeforeUpdateEmail` to link and verify it.
         else if (auth.currentUser.email !== emailToVerify) {
             setIsSendingVerification(true);
             try {
@@ -75,7 +72,6 @@ export default function ProviderProfileDetails({
                 setIsSendingVerification(false);
             }
         } else {
-            // Fallback case: Email is present and already verified. The button shouldn't even show.
              toast({ title: "Email Already Verified", description: "This email address is already verified.", variant: "default" });
         }
     };
@@ -84,17 +80,17 @@ export default function ProviderProfileDetails({
         <Card className="shadow-lg">
           <CardHeader className="text-center">
             <Avatar className="w-24 h-24 mx-auto mb-4 border-2 border-primary">
-              <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
-              <AvatarFallback className="text-3xl">{user.displayName ? user.displayName[0].toUpperCase() : "U"}</AvatarFallback>
+              <AvatarImage src={user.photoURL || undefined} alt={displayName || "User"} />
+              <AvatarFallback className="text-3xl">{displayName ? displayName[0].toUpperCase() : "U"}</AvatarFallback>
             </Avatar>
-            <CardTitle className="text-3xl font-headline">{user.displayName || "Your Profile"}</CardTitle>
+            <CardTitle className="text-3xl font-headline">{displayName || "Your Profile"}</CardTitle>
             <CardDescription className="text-md text-muted-foreground">Manage your personal information and account settings.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
               <h3 className="text-lg font-semibold flex items-center"><User className="mr-2 h-5 w-5 text-primary" /> Full Name</h3>
               <div className="flex items-center justify-between p-3 bg-secondary/30 rounded-md">
-                <p className="text-muted-foreground">{user.displayName || "Not set"}</p>
+                <p className="text-muted-foreground">{displayName || "Not set"}</p>
                 {onEditName ? (
                     <Button variant="ghost" size="sm" onClick={onEditName}><Edit3 className="mr-1 h-4 w-4" /> Edit</Button>
                 ) : (

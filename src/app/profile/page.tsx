@@ -50,66 +50,42 @@ const otpSchema = z.object({
 type OtpFormData = z.infer<typeof otpSchema>;
 
 export default function ProfilePage() {
-  const { user, isLoading: authIsLoading, setUser, logOut } = useAuth();
+  const { user, firestoreUser, isLoading: authIsLoading, setUser, logOut } = useAuth();
   const { toast } = useToast();
   const router = useRouter();
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
-  const [firestoreUser, setFirestoreUser] = useState<FirestoreUser | null>(null);
   const [isLoadingData, setIsLoadingData] = useState(true);
-
   const [isNameDialogOpen, setIsNameDialogOpen] = useState(false);
   const [isSubmittingName, setIsSubmittingName] = useState(false);
   const [isMobileDialogOpen, setIsMobileDialogOpen] = useState(false);
   const [isSubmittingMobile, setIsSubmittingMobile] = useState(false);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [isSubmittingEmail, setIsSubmittingEmail] = useState(false);
-
   const [isSendingResetEmail, setIsSendingResetEmail] = useState(false);
   const [isSendingVerification, setIsSendingVerification] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  
   const [isOtpDialogOpen, setIsOtpDialogOpen] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
   const [isVerifyingOtp, setIsVerifyingOtp] = useState(false);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
-  const otpForm = useForm<OtpFormData>({ resolver: zodResolver(otpSchema) });
 
   const nameForm = useForm<UpdateNameFormValues>({ resolver: zodResolver(updateNameSchema) });
   const mobileForm = useForm<UpdateMobileFormValues>({ resolver: zodResolver(updateMobileSchema) });
   const emailForm = useForm<UpdateEmailFormValues>({ resolver: zodResolver(updateEmailSchema) });
-
-  const fetchUserData = useCallback(async () => {
-    if (user) {
-      setIsLoadingData(true);
-      try {
-        const userDocRef = doc(db, "users", user.uid);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data() as FirestoreUser;
-          setFirestoreUser(data);
-          nameForm.reset({ displayName: user.displayName || data.displayName || "" });
-          mobileForm.reset({ mobileNumber: (data.mobileNumber || user.phoneNumber || "").replace(appConfig?.defaultOtpCountryCode || '+91', '') });
-          emailForm.reset({ email: user.email || data.email || "" });
-        } else {
-          nameForm.reset({ displayName: user.displayName || "" });
-          mobileForm.reset({ mobileNumber: (user.phoneNumber || "").replace(appConfig?.defaultOtpCountryCode || '+91', '') });
-          emailForm.reset({ email: user.email || "" });
-        }
-      } catch (error) {
-        toast({ title: "Error", description: "Could not load profile data.", variant: "destructive" });
-      } finally {
-        setIsLoadingData(false);
-      }
-    }
-  }, [user, toast, nameForm, mobileForm, emailForm, appConfig]);
+  const otpForm = useForm<OtpFormData>({ resolver: zodResolver(otpSchema) });
 
   useEffect(() => {
-    if (!isLoadingAppSettings) {
-      fetchUserData();
+    if (user && firestoreUser) {
+      nameForm.reset({ displayName: firestoreUser.displayName || user.displayName || "" });
+      mobileForm.reset({ mobileNumber: (firestoreUser.mobileNumber || user.phoneNumber || "").replace(appConfig?.defaultOtpCountryCode || '+91', '') });
+      emailForm.reset({ email: firestoreUser.email || user.email || "" });
+      setIsLoadingData(false);
+    } else if (!authIsLoading && !user) {
+      setIsLoadingData(false); // User not logged in, stop loading
     }
-  }, [fetchUserData, isLoadingAppSettings]);
+  }, [user, firestoreUser, authIsLoading, appConfig, nameForm, mobileForm, emailForm]);
 
   const setupAndRenderRecaptcha = useCallback(async (): Promise<RecaptchaVerifier> => {
     if (recaptchaVerifierRef.current) {
@@ -176,7 +152,6 @@ export default function ProfilePage() {
         otpForm.reset();
         await auth.currentUser?.reload();
         setUser(auth.currentUser);
-        await fetchUserData();
     } catch (error: any) {
         otpForm.setError("otp", { type: "manual", message: "Invalid OTP or error verifying." });
         toast({ title: "Verification Failed", description: error.message, variant: "destructive" });
@@ -193,7 +168,6 @@ export default function ProfilePage() {
       await updateDoc(doc(db, "users", user.uid), { displayName: values.displayName });
       toast({ title: "Success", description: "Your name has been updated." });
       setIsNameDialogOpen(false);
-      await fetchUserData();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Could not update name.", variant: "destructive" });
     } finally {
@@ -209,7 +183,6 @@ export default function ProfilePage() {
       await updateDoc(doc(db, "users", user.uid), { email: values.email });
       toast({ title: "Email Updated", description: "A verification link has been sent to your new email address." });
       setIsEmailDialogOpen(false);
-      await fetchUserData();
     } catch (error: any) {
       if (error.code === 'auth/requires-recent-login') {
          toast({ title: "Action Requires Recent Login", description: "Please log out and log back in to update your email.", variant: "destructive" });
@@ -233,7 +206,6 @@ export default function ProfilePage() {
       });
       toast({ title: "Success", description: "Your mobile number has been updated. Please verify it." });
       setIsMobileDialogOpen(false);
-      await fetchUserData();
     } catch (error: any) {
       toast({ title: "Error", description: error.message || "Could not update mobile number.", variant: "destructive" });
     } finally {
@@ -292,14 +264,10 @@ export default function ProfilePage() {
     }
   };
 
-  if (authIsLoading || isLoadingData || !user || isLoadingAppSettings) {
+  if (authIsLoading || isLoadingData || isLoadingAppSettings || !user) {
     return <div className="flex justify-center items-center h-64"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>;
   }
   
-  const displayEmail = user.email || firestoreUser?.email;
-  const isEmailVerified = user.emailVerified;
-  const isPhoneVerified = user?.providerData?.some(p => p.providerId === 'phone') || firestoreUser?.mobileNumberVerified;
-
   return (
     <ProtectedRoute>
       <div id="recaptcha-container-profile" className="fixed bottom-0 right-0"></div>
@@ -309,7 +277,7 @@ export default function ProfilePage() {
           firestoreUser={firestoreUser}
           onSendVerificationOtp={handleSendVerificationOtp}
           isSendingOtp={isSendingOtp}
-          isPhoneVerified={isPhoneVerified}
+          isPhoneVerified={user?.providerData?.some(p => p.providerId === 'phone') || firestoreUser?.mobileNumberVerified}
           onEditName={() => setIsNameDialogOpen(true)}
         />
 

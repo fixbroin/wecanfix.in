@@ -40,7 +40,7 @@ const GlobalActionLoader: React.FC = () => {
           />
         ) : (
           <div className="flex items-center gap-2 text-primary">
-            <span className="font-headline font-bold text-4xl">wecanfix</span>
+            <span className="font-headline font-bold text-4xl">Wecanfix</span>
           </div>
         )}
       </div>

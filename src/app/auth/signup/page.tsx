@@ -100,7 +100,7 @@ export default function SignupPage() {
         <CardHeader className="text-center">
           <Logo className="mx-auto mb-4" size="large" />
           <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
-          <CardDescription>Join wecanfix to easily book home services.</CardDescription>
+          <CardDescription>Join Wecanfix to easily book home services.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           {config.enableGoogleLogin && (
