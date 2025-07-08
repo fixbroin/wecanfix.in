@@ -8,7 +8,7 @@ import * as z from 'zod';
 import dynamic from 'next/dynamic';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Loader2, MapPin, Mail, User, Phone, MapIcon as SelectMapIcon } from 'lucide-react';
@@ -75,7 +75,11 @@ export default function AddressForm({
   });
 
   useEffect(() => {
-    // Determine if the initial data has coordinates
+    // This effect should only run when we are loading a NEW entity into the form.
+    // It resets the form state based on the initialData prop.
+    // By keying it off initialData?.id, we prevent it from re-running
+    // and wiping out programmatic changes (like from the map selector)
+    // during re-renders where initialData reference might change but the entity is the same.
     const hasInitialCoords = !!(initialData?.latitude && initialData?.longitude);
     setIsMapLocationSet(hasInitialCoords);
 
@@ -91,7 +95,7 @@ export default function AddressForm({
       latitude: initialData?.latitude === undefined ? null : initialData.latitude,
       longitude: initialData?.longitude === undefined ? null : initialData.longitude,
     });
-  }, [initialData, form]);
+  }, [initialData?.id]); // Changed dependency to initialData.id
 
   const handleOpenMapClick = () => {
     if (!navigator.geolocation) {
@@ -172,7 +176,13 @@ export default function AddressForm({
       </Form>
       <Dialog open={isMapModalOpen} onOpenChange={setIsMapModalOpen}>
         <DialogContent className="max-w-3xl w-[95vw] sm:w-[90vw] h-[80vh] p-0 flex flex-col">
-          <DialogHeader className="p-4 border-b"><DialogTitle>Select Address on Map</DialogTitle></DialogHeader>
+          <DialogHeader className="p-4 border-b">
+            <DialogTitle>Select Address on Map</DialogTitle>
+            {/* FIX: Add DialogDescription for accessibility */}
+            <DialogDescription>
+              Search for your address or click/drag the pin on the map to set your precise location.
+            </DialogDescription>
+          </DialogHeader>
           <div className="flex-grow">
             {googleMapsApiKey ? (<MapAddressSelector apiKey={googleMapsApiKey} onAddressSelect={handleAddressSelectFromMap} onClose={() => setIsMapModalOpen(false)} initialCenter={initialMapCenter}/>) : (<p className="text-muted-foreground p-4 text-center">Map functionality not available.</p>)}
           </div>

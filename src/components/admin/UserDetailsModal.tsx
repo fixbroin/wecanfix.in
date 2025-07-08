@@ -85,28 +85,27 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
 
 
   return (
-    <>
-      <DialogHeader className="p-6 pb-4 border-b">
-        <div className="flex items-center space-x-4">
-          <Avatar className="h-16 w-16">
-            <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
-            <AvatarFallback className="text-2xl">
-              {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : <UserCircle />}
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <DialogTitle className="text-2xl">{isEditing ? "Edit User Details" : "User Details"}</DialogTitle>
-            <DialogDescription>
-              {isEditing ? `Modify information for ${user.displayName || user.email}.` : `Viewing details for ${user.displayName || user.email}.`}
-            </DialogDescription>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="h-full flex flex-col">
+        <DialogHeader className="p-6 pb-4 border-b flex-shrink-0">
+          <div className="flex items-center space-x-4">
+            <Avatar className="h-16 w-16">
+              <AvatarImage src={user.photoURL || undefined} alt={user.displayName || "User"} />
+              <AvatarFallback className="text-2xl">
+                {user.displayName ? user.displayName.charAt(0).toUpperCase() : user.email ? user.email.charAt(0).toUpperCase() : <UserCircle />}
+              </AvatarFallback>
+            </Avatar>
+            <div>
+              <DialogTitle className="text-2xl">{isEditing ? "Edit User Details" : "User Details"}</DialogTitle>
+              <DialogDescription>
+                {isEditing ? `Modify information for ${user.displayName || user.email}.` : `Viewing details for ${user.displayName || user.email}.`}
+              </DialogDescription>
+            </div>
           </div>
-        </div>
-      </DialogHeader>
+        </DialogHeader>
 
-      <ScrollArea className="flex-grow">
-      <div className="p-6">
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <ScrollArea className="flex-grow">
+          <div className="p-6 space-y-6">
             {isEditing ? (
               <div className="space-y-4">
                 <FormField
@@ -188,33 +187,32 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
                 <p className="text-sm text-muted-foreground">No saved addresses for this user.</p>
               )}
             </div>
-            
-            <DialogFooter className="p-6 border-t -mx-6 -mb-6 bg-muted/50">
-              <DialogClose asChild>
-                <Button type="button" variant="outline" onClick={() => { onClose(); setIsEditing(false); }} disabled={isSubmitting}>Close</Button>
-              </DialogClose>
-              {isEditing ? (
-                <Button type="submit" disabled={isSubmitting}>
-                  {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save Changes
-                </Button>
-              ) : (
-                <Button 
-                  type="button" 
-                  onClick={() => {
-                    setTimeout(() => {
-                      setIsEditing(true);
-                    }, 0);
-                  }}
-                >
-                  <Edit3 className="mr-2 h-4 w-4" /> Edit User
-                </Button>
-              )}
-            </DialogFooter>
-          </form>
-        </Form>
-      </div>
-      </ScrollArea>
-    </>
+          </div>
+        </ScrollArea>
+        
+        <DialogFooter className="p-6 border-t bg-muted/50 flex-shrink-0">
+          <DialogClose asChild>
+            <Button type="button" variant="outline" onClick={() => { onClose(); setIsEditing(false); }} disabled={isSubmitting}>Close</Button>
+          </DialogClose>
+          {isEditing ? (
+            <Button type="submit" disabled={isSubmitting}>
+              {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+              Save Changes
+            </Button>
+          ) : (
+            <Button 
+              type="button" 
+              onClick={() => {
+                setTimeout(() => {
+                  setIsEditing(true);
+                }, 0);
+              }}
+            >
+              <Edit3 className="mr-2 h-4 w-4" /> Edit User
+            </Button>
+          )}
+        </DialogFooter>
+      </form>
+    </Form>
   );
 }
