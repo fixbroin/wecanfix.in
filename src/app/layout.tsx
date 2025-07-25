@@ -1,6 +1,4 @@
 
-"use client"; // Required for useEffect and other client-side hooks
-
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
@@ -9,7 +7,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LoadingProvider } from '@/contexts/LoadingContext';
 import GlobalActionLoader from '@/components/shared/GlobalActionLoader';
 import { getGlobalSEOSettings } from '@/lib/seoUtils';
-import React, { Suspense, useEffect, useRef } from 'react'; // Added useEffect and useRef
+import React, { Suspense } from 'react';
 import { Loader2 } from 'lucide-react';
 import { getBaseUrl } from '@/lib/config';
 import MarketingScriptsInjector from '@/components/layout/MarketingScriptsInjector';
@@ -26,13 +24,53 @@ const roboto = Roboto({
   variable: '--font-roboto',
 });
 
-// generateMetadata and generateViewport remain server-side features, so we can't export them from a "use client" file.
-// We'll handle this by assuming these are handled appropriately by Next.js and focusing on the runtime logic.
-// For the purpose of this response, we'll keep them commented out to indicate they are conceptually separate.
-/*
-export async function generateMetadata(): Promise<Metadata> { ... }
-export async function generateViewport(): Promise<Viewport> { ... }
-*/
+export async function generateMetadata(): Promise<Metadata> {
+  const seoSettings = await getGlobalSEOSettings();
+  const appBaseUrl = getBaseUrl();
+  const siteName = seoSettings.siteName || 'FixBro';
+  const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
+  const defaultDescription = seoSettings.defaultMetaDescription || 'Book home services easily with FixBro.';
+  const defaultKeywords = (seoSettings.defaultMetaKeywords || '').split(',').map(k => k.trim()).filter(k => k);
+  const defaultOgImage = `/android-chrome-512x512.png`;
+  const ogImage = seoSettings.structuredDataImage || defaultOgImage;
+
+  return {
+    metadataBase: new URL(appBaseUrl),
+    title: {
+      default: siteName,
+      template: `%s${defaultSuffix}`,
+    },
+    description: defaultDescription,
+    keywords: defaultKeywords.length > 0 ? defaultKeywords : undefined,
+    manifest: '/manifest.json',
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: 'default',
+      title: siteName,
+    },
+    openGraph: {
+      siteName: siteName,
+      type: 'website',
+      images: ogImage ? [{ url: ogImage.startsWith('http') ? ogImage : `${appBaseUrl}${ogImage.startsWith('/') ? '' : '/'}${ogImage}` }] : [],
+    },
+    icons: {
+      icon: [
+        { url: '/favicon.ico', sizes: 'any', rel: 'icon' },
+        { url: '/android-chrome-192x192.png', type: 'image/png', sizes: '192x192' },
+        { url: '/android-chrome-512x512.png', type: 'image/png', sizes: '512x512' },
+      ],
+      apple: '/apple-touch-icon.png',
+    }
+  };
+}
+
+export async function generateViewport(): Promise<Viewport> {
+  const themeColorValue = hslStringToHex(DEFAULT_LIGHT_THEME_COLORS_HSL.primary!);
+
+  return {
+    themeColor: themeColorValue,
+  };
+}
 
 const RootSuspenseLoader = () => (
   <div className="flex justify-center items-center min-h-screen w-full">
@@ -47,57 +85,6 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
-  // Logic for content protection and triple back press
-  useEffect(() => {
-    // 1. Prevent content copying and right-click
-    const disableContextMenu = (e: MouseEvent) => e.preventDefault();
-    document.addEventListener('contextmenu', disableContextMenu);
-    document.body.classList.add('no-select');
-
-    // 2. Triple back press to exit on mobile
-    let backPressCount = 0;
-    let lastBackPressTime = 0;
-    const handlePopState = (event: PopStateEvent) => {
-      const currentTime = new Date().getTime();
-      
-      // Reset counter if presses are not continuous (more than 1 second apart)
-      if (currentTime - lastBackPressTime > 1000) {
-        backPressCount = 0;
-      }
-      
-      backPressCount++;
-      lastBackPressTime = currentTime;
-
-      if (backPressCount >= 3) {
-        backPressCount = 0; // Reset counter
-        // Attempt to close the window. Note: This may not work in all browsers/contexts.
-        window.close();
-      } else {
-        // To prevent actual navigation while counting, we push the state back.
-        // This keeps the user on the current page for the first two back presses.
-        history.pushState(null, '', window.location.href);
-      }
-    };
-
-    // Check for mobile view before adding the listener
-    const isMobile = window.innerWidth < 768;
-    if (isMobile) {
-      history.pushState(null, '', window.location.href);
-      window.addEventListener('popstate', handlePopState);
-    }
-
-    // Cleanup function to remove event listeners when the component unmounts
-    return () => {
-      document.removeEventListener('contextmenu', disableContextMenu);
-      document.body.classList.remove('no-select');
-      if (isMobile) {
-        window.removeEventListener('popstate', handlePopState);
-      }
-    };
-  }, []); // Empty dependency array ensures this runs once on mount
-
-
   return (
     <html lang="en" className={`${roboto.variable}`} suppressHydrationWarning>
       <head>
@@ -134,7 +121,7 @@ export default function RootLayout({
         <ThemeInjector />
       </head>
 
-      <body className="font-body antialiased">
+      <body className="font-body antialiased no-select">
         <Suspense fallback={<RootSuspenseLoader />}>
           <AuthProvider>
             <LoadingProvider>
@@ -152,3 +139,4 @@ export default function RootLayout({
     </html>
   );
 }
+    

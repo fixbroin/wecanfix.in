@@ -34,6 +34,9 @@ const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
   
   useEffect(() => {
     setIsClientMounted(true); 
+    const preventRightClick = (e: MouseEvent) => e.preventDefault();
+    document.addEventListener('contextmenu', preventRightClick);
+    return () => document.removeEventListener('contextmenu', preventRightClick);
   }, []);
 
   useEffect(() => {
