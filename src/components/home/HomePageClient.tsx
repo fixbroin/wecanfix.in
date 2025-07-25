@@ -349,8 +349,8 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
       if (!fetchedFromFirestore) setLoading(false);
     };
 
-    fetchServiceData(currentFeaturesConfig.showRecentlyAddedServices, 'recentServices', () => query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("createdAt", "desc"), limit(10)), setRecentServices, setIsLoadingRecent);
-    fetchServiceData(currentFeaturesConfig.showMostPopularServices, 'popularServices', () => query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("rating", "desc"), orderBy("reviewCount", "desc"), limit(10)), setPopularServices, setIsLoadingPopular);
+    fetchServiceData(currentFeaturesConfig.showRecentlyAddedServices, 'recentServices', () => query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("createdAt", "desc"), limit(100)), setRecentServices, setIsLoadingRecent);
+    fetchServiceData(currentFeaturesConfig.showMostPopularServices, 'popularServices', () => query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("rating", "desc"), orderBy("reviewCount", "desc"), limit(100)), setPopularServices, setIsLoadingPopular);
 
     if (currentFeaturesConfig.showCategoryWiseServices) {
       const cachedCategoryData = getCache<any>('categoryWiseServices');
@@ -375,7 +375,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
 
                     let servicesForCategory: FirestoreService[] = [];
                     if (subCategoryIds.length > 0) {
-                         const servicesQuery = query(collection(db, "adminServices"), where("isActive", "==", true), where("subCategoryId", "in", subCategoryIds), orderBy("name", "asc"), limit(10));
+                         const servicesQuery = query(collection(db, "adminServices"), where("isActive", "==", true), where("subCategoryId", "in", subCategoryIds), orderBy("name", "asc"), limit(100));
                          const servicesSnapshot = await getDocs(servicesQuery);
                          servicesForCategory = servicesSnapshot.docs.map(sDoc => ({...sDoc.data(), id: sDoc.id} as FirestoreService));
                     }
