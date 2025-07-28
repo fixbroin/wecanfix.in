@@ -22,7 +22,6 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useAuth } from '@/hooks/useAuth';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import SendManualEmailForm from '@/components/admin/marketing/SendManualEmailForm';
-import WhatsAppAutomationForm from '@/components/admin/marketing/WhatsAppAutomationForm'; 
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { getBaseUrl } from '@/lib/config';
 
@@ -202,24 +201,19 @@ export default function MarketingAutomationPage() {
             <Megaphone className="mr-2 h-6 w-6 text-primary" /> Marketing Center
           </CardTitle>
           <CardDescription>
-            Configure automated marketing emails, send manual campaigns, and manage WhatsApp messages.
+            Configure automated marketing emails and send manual campaigns.
           </CardDescription>
         </CardHeader>
       </Card>
       
       <Tabs defaultValue="email_automations" className="w-full">
-        <TabsList className="grid w-full grid-cols-3 mb-6">
+        <TabsList className="grid w-full grid-cols-2 mb-6">
           <TabsTrigger value="email_automations"><Mail className="mr-2 h-4 w-4" />Email Automations</TabsTrigger>
           <TabsTrigger value="send_email"><Send className="mr-2 h-4 w-4" />Send Manual Email</TabsTrigger>
-          <TabsTrigger value="whatsapp_automations"><MessageCircle className="mr-2 h-4 w-4" />WhatsApp</TabsTrigger>
         </TabsList>
 
         <TabsContent value="send_email">
             <SendManualEmailForm />
-        </TabsContent>
-
-        <TabsContent value="whatsapp_automations">
-            <WhatsAppAutomationForm />
         </TabsContent>
 
         <TabsContent value="email_automations">

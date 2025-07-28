@@ -18,6 +18,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { cn } from '@/lib/utils';
 import CookieConsentBanner from '@/components/shared/CookieConsentBanner';
 import CompleteProfileDialog from '@/components/auth/CompleteProfileDialog'; // Import the new dialog
+import PwaInstallButton from '@/components/shared/PwaInstallButton';
 
 const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
   const pathname = usePathname();
@@ -35,6 +36,7 @@ const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
   useEffect(() => {
     setIsClientMounted(true); 
     const preventRightClick = (e: MouseEvent) => e.preventDefault();
+    // This event listener is added on the client-side, so it's safe.
     document.addEventListener('contextmenu', preventRightClick);
     return () => document.removeEventListener('contextmenu', preventRightClick);
   }, []);
@@ -159,6 +161,7 @@ const AppLayout: React.FC<PropsWithChildren> = ({ children }) => {
         />
       )}
       {isClientMounted && <CookieConsentBanner />}
+      {isClientMounted && <PwaInstallButton />}
     </div>
   );
 };

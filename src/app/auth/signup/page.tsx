@@ -18,6 +18,7 @@ import { useEffect } from 'react';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { Separator } from '@/components/ui/separator';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 const signUpSchema = z.object({
   fullName: z.string().min(2, { message: "Full name must be at least 2 characters." }),
@@ -46,6 +47,7 @@ export default function SignupPage() {
   const router = useRouter();
   const { user, signUp, signInWithGoogle, isLoading: authContextIsLoading } = useAuth();
   const { config, isLoading: isLoadingConfig } = useApplicationConfig();
+  const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();
   const searchParams = useSearchParams();
 
   const form = useForm<SignUpFormValues>({
@@ -95,7 +97,7 @@ export default function SignupPage() {
     await signInWithGoogle();
   };
 
-  if (authContextIsLoading || isLoadingConfig || (user && !authContextIsLoading)) {
+  if (authContextIsLoading || isLoadingConfig || isLoadingSettings || (user && !authContextIsLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
          <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -109,7 +111,12 @@ export default function SignupPage() {
       <div className="w-full max-w-md">
         <Card className="shadow-xl">
           <CardHeader className="text-center">
-            <Logo className="mx-auto mb-4" size="large" />
+            <Logo 
+              className="mx-auto mb-4" 
+              size="large"
+              logoUrl={globalSettings?.logoUrl}
+              websiteName={globalSettings?.websiteName}
+            />
             <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
             <CardDescription>Join FixBro to easily book home services.</CardDescription>
           </CardHeader>

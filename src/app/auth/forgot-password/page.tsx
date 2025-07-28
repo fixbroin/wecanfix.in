@@ -18,6 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useState, useEffect } from 'react'; // Added useEffect
 import { useAuth } from '@/hooks/useAuth'; // Added useAuth
 import { ADMIN_EMAIL } from '@/contexts/AuthContext'; // Added ADMIN_EMAIL
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 const forgotPasswordSchema = z.object({
   email: z.string().email({ message: "Please enter a valid email address." }),
@@ -30,6 +31,7 @@ export default function ForgotPasswordPage() {
   const { toast } = useToast();
   const [isSubmittingForm, setIsSubmittingForm] = useState(false); // Renamed from isLoading
   const { user, isLoading: authContextIsLoading } = useAuth(); // Get user and auth loading state
+  const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();
 
   const form = useForm<ForgotPasswordFormValues>({
     resolver: zodResolver(forgotPasswordSchema),
@@ -83,7 +85,7 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (authContextIsLoading) {
+  if (authContextIsLoading || isLoadingSettings) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
          <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -105,7 +107,12 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4">
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="text-center">
-          <Logo className="mx-auto mb-4" size="large" />
+          <Logo
+            className="mx-auto mb-4"
+            size="large"
+            logoUrl={globalSettings?.logoUrl}
+            websiteName={globalSettings?.websiteName}
+          />
           <CardTitle className="text-2xl font-headline">Reset Your Password</CardTitle>
           <CardDescription>Enter your email address and we'll send you a link to reset your password.</CardDescription>
         </CardHeader>

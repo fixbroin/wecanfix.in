@@ -23,6 +23,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 import { useToast } from '@/hooks/use-toast';
+import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 
 const loginSchema = z.object({
   email: z.string().email({ message: "Invalid email address." }),
@@ -50,6 +51,7 @@ export default function LoginPage() {
   const router = useRouter();
   const { user, logIn, signInWithGoogle, handleSuccessfulAuth, isLoading: authContextIsLoading } = useAuth();
   const { config, isLoading: isLoadingConfig } = useApplicationConfig();
+  const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
@@ -169,7 +171,7 @@ export default function LoginPage() {
     }
   };
 
-  if (authContextIsLoading || isLoadingConfig || (user && !authContextIsLoading)) {
+  if (authContextIsLoading || isLoadingConfig || isLoadingSettings || (user && !authContextIsLoading)) {
     return <div className="min-h-screen flex items-center justify-center bg-secondary/30 p-4"><Loader2 className="h-12 w-12 animate-spin text-primary" /><p className="ml-3 text-muted-foreground">Loading...</p></div>;
   }
 
@@ -185,7 +187,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <Card className="shadow-xl">
           <CardHeader className="text-center">
-            <Logo className="mx-auto mb-4" size="large" />
+            <Logo 
+              className="mx-auto mb-4" 
+              size="large"
+              logoUrl={globalSettings?.logoUrl}
+              websiteName={globalSettings?.websiteName}
+            />
             <CardTitle className="text-2xl font-headline">Welcome Back!</CardTitle>
             <CardDescription>Login or Sign up to access your account.</CardDescription>
           </CardHeader>
