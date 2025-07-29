@@ -40,7 +40,7 @@ const generateBookingId = () => {
   const now = new Date();
   const timestamp = `${now.getFullYear()}${(now.getMonth() + 1).toString().padStart(2, '0')}${now.getDate().toString().padStart(2, '0')}${now.getHours().toString().padStart(2, '0')}${now.getMinutes().toString().padStart(2, '0')}`;
   const randomSuffix = Math.random().toString(36).substring(2, 7).toUpperCase();
-  return `FIXBRO-${timestamp}-${randomSuffix}`;
+  return `wecanfix-${timestamp}-${randomSuffix}`;
 };
 
 const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean, taxPercent?: number): number => {
@@ -67,23 +67,23 @@ const clearLocalStorageItems = async (userId?: string) => {
         await deleteDoc(doc(db, "userCarts", userId));
     }
     if (typeof window !== 'undefined') {
-        window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
-        localStorage.removeItem('fixbroScheduledDate');
-        localStorage.removeItem('fixbroScheduledTimeSlot');
-        localStorage.removeItem('fixbroCustomerAddress');
+        window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
+        localStorage.removeItem('wecanfixScheduledDate');
+        localStorage.removeItem('wecanfixScheduledTimeSlot');
+        localStorage.removeItem('wecanfixCustomerAddress');
         localStorage.removeItem('razorpayPaymentId');
         localStorage.removeItem('razorpayOrderId');
         localStorage.removeItem('razorpaySignature');
-        localStorage.removeItem('fixbroAppliedPromoCode');
-        localStorage.removeItem('fixbroBookingDiscountCode');
-        localStorage.removeItem('fixbroBookingDiscountAmount');
-        localStorage.removeItem('fixbroAppliedPromoCodeId');
-        localStorage.removeItem('fixbroAppliedPlatformFees');
+        localStorage.removeItem('wecanfixAppliedPromoCode');
+        localStorage.removeItem('wecanfixBookingDiscountCode');
+        localStorage.removeItem('wecanfixBookingDiscountAmount');
+        localStorage.removeItem('wecanfixAppliedPromoCodeId');
+        localStorage.removeItem('wecanfixAppliedPlatformFees');
         localStorage.removeItem('isProcessingCancellationFee');
         localStorage.removeItem('bookingIdForCancellationFee');
         localStorage.removeItem('cancellationFeeAmount');
-        localStorage.removeItem('fixbroPaymentMethod');
-        localStorage.removeItem('fixbroFinalBookingTotal');
+        localStorage.removeItem('wecanfixPaymentMethod');
+        localStorage.removeItem('wecanfixFinalBookingTotal');
     }
 };
 
@@ -113,7 +113,7 @@ export default function ThankYouPage() {
       setIsLoadingPage(true);
       hideLoading(); 
       
-      const paymentMethod = localStorage.getItem('fixbroPaymentMethod');
+      const paymentMethod = localStorage.getItem('wecanfixPaymentMethod');
       const isOnlinePayment = paymentMethod === 'Online';
       
       const isProcessingCancellationFee = localStorage.getItem('isProcessingCancellationFee') === 'true';
@@ -208,16 +208,16 @@ export default function ThankYouPage() {
         let storedAppliedPlatformFees: AppliedPlatformFeeItem[] = [];
 
         if (typeof window !== 'undefined') {
-          customerEmail = localStorage.getItem('fixbroCustomerEmail') || customerEmail;
-          scheduledDateStored = localStorage.getItem('fixbroScheduledDate') || scheduledDateStored; 
-          scheduledTimeSlot = localStorage.getItem('fixbroScheduledTimeSlot') || scheduledTimeSlot;
-          bookingDiscountCode = localStorage.getItem('fixbroBookingDiscountCode') || undefined;
-          const discountAmountStr = localStorage.getItem('fixbroBookingDiscountAmount');
+          customerEmail = localStorage.getItem('wecanfixCustomerEmail') || customerEmail;
+          scheduledDateStored = localStorage.getItem('wecanfixScheduledDate') || scheduledDateStored; 
+          scheduledTimeSlot = localStorage.getItem('wecanfixScheduledTimeSlot') || scheduledTimeSlot;
+          bookingDiscountCode = localStorage.getItem('wecanfixBookingDiscountCode') || undefined;
+          const discountAmountStr = localStorage.getItem('wecanfixBookingDiscountAmount');
           bookingDiscountAmount = discountAmountStr ? parseFloat(discountAmountStr) : undefined;
-          appliedPromoCodeId = localStorage.getItem('fixbroAppliedPromoCodeId') || undefined;
-          const platformFeesStr = localStorage.getItem('fixbroAppliedPlatformFees');
+          appliedPromoCodeId = localStorage.getItem('wecanfixAppliedPromoCodeId') || undefined;
+          const platformFeesStr = localStorage.getItem('wecanfixAppliedPlatformFees');
           if (platformFeesStr) { try { storedAppliedPlatformFees = JSON.parse(platformFeesStr); } catch (e) { console.error("Error parsing stored platform fees:", e); } }
-          const addressDataString = localStorage.getItem('fixbroCustomerAddress');
+          const addressDataString = localStorage.getItem('wecanfixCustomerAddress');
           if (addressDataString) { const addressData = JSON.parse(addressDataString); customerName = addressData.fullName || customerName; customerPhone = addressData.phone || customerPhone; addressLine1 = addressData.addressLine1 || addressLine1; addressLine2 = addressData.addressLine2 || undefined; city = addressData.city || city; state = addressData.state || state; pincode = addressData.pincode || pincode; latitude = addressData.latitude === null ? undefined : addressData.latitude; longitude = addressData.longitude === null ? undefined : addressData.longitude; }
         }
 

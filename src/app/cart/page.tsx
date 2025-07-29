@@ -112,7 +112,7 @@ function CartPageContent() {
           const validEntries = validItems.map(item => ({ serviceId: item.id, quantity: item.quantity }));
           saveCartEntries(validEntries);
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
           }
         }
 
@@ -251,7 +251,7 @@ function CartPageContent() {
     }));
     saveCartEntries(entriesToSave);
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
   };
 

@@ -45,11 +45,11 @@ const welcomeEmailFlow = ai.defineFlow(
     const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
 
     const categoriesUrl = `${getBaseUrl()}/categories`;
-    const emailSubject = `Welcome to FixBro, ${userName}!`;
+    const emailSubject = `Welcome to wecanfix, ${userName}!`;
     const emailBody = `
         <p>Hi ${userName},</p>
 
-        <p>Welcome to FixBro! We are thrilled to have you join our community.</p>
+        <p>Welcome to wecanfix! We are thrilled to have you join our community.</p>
 
         <p>You can now browse our wide range of home services, book appointments with trusted professionals, and manage everything from your personal dashboard.</p>
 
@@ -58,7 +58,7 @@ const welcomeEmailFlow = ai.defineFlow(
 
         <p>If you have any questions, feel free to contact our support team.</p>
 
-        <p>Thanks,<br>The FixBro Team</p>
+        <p>Thanks,<br>The wecanfix Team</p>
       `;
 
     if (!canAttemptRealEmail) {
@@ -81,7 +81,7 @@ const welcomeEmailFlow = ai.defineFlow(
     
     try {
       await transporter.sendMail({
-        from: `FixBro <${senderEmail}>`,
+        from: `wecanfix <${senderEmail}>`,
         to: userEmail,
         subject: emailSubject,
         html: emailBody, // Using html property directly

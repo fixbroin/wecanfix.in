@@ -98,7 +98,7 @@ export default function AdminInquiriesPage() {
         userEmail: selectedInquiryForReply.email,
         originalMessage: originalMessageSummary,
         replyMessage: replyMessage,
-        adminName: adminUser.displayName || "FixBro Support",
+        adminName: adminUser.displayName || "wecanfix Support",
         smtpHost: appConfig.smtpHost,
         smtpPort: appConfig.smtpPort,
         smtpUser: appConfig.smtpUser,

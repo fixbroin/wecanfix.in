@@ -74,7 +74,7 @@ const providerBookingAssignmentEmailFlow = ai.defineFlow(
       const emailBody = `
         Dear ${providerName},
 
-        You have been assigned a new job on FixBro:
+        You have been assigned a new job on wecanfix:
 
         Booking Details:
         --------------------
@@ -89,7 +89,7 @@ const providerBookingAssignmentEmailFlow = ai.defineFlow(
         ${jobDetailsUrl}
 
         Thank you,
-        The FixBro Team
+        The wecanfix Team
       `;
 
       if (!canAttemptRealEmail) {
@@ -114,7 +114,7 @@ const providerBookingAssignmentEmailFlow = ai.defineFlow(
       
       console.log(`Attempting to send provider assignment email to: ${providerEmail}`);
       await transporter.sendMail({
-        from: `FixBro Operations <${senderEmail}>`, to: providerEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
+        from: `wecanfix Operations <${senderEmail}>`, to: providerEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
       });
       console.log("Provider assignment email sent.");
       console.log("====== PROVIDER BOOKING ASSIGNMENT EMAIL FLOW END (SUCCESS) ======");

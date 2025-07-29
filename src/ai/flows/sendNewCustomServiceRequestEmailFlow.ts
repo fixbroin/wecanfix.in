@@ -48,12 +48,12 @@ const newCustomServiceRequestEmailFlow = ai.defineFlow(
       console.log("====== NEW CUSTOM REQUEST ADMIN EMAIL FLOW START ======");
       const { smtpHost, smtpPort, smtpUser, smtpPass, senderEmail, ...requestDetails } = details;
 
-      const adminEmail = "fixbro.in@gmail.com"; 
+      const adminEmail = "wecanfix.in@gmail.com"; 
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
 
       const emailSubject = `New Custom Service Request: ${requestDetails.serviceTitle}`;
       const emailBody = `
-        A new custom service request has been submitted on FixBro.
+        A new custom service request has been submitted on wecanfix.
 
         Request Details:
         --------------------
@@ -69,7 +69,7 @@ const newCustomServiceRequestEmailFlow = ai.defineFlow(
         Please review the full request in the admin panel:
         ${requestDetails.adminUrl}
 
-        The FixBro System
+        The wecanfix System
       `;
 
       if (!canAttemptRealEmail) {
@@ -93,7 +93,7 @@ const newCustomServiceRequestEmailFlow = ai.defineFlow(
       
       console.log(`Attempting to send custom request notification email to: ${adminEmail}`);
       await transporter.sendMail({
-        from: `FixBro System <${senderEmail}>`, to: adminEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
+        from: `wecanfix System <${senderEmail}>`, to: adminEmail, subject: emailSubject, html: emailBody.replace(/\\n/g, '<br/>'),
       });
       console.log("Admin notification email for custom request sent.");
       return { success: true, message: "Admin notification email sent successfully." };

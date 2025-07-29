@@ -40,7 +40,7 @@ export async function generateMetadata(
   const policyData = await getCookiePolicyData();
   const seoSettings = await getGlobalSEOSettings();
   const webSettings = await getGlobalSettings(); // Fetches all global web settings for other potential uses like OG image
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "FixBro";
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "wecanfix";
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
   const appBaseUrl = getBaseUrl();
 

@@ -68,7 +68,7 @@ export default function AddressPage() {
     if (!user) {
       if (!isLoadingAuth) {
         setIsLoadingAddresses(false);
-        const guestAddressRaw = localStorage.getItem('fixbroCustomerAddress');
+        const guestAddressRaw = localStorage.getItem('wecanfixCustomerAddress');
         if (!guestAddressRaw) setIsFormOpen(true);
       }
       return;
@@ -97,7 +97,7 @@ export default function AddressPage() {
   
   useEffect(() => {
     if (!user) {
-      const savedGuestAddressRaw = localStorage.getItem('fixbroCustomerAddress');
+      const savedGuestAddressRaw = localStorage.getItem('wecanfixCustomerAddress');
       if (savedGuestAddressRaw) {
         try {
           const savedGuestAddress: Address = JSON.parse(savedGuestAddressRaw);
@@ -154,7 +154,7 @@ export default function AddressPage() {
         setIsFormOpen(false);
       } catch (error) { toast({ title: "Error", description: "Could not save address.", variant: "destructive" }); }
     } else {
-      localStorage.setItem('fixbroCustomerAddress', JSON.stringify(newAddress));
+      localStorage.setItem('wecanfixCustomerAddress', JSON.stringify(newAddress));
       setSavedAddresses([newAddress]);
       setSelectedAddressId(newAddress.id);
       setIsFormOpen(false);
@@ -167,8 +167,8 @@ export default function AddressPage() {
     if (addressToProceed) {
       if (isServiceable === true) {
         showLoading();
-        localStorage.setItem('fixbroCustomerAddress', JSON.stringify(addressToProceed));
-        localStorage.setItem('fixbroCustomerEmail', addressToProceed.email);
+        localStorage.setItem('wecanfixCustomerAddress', JSON.stringify(addressToProceed));
+        localStorage.setItem('wecanfixCustomerEmail', addressToProceed.email);
         router.push('/checkout/payment');
       } else {
         toast({ title: "Area Not Serviceable", description: "Sorry, we're not available in your area yet. We're expanding soon!", variant: "destructive", duration: 7000 });

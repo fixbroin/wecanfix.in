@@ -92,7 +92,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'fixbro.in',
+        hostname: 'wecanfix.in',
         port: '',
         pathname: '/**',
       },
@@ -104,7 +104,7 @@ const nextConfig: NextConfig = {
       },
       {
         protocol: 'https',
-        hostname: 'ad.fixbro.in',
+        hostname: 'ad.wecanfix.in',
         port: '',
         pathname: '/**',
       },

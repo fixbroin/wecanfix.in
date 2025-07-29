@@ -33,7 +33,7 @@ import { nanoid } from 'nanoid'; // Import nanoid for generating referral codes
 
 
 // Define and export ADMIN_EMAIL here
-export const ADMIN_EMAIL = "fixbro.in@gmail.com";
+export const ADMIN_EMAIL = "wecanfix.in@gmail.com";
 
 export interface SignUpData {
   fullName: string;
@@ -360,7 +360,7 @@ export const AuthProvider: React.FC<PropsWithChildren> = ({ children }) => {
       setIsCompletingProfile(false);
       setUserCredentialForProfileCompletion(null);
   
-      toast({ title: "Account Created!", description: "Welcome to FixBro!" });
+      toast({ title: "Account Created!", description: "Welcome to Wecanfix!" });
   
       const redirectPathFromQuery = searchParams.get('redirect');
       let finalRedirectPath = '/';

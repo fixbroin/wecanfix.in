@@ -76,7 +76,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
     }
 
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
     
     // Determine which log action to take

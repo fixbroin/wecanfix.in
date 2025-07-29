@@ -27,9 +27,9 @@ const replaceMergeTags = (
     body = body.replace(/\{\{email\}\}/g, user.email || '');
     body = body.replace(/\{\{mobile\}\}/g, user.mobileNumber || '');
     body = body.replace(/\{\{signupDate\}\}/g, user.createdAt?.toDate().toLocaleDateString('en-IN') || '');
-    body = body.replace(/\{\{websiteName\}\}/g, appConfig.websiteName || 'FixBro');
+    body = body.replace(/\{\{websiteName\}\}/g, appConfig.websiteName || 'wecanfix');
     body = body.replace(/\{\{websiteUrl\}\}/g, getBaseUrl());
-    body = body.replace(/\{\{supportEmail\}\}/g, appConfig.senderEmail || 'support@fixbro.in'); // Use senderEmail as support
+    body = body.replace(/\{\{supportEmail\}\}/g, appConfig.senderEmail || 'support@wecanfix.in'); // Use senderEmail as support
     body = body.replace(/\{\{companyAddress\}\}/g, appConfig.address || 'Company Address'); // Get address from appConfig
     
     // New replacements
@@ -97,7 +97,7 @@ export async function GET(req: NextRequest) {
                     if (noBookingDelayMs > 0 && !hasBooking && !reminderSent && (now - signupMs) > noBookingDelayMs) {
                         const body = replaceMergeTags(marketingConfig.noBookingReminderTemplate || "", user, appConfig, popularServicesHtml, "");
                         await sendMarketingEmail({
-                            toEmail: user.email, subject: "A Reminder from " + (appConfig.websiteName || "FixBro"), htmlBody: body.replace(/\n/g, '<br>'),
+                            toEmail: user.email, subject: "A Reminder from " + (appConfig.websiteName || "wecanfix"), htmlBody: body.replace(/\n/g, '<br>'),
                             smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail
                         });
                         await userDocRef.update({ 'marketingStatus.bookingReminderSent': true });
@@ -146,7 +146,7 @@ export async function GET(req: NextRequest) {
                     if (repeatMs > 0 && eligibleForFirstSend && (now - lastSentMs) > repeatMs) {
                         const body = replaceMergeTags(marketingConfig.recurringEngagementTemplate || "", user, appConfig, popularServicesHtml, "");
                         await sendMarketingEmail({
-                            toEmail: user.email, subject: "A message from " + (appConfig.websiteName || "FixBro"), htmlBody: body.replace(/\n/g, '<br>'),
+                            toEmail: user.email, subject: "A message from " + (appConfig.websiteName || "wecanfix"), htmlBody: body.replace(/\n/g, '<br>'),
                             smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail
                         });
                         await userDocRef.update({ 'marketingStatus.lastRecurringSent': Timestamp.fromMillis(now) });

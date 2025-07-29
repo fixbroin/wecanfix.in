@@ -5,7 +5,7 @@ import { db } from '@/lib/firebase';
 import { doc, setDoc, deleteDoc, Timestamp } from 'firebase/firestore';
 import type { CartEntry } from '@/types/firestore';
 
-const CART_STORAGE_KEY = 'fixbroUserCart';
+const CART_STORAGE_KEY = 'wecanfixUserCart';
 
 export const getCartEntries = (): CartEntry[] => {
   if (typeof window === 'undefined' || typeof window.localStorage === 'undefined') {

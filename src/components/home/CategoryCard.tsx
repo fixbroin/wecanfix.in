@@ -50,7 +50,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, priority = false 
     if (typeof window === 'undefined' || !isMounted || !category) return;
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroCategoryNameOverrides' && category) {
+      if (event.key === 'wecanfixCategoryNameOverrides' && category) {
          setDisplayName(getOverriddenCategoryName(category.id, category.name));
       }
     };

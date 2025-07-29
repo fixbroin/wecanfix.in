@@ -227,7 +227,7 @@ export default function AreaForm({ onSubmit: onSubmitProp, initialData, onCancel
                 <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Best Services in Whitefield, Bangalore" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_title" render={({ field }) => (
-                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Whitefield Services | FixBro" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Whitefield Services | wecanfix" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_description" render={({ field }) => (
                 <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Find all home services in Whitefield, Bangalore." {...field} rows={3} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>

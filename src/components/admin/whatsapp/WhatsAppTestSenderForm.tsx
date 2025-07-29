@@ -51,15 +51,15 @@ export default function WhatsAppTestSenderForm() {
       let sampleParams: {value: string}[] = [];
       switch (template.name) {
         case 'user_welcome_v3':
-          sampleParams = [{ value: 'Srikanth Achari' }, { value: 'FixBro' }];
+          sampleParams = [{ value: 'Srikanth Achari' }, { value: 'wecanfix' }];
           break;
         case 'booking_confirmed_v1':
-          sampleParams = [{ value: 'FIXBRO-TEST-123' }, { value: 'Bed Assembly with Storage' }, { value: '25-07-2025' }];
+          sampleParams = [{ value: 'wecanfix-TEST-123' }, { value: 'Bed Assembly with Storage' }, { value: '25-07-2025' }];
           break;
         case 'booking_completed_final':
         case 'booking_cancelled_alert':
         case 'payment_successful_v2':
-          sampleParams = [{ value: 'FIXBRO-TEST-123' }];
+          sampleParams = [{ value: 'wecanfix-TEST-123' }];
           break;
         default:
           sampleParams = Array(template.params).fill({ value: 'Sample Param' });

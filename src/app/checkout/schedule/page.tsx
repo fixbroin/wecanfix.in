@@ -205,7 +205,7 @@ export default function SchedulePage() {
         });
         setCartCategoryIds(Array.from(uniqueCartCategoryIds));
         
-        const savedDateStr = localStorage.getItem('fixbroScheduledDate');
+        const savedDateStr = localStorage.getItem('wecanfixScheduledDate');
         const now = new Date();
         let initialDateToDisplay = new Date(now); 
         initialDateToDisplay.setHours(0,0,0,0);
@@ -247,13 +247,13 @@ export default function SchedulePage() {
         setSelectedDate(finalDateToShow);
         setAvailableTimeSlots(finalSlotsToShow);
 
-        const savedTimeStr = localStorage.getItem('fixbroScheduledTimeSlot');
-        const savedDateForTimeSlotMatch = localStorage.getItem('fixbroScheduledDate');
+        const savedTimeStr = localStorage.getItem('wecanfixScheduledTimeSlot');
+        const savedDateForTimeSlotMatch = localStorage.getItem('wecanfixScheduledDate');
         if (savedTimeStr && finalSlotsToShow.includes(savedTimeStr) && savedDateForTimeSlotMatch === finalDateToShow.toLocaleDateString('en-CA')) {
           setSelectedTimeSlot(savedTimeStr);
         } else {
           setSelectedTimeSlot(undefined);
-           localStorage.removeItem('fixbroScheduledTimeSlot');
+           localStorage.removeItem('wecanfixScheduledTimeSlot');
         }
         logUserActivity('checkoutStep', { checkoutStepName: 'schedule', pageUrl: pathname }, user?.uid, !user ? getGuestId() : null);
 
@@ -307,8 +307,8 @@ export default function SchedulePage() {
   const handleProceed = () => {
     if (typeof window !== 'undefined' && selectedDate && selectedTimeSlot) {
       showLoading();
-      localStorage.setItem('fixbroScheduledDate', selectedDate.toLocaleDateString('en-CA')); // Store YYYY-MM-DD
-      localStorage.setItem('fixbroScheduledTimeSlot', selectedTimeSlot);
+      localStorage.setItem('wecanfixScheduledDate', selectedDate.toLocaleDateString('en-CA')); // Store YYYY-MM-DD
+      localStorage.setItem('wecanfixScheduledTimeSlot', selectedTimeSlot);
       router.push('/checkout/address');
     }
   };

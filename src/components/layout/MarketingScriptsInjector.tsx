@@ -125,7 +125,7 @@ const MarketingScriptsInjector = () => {
       {/* The firebasePublicVapidKey is passed to getToken in fcmUtils.ts */}
       {/* The firebaseClientConfig values (esp. messagingSenderId) are crucial for firebase-messaging-sw.js */}
       <script
-        id="fixbro-fcm-dynamic-config"
+        id="wecanfix-fcm-dynamic-config"
         type="application/json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify({

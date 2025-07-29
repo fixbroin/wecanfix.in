@@ -118,7 +118,7 @@ export default function SignupPage() {
               websiteName={globalSettings?.websiteName}
             />
             <CardTitle className="text-2xl font-headline">Create Your Account</CardTitle>
-            <CardDescription>Join FixBro to easily book home services.</CardDescription>
+            <CardDescription>Join wecanfix to easily book home services.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {config.enableGoogleLogin && (

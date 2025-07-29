@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         type: "image",
         image: {
           // This URL must be a public, permanent link to the image approved in your template.
-          link: "https://fixbro.in/default-image.png" 
+          link: "https://wecanfix.in/default-image.png" 
         }
       }]
     });

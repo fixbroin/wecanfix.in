@@ -33,14 +33,14 @@ export async function generateMetadata(
   const webSettings = await getGlobalWebsiteSettings();
   const appBaseUrl = getBaseUrl(); // Use the helper
 
-  const title = seoSettings.homepageMetaTitle || seoSettings.siteName || 'FixBro';
+  const title = seoSettings.homepageMetaTitle || seoSettings.siteName || 'wecanfix';
   const description = seoSettings.homepageMetaDescription || seoSettings.defaultMetaDescription || '';
   const keywords = (seoSettings.homepageMetaKeywords || seoSettings.defaultMetaKeywords || '').split(',').map(k => k.trim()).filter(k => k);
 
   const ogImageFromWebSettings = webSettings?.websiteIconUrl || webSettings?.logoUrl;
   const ogImage = ogImageFromWebSettings || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
 
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || 'FixBro';
+  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || 'wecanfix';
 
   return {
     title: title,

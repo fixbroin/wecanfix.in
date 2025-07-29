@@ -224,7 +224,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
             const citySnap = await getDocs(cityQuery);
             if (!citySnap.empty) {
                 fetchedCityData = {id: citySnap.docs[0].id, ...citySnap.docs[0].data()} as FirestoreCity;
-                currentH1 = fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("FixBro", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
+                currentH1 = fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("wecanfix", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
                 currentCityNameForLd = fetchedCityData.name;
             }
         } catch (e) { console.error("Error fetching city data for H1/LD:", e); }
@@ -243,8 +243,8 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
       setPageH1(currentH1);
       setCache('pageH1', currentH1);
 
-      const siteName = fetchedSeoSettings.siteName || 'FixBro';
-      const defaultOgImage = (process.env.NEXT_PUBLIC_BASE_URL || 'https://fixbro.in') + '/android-chrome-512x512.png';
+      const siteName = fetchedSeoSettings.siteName || 'wecanfix';
+      const defaultOgImage = (process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in') + '/android-chrome-512x512.png';
 
       let webSettingsData: GlobalWebSettings | null = null;
       try {
@@ -256,7 +256,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
       } catch (e) { console.error("Error fetching webSettings for LD+JSON:", e); }
 
       const ogImage = webSettingsData?.websiteIconUrl || webSettingsData?.logoUrl || fetchedSeoSettings.structuredDataImage || defaultOgImage;
-      const pageUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://fixbro.in';
+      const pageUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in';
       let specificPageUrl = pageUrl;
       if (citySlug && areaSlug) specificPageUrl = `${pageUrl}/${citySlug}/${areaSlug}`;
       else if (citySlug) specificPageUrl = `${pageUrl}/${citySlug}`;
@@ -574,7 +574,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
         <section className="py-8 md:py-12">
           <div className="container mx-auto px-4">
             <h2 className="text-2xl md:text-3xl font-headline font-semibold text-center mb-8 md:mb-12 text-foreground">
-              Why Choose FixBro?
+              Why Choose wecanfix?
             </h2>
             <WhyChooseUs />
           </div>
@@ -598,7 +598,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems }: 
               Ready to get started?
             </h2>
             <p className="text-lg mb-6 max-w-xl mx-auto">
-              Book your service today and experience the FixBro difference.
+              Book your service today and experience the wecanfix difference.
             </p>
             <Button
               size="lg"

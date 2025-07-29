@@ -133,7 +133,7 @@ export interface AppliedPlatformFeeItem {
 
 export interface FirestoreBooking {
   id?: string; // Firestore document ID (optional before creation)
-  bookingId: string; // User-friendly booking ID (e.g., FIXBRO-TIMESTAMP-RANDOM)
+  bookingId: string; // User-friendly booking ID (e.g., wecanfix-TIMESTAMP-RANDOM)
   userId?: string; // If user is logged in
   providerId?: string; // ID of the assigned provider
   customerName: string;

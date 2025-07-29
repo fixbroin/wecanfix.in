@@ -141,13 +141,13 @@ const bookingEmailFlow = ai.defineFlow(
 
       let customerEmailSubject = "";
       let customerEmailBody = "";
-      const adminEmail = "fixbro.in@gmail.com"; 
+      const adminEmail = "wecanfix.in@gmail.com"; 
       let adminEmailSubject = "";
       let adminEmailBody = "";
       const attachments: nodemailer.Attachment[] = [];
 
       if (emailType === 'booking_completion') {
-        customerEmailSubject = `Your FixBro Service Completed! (ID: ${bookingDetails.bookingId})`;
+        customerEmailSubject = `Your wecanfix Service Completed! (ID: ${bookingDetails.bookingId})`;
         customerEmailBody = `
           Hi ${bookingDetails.customerName},
 
@@ -175,8 +175,8 @@ const bookingEmailFlow = ai.defineFlow(
           We would greatly appreciate it if you could take a moment to share your feedback. 
           You will be prompted to leave a review the next time you log in or visit our website.
 
-          Thank you for choosing FixBro!
-          The FixBro Team
+          Thank you for choosing wecanfix!
+          The Wecanfix Team
         `;
 
         adminEmailSubject = `Booking Completed (ID: ${bookingDetails.bookingId})`;
@@ -199,7 +199,7 @@ const bookingEmailFlow = ai.defineFlow(
         }
 
       } else if (emailType === 'booking_rescheduled') {
-        customerEmailSubject = `Your FixBro Booking Rescheduled (ID: ${bookingDetails.bookingId})`;
+        customerEmailSubject = `Your wecanfix Booking Rescheduled (ID: ${bookingDetails.bookingId})`;
         customerEmailBody = `
           Hi ${bookingDetails.customerName},
 
@@ -222,7 +222,7 @@ const bookingEmailFlow = ai.defineFlow(
           Booking Status: ${bookingDetails.status}
 
           If you have any questions, please contact us.
-          The FixBro Team
+          The wecanfix Team
         `;
         adminEmailSubject = `Booking Rescheduled (ID: ${bookingDetails.bookingId})`;
         adminEmailBody = `
@@ -234,11 +234,11 @@ const bookingEmailFlow = ai.defineFlow(
         `;
 
       } else { // booking_confirmation (default)
-        customerEmailSubject = `Your FixBro Booking Confirmed! (ID: ${bookingDetails.bookingId})`;
+        customerEmailSubject = `Your wecanfix Booking Confirmed! (ID: ${bookingDetails.bookingId})`;
         customerEmailBody = `
           Hi ${bookingDetails.customerName},
 
-          Thank you for booking with FixBro! Your service has been scheduled.
+          Thank you for booking with wecanfix! Your service has been scheduled.
 
           Booking Details:
           --------------------
@@ -259,12 +259,12 @@ const bookingEmailFlow = ai.defineFlow(
 
           We look forward to serving you!
           Thanks,
-          The FixBro Team
+          The wecanfix Team
         `;
 
         adminEmailSubject = `New Booking Received (ID: ${bookingDetails.bookingId})`;
         adminEmailBody = `
-          A new booking has been made on FixBro.
+          A new booking has been made on wecanfix.
 
           Booking Details:
           --------------------
@@ -335,9 +335,9 @@ const bookingEmailFlow = ai.defineFlow(
       }
 
       try {
-        console.log(`Attempting to send ${emailType} email to customer: ${bookingDetails.customerEmail} from FixBro <${senderEmail}>`);
+        console.log(`Attempting to send ${emailType} email to customer: ${bookingDetails.customerEmail} from wecanfix <${senderEmail}>`);
         const customerMailOptions: nodemailer.SendMailOptions = {
-          from: `FixBro <${senderEmail}>`,
+          from: `wecanfix <${senderEmail}>`,
           to: bookingDetails.customerEmail,
           subject: customerEmailSubject,
           html: customerEmailBody.replace(/\n/g, '<br/>'),
@@ -348,9 +348,9 @@ const bookingEmailFlow = ai.defineFlow(
         const customerMailInfo = await transporter.sendMail(customerMailOptions);
         console.log("Customer email sendMail completed. Info:", customerMailInfo);
 
-        console.log(`Attempting to send ${emailType} email to admin: ${adminEmail} from FixBro Admin <${senderEmail}>`);
+        console.log(`Attempting to send ${emailType} email to admin: ${adminEmail} from wecanfix Admin <${senderEmail}>`);
         const adminMailInfo = await transporter.sendMail({
-          from: `FixBro Admin <${senderEmail}>`,
+          from: `wecanfix Admin <${senderEmail}>`,
           to: adminEmail,
           subject: adminEmailSubject,
           html: adminEmailBody.replace(/\n/g, '<br/>'),

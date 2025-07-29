@@ -18,7 +18,7 @@ const InquiryReplyEmailInputSchema = z.object({
   userEmail: z.string().email().describe("The email address of the user."),
   originalMessage: z.string().describe("The original message or a summary of the inquiry submitted by the user."),
   replyMessage: z.string().describe("The admin's reply message."),
-  adminName: z.string().optional().default("FixBro Support").describe("The name of the admin or support team sending the reply."),
+  adminName: z.string().optional().default("wecanfix Support").describe("The name of the admin or support team sending the reply."),
   // SMTP Settings
   smtpHost: z.string().optional().describe("SMTP host for sending emails."),
   smtpPort: z.string().optional().describe("SMTP port (e.g., '587', '465')."),
@@ -66,11 +66,11 @@ const inquiryReplyEmailFlow = ai.defineFlow(
 
       const canAttemptRealEmail = smtpHost && smtpPort && smtpUser && smtpPass && senderEmail;
 
-      const emailSubject = `Re: Your Inquiry to FixBro (ID: ${inquiryId.substring(0,8)}...)`;
+      const emailSubject = `Re: Your Inquiry to wecanfix (ID: ${inquiryId.substring(0,8)}...)`;
       const emailBody = `
         Dear ${userName},
 
-        Thank you for contacting FixBro. This is a reply to your recent inquiry.
+        Thank you for contacting wecanfix. This is a reply to your recent inquiry.
 
         --------------------
         Your Original Inquiry:
@@ -85,7 +85,7 @@ const inquiryReplyEmailFlow = ai.defineFlow(
         If you have any further questions, please feel free to reply to this email or contact us again.
 
         Sincerely,
-        The ${adminName || "FixBro Team"}
+        The ${adminName || "wecanfix Team"}
       `;
 
       if (!canAttemptRealEmail) {
@@ -125,9 +125,9 @@ const inquiryReplyEmailFlow = ai.defineFlow(
       }
 
       try {
-        console.log(`Attempting to send inquiry reply email to: ${userEmail} from ${adminName || "FixBro Support"} <${senderEmail}>`);
+        console.log(`Attempting to send inquiry reply email to: ${userEmail} from ${adminName || "wecanfix Support"} <${senderEmail}>`);
         const mailOptions: nodemailer.SendMailOptions = {
-          from: `${adminName || "FixBro Support"} <${senderEmail}>`,
+          from: `${adminName || "wecanfix Support"} <${senderEmail}>`,
           to: userEmail,
           subject: emailSubject,
           html: emailBody.replace(/\\n/g, '<br/>').replace(/^> /gm, '&gt; '), // Convert newlines and blockquote

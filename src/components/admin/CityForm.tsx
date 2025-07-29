@@ -198,10 +198,10 @@ export default function CityForm({ onSubmit: onSubmitProp, initialData, onCancel
                 <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Best Home Services in New Delhi" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_title" render={({ field }) => (
-                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., New Delhi Home Services | FixBro" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., New Delhi Home Services | wecanfix" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_description" render={({ field }) => (
-                <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Find top home services in New Delhi. FixBro offers quality and convenience." {...field} rows={3} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Find top home services in New Delhi. wecanfix offers quality and convenience." {...field} rows={3} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>
             )}/>
             <FormField control={form.control} name="seo_keywords" render={({ field }) => (
                 <FormItem><FormLabel>Meta Keywords (comma-separated)</FormLabel><FormControl><Input placeholder="e.g., new delhi services, home repair delhi" {...field} disabled={isSubmitting || isGeneratingSeo} /></FormControl><FormMessage /></FormItem>

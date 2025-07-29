@@ -269,7 +269,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
       const savedInvoice = { id: invoiceSnap.id, ...invoiceSnap.data() } as FirestoreInvoice;
       
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "wecanfix", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };
@@ -312,7 +312,7 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
       const savedInvoice = { id: invoiceSnap.id, ...invoiceSnap.data() } as FirestoreInvoice;
 
       const companyInfo: CompanyDetailsForPdf = {
-        name: companySettings?.websiteName || "FixBro", address: companySettings?.address || "",
+        name: companySettings?.websiteName || "wecanfix", address: companySettings?.address || "",
         contactEmail: companySettings?.contactEmail || "", contactMobile: companySettings?.contactMobile || "",
         logoUrl: companySettings?.logoUrl || undefined,
       };

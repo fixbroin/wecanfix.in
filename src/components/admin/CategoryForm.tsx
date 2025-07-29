@@ -394,7 +394,7 @@ export default function CategoryForm({ onSubmit: onSubmitProp, initialData, onCa
             <FormItem><FormLabel>H1 Title</FormLabel><FormControl><Input placeholder="e.g., Expert Home Repair Services" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="seo_title" render={({ field }) => (
-            <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Home Repair Services | FixBro" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
+            <FormItem><FormLabel>Meta Title</FormLabel><FormControl><Input placeholder="e.g., Home Repair Services | wecanfix" {...field} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>
           )}/>
           <FormField control={form.control} name="seo_description" render={({ field }) => (
             <FormItem><FormLabel>Meta Description</FormLabel><FormControl><Textarea placeholder="e.g., Get reliable home repair services for plumbing, electrical, and more." {...field} rows={3} disabled={effectiveIsSubmitting} /></FormControl><FormMessage /></FormItem>

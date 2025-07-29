@@ -42,7 +42,7 @@ export default async function BlogListPage() {
       <div className="text-center mb-12">
         <h1 className="text-4xl md:text-5xl font-headline font-bold text-foreground">Our Blog</h1>
         <p className="mt-4 text-lg text-muted-foreground max-w-2xl mx-auto">
-          Tips, guides, and updates from the FixBro team to help you with your home needs.
+          Tips, guides, and updates from the wecanfix team to help you with your home needs.
         </p>
       </div>
       

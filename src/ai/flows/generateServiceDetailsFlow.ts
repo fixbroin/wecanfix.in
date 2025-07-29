@@ -55,7 +55,7 @@ const prompt = ai.definePrompt({
   name: 'generateServiceDetailsPrompt',
   input: { schema: GenerateServiceDetailsInputSchema },
   output: { schema: GenerateServiceDetailsOutputSchema },
-  prompt: `You are an expert copywriter and SEO specialist for a home services company called "FixBro". Your task is to generate comprehensive, compelling, and SEO-friendly content for a specific service.
+  prompt: `You are an expert copywriter and SEO specialist for a home services company called "wecanfix". Your task is to generate comprehensive, compelling, and SEO-friendly content for a specific service.
 
 Service Name: {{serviceName}}
 Category: {{categoryName}}

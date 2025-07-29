@@ -69,7 +69,7 @@ const marketingEmailFlow = ai.defineFlow(
       
       console.log(`Attempting to send marketing email to: ${toEmail}`);
       await transporter.sendMail({
-        from: `FixBro <${senderEmail}>`, to: toEmail, subject: subject, html: htmlBody,
+        from: `wecanfix <${senderEmail}>`, to: toEmail, subject: subject, html: htmlBody,
       });
       console.log("Marketing email sent.");
       

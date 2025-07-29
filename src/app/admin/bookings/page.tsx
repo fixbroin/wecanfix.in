@@ -211,9 +211,9 @@ export default function AdminBookingsPage() {
     }
     toast({ title: "Processing Email", description: `Preparing ${emailType.replace('_', ' ')} email...`, variant: "default" });
     const companyDetailsForInvoice = {
-      name: globalCompanySettings?.websiteName || "FixBro.in",
+      name: globalCompanySettings?.websiteName || "wecanfix.in",
       address: globalCompanySettings?.address || "#44 G S Palya Road Konappana Agrahara Electronic City Phase 2 -560100",
-      contactEmail: globalCompanySettings?.contactEmail || "support@fixbro.in",
+      contactEmail: globalCompanySettings?.contactEmail || "support@wecanfix.in",
       contactMobile: globalCompanySettings?.contactMobile || "+91-7353113455",
       logoUrl: globalCompanySettings?.logoUrl || undefined,
     };

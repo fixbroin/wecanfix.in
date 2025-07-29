@@ -27,9 +27,9 @@ const roboto = Roboto({
 export async function generateMetadata(): Promise<Metadata> {
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
-  const siteName = seoSettings.siteName || 'FixBro';
+  const siteName = seoSettings.siteName || 'wecanfix';
   const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
-  const defaultDescription = seoSettings.defaultMetaDescription || 'Book home services easily with FixBro.';
+  const defaultDescription = seoSettings.defaultMetaDescription || 'Book home services easily with wecanfix.';
   const defaultKeywords = (seoSettings.defaultMetaKeywords || '').split(',').map(k => k.trim()).filter(k => k);
   const defaultOgImage = `/android-chrome-512x512.png`;
   const ogImage = seoSettings.structuredDataImage || defaultOgImage;
@@ -94,7 +94,7 @@ export default function RootLayout({
               (function() {
                 const theme = (function() { // IIFE for getInitialTheme
                   try {
-                    const storedTheme = localStorage.getItem('fixbro-theme');
+                    const storedTheme = localStorage.getItem('wecanfix-theme');
                     if (storedTheme === 'light' || storedTheme === 'dark') return storedTheme;
                     if (typeof window.matchMedia === 'function') {
                         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
@@ -110,8 +110,8 @@ export default function RootLayout({
                 // Persist the determined theme back to localStorage if it wasn't already there or differs
                 // This helps if it was derived from matchMedia or if localStorage was somehow cleared
                 try {
-                    if (localStorage.getItem('fixbro-theme') !== theme) {
-                        localStorage.setItem('fixbro-theme', theme);
+                    if (localStorage.getItem('wecanfix-theme') !== theme) {
+                        localStorage.setItem('wecanfix-theme', theme);
                     }
                 } catch (e) { /* LocalStorage not available or failed */ }
               })();

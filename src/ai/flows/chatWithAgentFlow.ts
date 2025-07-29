@@ -34,7 +34,7 @@ export async function chatWithAgent(input: ChatAgentInput): Promise<ChatAgentOut
   return chatAgentFlow(input);
 }
 
-const systemPrompt = `You are a helpful and friendly customer support assistant for a home services company named "FixBro".
+const systemPrompt = `You are a helpful and friendly customer support assistant for a home services company named "wecanfix".
 
 Your goal is to assist users with their inquiries about the services offered.
 - Be polite, professional, and concise.

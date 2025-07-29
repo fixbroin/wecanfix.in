@@ -114,7 +114,7 @@ function CartPageContent() {
           saveCartEntries(validEntries);
           if (user?.uid) await syncCartToFirestore(user.uid, validEntries);
           if (typeof window !== 'undefined') {
-            window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+            window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
           }
         }
 
@@ -256,7 +256,7 @@ function CartPageContent() {
         syncCartToFirestore(user.uid, entriesToSave);
     }
     if (typeof window !== 'undefined') {
-      window.dispatchEvent(new StorageEvent('storage', { key: 'fixbroUserCart' }));
+      window.dispatchEvent(new StorageEvent('storage', { key: 'wecanfixUserCart' }));
     }
   };
 

@@ -97,9 +97,9 @@ const bulkMarketingEmailFlow = ai.defineFlow(
       let failedSends = 0;
 
       const appDetails = {
-        websiteName: globalSettings.websiteName || 'FixBro',
-        websiteUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://fixbro.in',
-        supportEmail: globalSettings.contactEmail || 'support@fixbro.in',
+        websiteName: globalSettings.websiteName || 'wecanfix',
+        websiteUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in',
+        supportEmail: globalSettings.contactEmail || 'support@wecanfix.in',
         companyAddress: globalSettings.address || '',
         logoUrl: globalSettings.logoUrl || '',
       };

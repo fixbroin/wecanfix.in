@@ -23,7 +23,7 @@ import { defaultAppSettings } from '@/config/appDefaults'; // For default sound 
 
 
 const generateRandomHexString = (length: number) => Array.from({ length }, () => Math.floor(Math.random() * 16).toString(16)).join('');
-const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com/v0/b/fixbroweb.firebasestorage.app/o/chat_sounds");
+const isFirebaseStorageUrl = (url: string | null | undefined): boolean => !!url && typeof url === 'string' && url.includes("firebasestorage.googleapis.com/v0/b/wecanfixweb.firebasestorage.app/o/chat_sounds");
 
 
 const chatSettingsFormSchema = z.object({

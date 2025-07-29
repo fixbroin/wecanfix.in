@@ -58,8 +58,8 @@ const Footer = () => {
   const router = useRouter(); 
 
 
-  const websiteName = settings?.websiteName || "FixBro";
-  const contactEmail = settings?.contactEmail || "fixbro.in@gmail.com"; 
+  const websiteName = settings?.websiteName || "wecanfix";
+  const contactEmail = settings?.contactEmail || "wecanfix.in@gmail.com"; 
   const socialLinks = settings?.socialMediaLinks;
 
   useEffect(() => {

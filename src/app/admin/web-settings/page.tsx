@@ -550,8 +550,8 @@ export default function WebSettingsPage() {
             <Form {...generalInfoForm}>
               <form onSubmit={generalInfoForm.handleSubmit(handleSaveGeneralInfo)}>
                 <CardContent className="space-y-4">
-                  <FormField control={generalInfoForm.control} name="websiteName" render={({ field }) => (<FormItem><FormLabel>Website Name</FormLabel><FormControl><Input placeholder="e.g., FixBro Services" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                  <FormField control={generalInfoForm.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="e.g., support@fixbro.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={generalInfoForm.control} name="websiteName" render={({ field }) => (<FormItem><FormLabel>Website Name</FormLabel><FormControl><Input placeholder="e.g., wecanfix Services" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                  <FormField control={generalInfoForm.control} name="contactEmail" render={({ field }) => (<FormItem><FormLabel>Contact Email</FormLabel><FormControl><Input type="email" placeholder="e.g., support@wecanfix.com" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={generalInfoForm.control} name="contactMobile" render={({ field }) => (<FormItem><FormLabel>Contact Mobile</FormLabel><FormControl><Input type="tel" placeholder="e.g., +919876543210" {...field} /></FormControl><FormMessage /></FormItem>)} />
                   <FormField control={generalInfoForm.control} name="address" render={({ field }) => (<FormItem><FormLabel>Company Address</FormLabel><FormControl><Textarea placeholder="123 Main St, Anytown, ST 12345" {...field} rows={3} /></FormControl><FormMessage /></FormItem>)} />
                 </CardContent>

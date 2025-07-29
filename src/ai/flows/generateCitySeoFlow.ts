@@ -28,7 +28,7 @@ const prompt = ai.definePrompt({
   name: 'generateCitySeoPrompt',
   input: { schema: GenerateCitySeoInputSchema },
   output: { schema: GenerateCitySeoOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "FixBro".
+  prompt: `You are an expert SEO copywriter for a home services company called "wecanfix".
 Your task is to generate optimized SEO content for a city-level landing page.
 
 City Name: {{cityName}}

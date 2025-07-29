@@ -57,7 +57,7 @@ type MarketingAutomationFormData = z.infer<typeof marketingAutomationSchema>;
 const defaultMarketingAutomationSettings: Omit<MarketingAutomationSettings, 'updatedAt'> = {
     noBookingReminderEnabled: false,
     noBookingReminderDelay: { days: 1, hours: 0, minutes: 0 },
-    noBookingReminderTemplate: "Hi {{name}},\n\nWe noticed you haven't booked a service yet. Is there anything we can help you find?\n\nExplore our popular services: {{popular_services}}\n\nThanks,\nThe FixBro Team",
+    noBookingReminderTemplate: "Hi {{name}},\n\nWe noticed you haven't booked a service yet. Is there anything we can help you find?\n\nExplore our popular services: {{popular_services}}\n\nThanks,\nThe wecanfix Team",
     
     abandonedCartEnabled: false,
     abandonedCartDelay: { days: 0, hours: 6, minutes: 0 },
@@ -65,7 +65,7 @@ const defaultMarketingAutomationSettings: Omit<MarketingAutomationSettings, 'upd
     
     recurringEngagementEnabled: false,
     recurringEngagementDelay: { days: 15, hours: 0, minutes: 0 },
-    recurringEngagementTemplate: "Hi {{name}},\n\nJust a friendly check-in from FixBro! We're always here for your home service needs. Check out our popular services in {{city}}:\n\n{{popular_services}}\n\nHave a great week!",
+    recurringEngagementTemplate: "Hi {{name}},\n\nJust a friendly check-in from wecanfix! We're always here for your home service needs. Check out our popular services in {{city}}:\n\n{{popular_services}}\n\nHave a great week!",
 };
 
 export default function MarketingAutomationPage() {
@@ -142,7 +142,7 @@ export default function MarketingAutomationPage() {
           email: adminUser.email,
           mobile: adminUser.phoneNumber || '',
           signupDate: adminUser.metadata.creationTime ? new Date(adminUser.metadata.creationTime).toLocaleDateString('en-IN') : '',
-          websiteName: globalSettings.websiteName || 'FixBro',
+          websiteName: globalSettings.websiteName || 'wecanfix',
           websiteUrl: baseUrl,
           supportEmail: globalSettings.contactEmail || 'support@example.com',
           companyAddress: globalSettings.address || 'Company Address',
@@ -227,7 +227,7 @@ export default function MarketingAutomationPage() {
                       <div className="pl-4 border-l-2 ml-2 space-y-4">
                           {renderDelayInputs("noBookingReminderDelay", "Send After")}
                           <FormField control={form.control} name="noBookingReminderTemplate" render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, haven't booked yet?..." {...field} rows={5} /></FormControl><FormDescription>Placeholders: {"{{name}}"}, {"{{popular_services}}"}</FormDescription><FormMessage /></FormItem>)}/>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('A friendly reminder from FixBro', form.getValues('noBookingReminderTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
+                          <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('A friendly reminder from wecanfix', form.getValues('noBookingReminderTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
                       </div>
                   )}
                 </CardContent>
@@ -255,7 +255,7 @@ export default function MarketingAutomationPage() {
                       <div className="pl-4 border-l-2 ml-2 space-y-4">
                           {renderDelayInputs("recurringEngagementDelay", "Send Every")}
                           <FormField control={form.control} name="recurringEngagementTemplate" render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, here's what's new..." {...field} rows={5} /></FormControl><FormDescription>Placeholders: {"{{name}}"}, {"{{popular_services}}"}, {"{{city}}"}</FormDescription><FormMessage /></FormItem>)}/>
-                           <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('Here\'s what\'s new at FixBro!', form.getValues('recurringEngagementTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
+                           <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('Here\'s what\'s new at wecanfix!', form.getValues('recurringEngagementTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
                       </div>
                   )}
                 </CardContent>
