@@ -30,6 +30,7 @@ import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cart
 import { useToast } from '@/hooks/use-toast';
 import { getGuestId } from '@/lib/guestIdManager';
 import { logUserActivity } from '@/lib/activityLogger';
+import { Badge } from '@/components/ui/badge';
 
 // Lazy load components
 const HeroCarousel = dynamic(() => import('@/components/home/HeroCarousel').then((mod) => mod.HeroCarousel), {
@@ -198,6 +199,75 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
     return `${value} ${unit}`;
   };
   const taskTimeDisplay = formatTaskTime(service.taskTimeValue, service.taskTimeUnit);
+  
+
+  // --- START: CORRECTED TIERED PRICING LOGIC ---
+const getPriceForNthUnit = (service: FirestoreService, n: number): number => {
+  if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0 || n <= 0) {
+    return service.discountedPrice ?? service.price;
+  }
+
+  const sortedVariants = [...service.priceVariants].sort((a, b) => a.fromQuantity - b.fromQuantity);
+
+  let applicableTier = sortedVariants.find(tier => {
+    const start = tier.fromQuantity;
+    const end = tier.toQuantity ?? Infinity;
+    return n >= start && n <= end;
+  });
+
+  if (applicableTier) {
+    return applicableTier.price;
+  }
+  
+  const lastApplicableTier = sortedVariants.slice().reverse().find(tier => n >= tier.fromQuantity);
+  if (lastApplicableTier) {
+    return lastApplicableTier.price;
+  }
+
+  return service.discountedPrice ?? service.price;
+};
+
+
+const getPriceDisplayInfo = (service: FirestoreService, quantity: number) => {
+    if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
+        const priceSaved = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
+        return {
+            mainPrice: `₹${service.discountedPrice ?? service.price}`,
+            priceSuffix: priceSaved > 0 ? `₹${service.price}` : null,
+            promoText: priceSaved > 0 ? `Save ₹${priceSaved.toFixed(0)}!` : null,
+        };
+    }
+
+    const sortedVariants = [...service.priceVariants].sort((a, b) => a.fromQuantity - b.fromQuantity);
+    const nextQuantity = quantity + 1;
+
+    const currentPriceForNext = getPriceForNthUnit(service, nextQuantity);
+
+    const nextCheaperTier = sortedVariants.find(v => v.fromQuantity >= nextQuantity && v.price < currentPriceForNext);
+
+    let promoText = null;
+    if (nextCheaperTier) {
+        const needed = nextCheaperTier.fromQuantity - quantity;
+        promoText = `Add ${needed} more to unlock ₹${nextCheaperTier.price} price!`;
+    } else {
+        const finalTier = sortedVariants[sortedVariants.length - 1];
+        if (quantity >= finalTier.fromQuantity) {
+            promoText = `Price continues at ₹${finalTier.price} each.`;
+        }
+    }
+
+    // ALWAYS show price for NEXT unit
+    const displayPrice = getPriceForNthUnit(service, nextQuantity);
+
+    return {
+        mainPrice: `₹${displayPrice}`,
+        priceSuffix: quantity > 0 ? 'per next unit' : 'onwards',
+        promoText,
+    };
+};
+
+// --- END: CORRECTED TIERED PRICING LOGIC ---
+ const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(service, quantity);
 
 const isAvailable = service.maxQuantity === undefined || service.maxQuantity > 0;
   
@@ -218,9 +288,19 @@ const isAvailable = service.maxQuantity === undefined || service.maxQuantity > 0
             </div>
             <div className="flex items-center justify-between mt-2">
               <div className="flex items-center gap-2">
-                <p className="text-lg font-bold text-foreground">₹{service.discountedPrice ?? service.price}</p>
-                {service.discountedPrice && service.discountedPrice < service.price && (<p className="text-sm text-muted-foreground line-through">₹{service.price}</p>)}
+                <div className="flex flex-wrap items-baseline gap-2 mt-2">
+                  <p className="text-lg font-bold text-foreground">{mainPrice}</p>
+                   {priceSuffix && (
+                     <p className="text-sm text-muted-foreground"><span className="line-through">
+                        {priceSuffix.replace(/[^\d₹.,]/g, "")}</span>{" "}{priceSuffix.replace(/[\d₹.,]/g, "")}
+                    </p>
+                   )}
                 </div>
+          
+
+
+              </div>
+
                 {!isAvailable ? (
                     <Button size="sm" className="h-7 px-2 text-xs" disabled><Ban className="mr-1 h-3 w-3"/>Unavailable</Button>
                 ) : quantity === 0 ? (
