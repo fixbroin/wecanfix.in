@@ -61,7 +61,7 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; background-color: #F8F9FA; font-family: 'Roboto', sans-serif; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; }
+        .container { max-width: 100%; margin: 0 auto; background-color: #ffffff; padding: 20px; }
         .header { text-align: center; padding-bottom: 20px; }
         .header img { max-width: 150px; }
         .content { padding: 20px 0; color: #333333; line-height: 1.6; }
@@ -78,7 +78,11 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
                     <tr>
                         <td>
                              <div class="header">
-                                <img src="${finalLogoUrl}" alt="${siteName} Logo">
+                                <a href="${getBaseUrl()}" target="_blank" style="text-decoration:none;">
+
+                                    <img src="${finalLogoUrl}" alt="${siteName} Logo" style="border:0; display:inline-block; max-width:150px;">
+
+                                </a>
                             </div>
                             <div class="content">
                                 <h2>${title}</h2>

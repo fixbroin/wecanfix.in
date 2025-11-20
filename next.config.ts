@@ -2,13 +2,6 @@
 import type { NextConfig } from 'next';
 import withPWAInit from '@ducanh2912/next-pwa';
 
-// Safely handles responses
-const cacheUpdatePlugin = {
-  cacheWillUpdate: async ({ response }: { response: Response }) => {
-    if (!response || response.status !== 200) return null;
-    return response;
-  },
-};
 
 // Runtime caching for USER PWA
 const userRuntimeCaching = [

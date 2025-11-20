@@ -12,6 +12,7 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import nodemailer from 'nodemailer';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext'; // Import ADMIN_EMAIL
+import { getBaseUrl } from '@/lib/config';
 
 const NewProviderApplicationAdminEmailInputSchema = z.object({
   applicationId: z.string().describe("The ID of the submitted provider application."),
@@ -40,7 +41,9 @@ export async function sendNewProviderApplicationAdminEmail(input: NewProviderApp
   }
 }
 
-const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => `
+const createHtmlTemplate = (title: string, bodyContent: string, siteName: string, logoUrl?: string) => {
+    const finalLogoUrl = logoUrl || `${getBaseUrl()}/default-image.png`;
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -51,7 +54,7 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; background-color: #F8F9FA; font-family: 'Roboto', sans-serif; }
-        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; }
+        .container { max-width: 100%; margin: 0 auto; background-color: #ffffff; padding: 20px; }
         .header { text-align: center; padding-bottom: 20px; }
         .header img { max-width: 150px; }
         .content { padding: 20px 0; color: #333333; line-height: 1.6; }
@@ -76,7 +79,11 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
                     <tr>
                         <td>
                             <div class="header">
-                                ${logoUrl ? `<img src="${logoUrl}" alt="${siteName} Logo">` : `<h1>${siteName}</h1>`}
+                               <a href="${getBaseUrl()}" target="_blank" style="text-decoration:none;">
+
+                                    <img src="${finalLogoUrl}" alt="${siteName} Logo" style="border:0; display:inline-block; max-width:150px;">
+
+                                </a>
                             </div>
                             <div class="content">
                                 <h2>${title}</h2>
@@ -94,6 +101,7 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
 </body>
 </html>
 `;
+};
 
 
 const newProviderApplicationAdminEmailFlow = ai.defineFlow(
