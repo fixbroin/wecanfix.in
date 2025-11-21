@@ -531,14 +531,17 @@ export interface MarketingAutomationSettings {
     noBookingReminderEnabled: boolean;
     noBookingReminderDelay?: AutomationDelay;
     noBookingReminderTemplate?: string;
+    noBookingReminderCategoryId?: string;
 
     abandonedCartEnabled: boolean;
     abandonedCartDelay?: AutomationDelay;
     abandonedCartTemplate?: string;
+    abandonedCartCategoryId?: string;
 
     recurringEngagementEnabled: boolean;
     recurringEngagementDelay?: AutomationDelay;
     recurringEngagementTemplate?: string;
+    recurringEngagementCategoryId?: string;
     
     // WhatsApp Automation Settings
     isWhatsAppEnabled?: boolean;
@@ -1365,4 +1368,3 @@ export interface PinCodeAreaMapping {
 
 
     
-

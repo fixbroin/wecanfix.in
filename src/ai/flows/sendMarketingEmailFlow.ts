@@ -49,7 +49,7 @@ const createHtmlTemplate = (bodyContent: string, siteName: string, logoUrl?: str
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@600&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
     <style>
         body { margin: 0; padding: 0; background-color: #F8F9FA; font-family: 'Roboto', sans-serif; }
-        .container { max-width: 100%; margin: 0 auto; background-color: #ffffff; padding: 20px; }
+        .container { max-width: 600px; margin: 0 auto; background-color: #ffffff; padding: 20px; }
         .header { text-align: center; padding-bottom: 20px; }
         .header img { max-width: 150px; }
         .content { padding: 20px 0; color: #333333; line-height: 1.6; }
@@ -60,12 +60,14 @@ const createHtmlTemplate = (bodyContent: string, siteName: string, logoUrl?: str
     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8F9FA;">
         <tr>
             <td align="center">
-                <table class="container" width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <table class="container" width="600" border="0" cellspacing="0" cellpadding="20" style="background-color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                     <tr>
                         <td>
                             <div class="header">
                                 <a href="${getBaseUrl()}" target="_blank" style="text-decoration:none;">
+
                                     <img src="${finalLogoUrl}" alt="${siteName} Logo" style="border:0; display:inline-block; max-width:150px;">
+
                                 </a>
                             </div>
                             <div class="content">
@@ -84,7 +86,6 @@ const createHtmlTemplate = (bodyContent: string, siteName: string, logoUrl?: str
 </html>
 `;
 };
-
 
 
 const marketingEmailFlow = ai.defineFlow(

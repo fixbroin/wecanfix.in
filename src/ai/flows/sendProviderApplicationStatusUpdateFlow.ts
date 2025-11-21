@@ -76,7 +76,7 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
     <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #F8F9FA;">
         <tr>
             <td align="center">
-                <table class="container" width="100%" border="0" cellspacing="0" cellpadding="20" style="background-color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
+                <table class="container" width="600" border="0" cellspacing="0" cellpadding="20" style="background-color: #ffffff; margin-top: 20px; margin-bottom: 20px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.05);">
                     <tr>
                         <td>
                             <div class="header">

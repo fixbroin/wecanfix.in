@@ -12,11 +12,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Loader2, Save, Send, Mail, Users, ShoppingCart, Repeat, Megaphone, MessageCircle } from "lucide-react";
+import { Loader2, Save, Send, Mail, Users, ShoppingCart, Repeat, Megaphone, Layers } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp, collection, query, where, orderBy, limit, getDocs } from "firebase/firestore";
-import type { MarketingAutomationSettings, AutomationDelay as AutomationDelayType, FirestoreService } from '@/types/firestore';
+import type { MarketingAutomationSettings, AutomationDelay as AutomationDelayType, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { useAuth } from '@/hooks/useAuth';
@@ -37,19 +37,21 @@ const automationDelaySchema = z.object({
   path: ["days"], 
 });
 
-
 const marketingAutomationSchema = z.object({
   noBookingReminderEnabled: z.boolean().default(false),
   noBookingReminderDelay: automationDelaySchema.optional(),
   noBookingReminderTemplate: z.string().max(2000).optional(),
+  noBookingReminderCategoryId: z.string().optional(),
   
   abandonedCartEnabled: z.boolean().default(false),
   abandonedCartDelay: automationDelaySchema.optional(),
   abandonedCartTemplate: z.string().max(2000).optional(),
+  abandonedCartCategoryId: z.string().optional(),
   
   recurringEngagementEnabled: z.boolean().default(false),
   recurringEngagementDelay: automationDelaySchema.optional(),
   recurringEngagementTemplate: z.string().max(2000).optional(),
+  recurringEngagementCategoryId: z.string().optional(),
 });
 
 type MarketingAutomationFormData = z.infer<typeof marketingAutomationSchema>;
@@ -58,14 +60,17 @@ const defaultMarketingAutomationSettings: Omit<MarketingAutomationSettings, 'upd
     noBookingReminderEnabled: false,
     noBookingReminderDelay: { days: 1, hours: 0, minutes: 0 },
     noBookingReminderTemplate: "Hi {{name}},\n\nWe noticed you haven't booked a service yet. Is there anything we can help you find?\n\nExplore our popular services: {{popular_services}}\n\nThanks,\nThe Wecanfix Team",
-    
+    noBookingReminderCategoryId: "none",
+
     abandonedCartEnabled: false,
     abandonedCartDelay: { days: 0, hours: 6, minutes: 0 },
     abandonedCartTemplate: "Hi {{name}},\n\nYou left something in your cart! Complete your booking now before the time slot gets taken.\n\nItem: {{cart_item_name}}\n\nComplete Booking: {{cart_link}}",
-    
+    abandonedCartCategoryId: "none",
+
     recurringEngagementEnabled: false,
     recurringEngagementDelay: { days: 15, hours: 0, minutes: 0 },
     recurringEngagementTemplate: "Hi {{name}},\n\nJust a friendly check-in from Wecanfix! We're always here for your home service needs. Check out our popular services in {{city}}:\n\n{{popular_services}}\n\nHave a great week!",
+    recurringEngagementCategoryId: "none",
 };
 
 export default function MarketingAutomationPage() {
@@ -76,11 +81,31 @@ export default function MarketingAutomationPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTestSending, setIsTestSending] = useState(false);
+  const [allCategories, setAllCategories] = useState<FirestoreCategory[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+
 
   const form = useForm<MarketingAutomationFormData>({
     resolver: zodResolver(marketingAutomationSchema),
     defaultValues: defaultMarketingAutomationSettings,
   });
+  
+  useEffect(() => {
+    const fetchSelectData = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const catQuery = query(collection(db, "adminCategories"), orderBy("name", "asc"));
+        const catSnapshot = await getDocs(catQuery);
+        setAllCategories(catSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory)));
+      } catch (error) {
+        toast({ title: "Error", description: "Could not load categories for dropdowns.", variant: "destructive" });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchSelectData();
+  }, [toast]);
+
 
   const loadSettings = useCallback(async () => {
     setIsLoading(true);
@@ -124,67 +149,71 @@ export default function MarketingAutomationPage() {
     }
   };
   
-  const handleTestSend = async (subjectTemplate: string, bodyTemplate: string) => {
+  const handleTestSend = async (subjectTemplate: string, bodyTemplate: string, categoryIdForTest?: string) => {
     if (!adminUser?.email) return;
     setIsTestSending(true);
     toast({ title: "Sending Test...", description: `Sending test email to ${adminUser.email}`});
     
     try {
+        const baseUrl = getBaseUrl();
         const popularServicesQuery = query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("rating", "desc"), limit(5));
         const popularServicesSnap = await getDocs(popularServicesQuery);
-        const popularServices = popularServicesSnap.docs.map(doc => doc.data() as FirestoreService);
-        const baseUrl = getBaseUrl();
-        const popularServicesHtml = `<ul>${popularServices.map(s => `<li><a href="${baseUrl}/service/${s.slug}">${s.name}</a></li>`).join('')}</ul>`;
-        const cartContentHtml = `<ul><li>Sample Service A (x1)</li><li>Sample Service B (x2)</li></ul>`;
+        const popularServicesHtml = `<ul>${popularServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+        
+        const popularCategoriesQuery = query(collection(db, "adminCategories"), orderBy('order', 'asc'), limit(5));
+        const popularCategoriesSnap = await getDocs(popularCategoriesQuery);
+        const popularCategoriesHtml = `<ul>${popularCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
 
+        const allServicesSnap = await getDocs(query(collection(db, "adminServices"), where("isActive", "==", true), orderBy("name", "asc")));
+        const allServicesHtml = `<ul>${allServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+        
+        const allCategoriesSnap = await getDocs(query(collection(db, "adminCategories"), orderBy("order", "asc")));
+        const allCategoriesHtml = `<ul>${allCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+        
+        const cartContentHtml = `<ul><li>Sample Service A (x1)</li><li>Sample Service B (x2)</li></ul>`;
+        
+        let categoryServicesHtml = 'No services for this category found (or category not selected).';
+        const finalCategoryIdForTest = categoryIdForTest && categoryIdForTest !== "none" ? categoryIdForTest : (categoryIdForTest === "cart" ? allCategoriesSnap.docs[0]?.id : undefined);
+
+        if (finalCategoryIdForTest) {
+            const subCatsSnap = await getDocs(query(collection(db, "adminSubCategories"), where("parentId", "==", finalCategoryIdForTest)));
+            const subCatIds = subCatsSnap.docs.map(doc => doc.id);
+            if (subCatIds.length > 0) {
+                const categoryServicesSnap = await getDocs(query(collection(db, "adminServices"), where("subCategoryId", "in", subCatIds), where("isActive", "==", true), orderBy("name", "asc")));
+                if (!categoryServicesSnap.empty) {
+                    categoryServicesHtml = `<ul>${categoryServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+                }
+            }
+        }
+        
         const mergeData = {
-          name: adminUser.displayName || 'Admin',
-          email: adminUser.email,
-          mobile: adminUser.phoneNumber || '',
+          name: adminUser.displayName || 'Admin', email: adminUser.email, mobile: adminUser.phoneNumber || '',
           signupDate: adminUser.metadata.creationTime ? new Date(adminUser.metadata.creationTime).toLocaleDateString('en-IN') : '',
-          websiteName: globalSettings.websiteName || 'Wecanfix',
-          websiteUrl: baseUrl,
-          supportEmail: globalSettings.contactEmail || 'support@example.com',
-          companyAddress: globalSettings.address || 'Company Address',
-          popular_services: popularServicesHtml,
-          cart_items: cartContentHtml,
-          cart_item_name: "Sample Service A",
-          cart_link: `${baseUrl}/cart`,
-          city: "your city", // City is not a user property, so it remains a placeholder
+          websiteName: globalSettings.websiteName || 'Wecanfix', websiteUrl: baseUrl, supportEmail: globalSettings.contactEmail || 'support@example.com',
+          companyAddress: globalSettings.address || 'Company Address', popular_services: popularServicesHtml, popular_categories: popularCategoriesHtml,
+          all_services: allServicesHtml, all_categories: allCategoriesHtml, category_services: categoryServicesHtml, cart_items: cartContentHtml,
+          cart_item_name: "Sample Service A", cart_link: `${baseUrl}/cart`, city: "your city",
         };
         
-        let processedBody = bodyTemplate;
-        let processedSubject = subjectTemplate;
-        
+        let processedBody = bodyTemplate; let processedSubject = subjectTemplate;
         for (const [key, value] of Object.entries(mergeData)) {
             const tag = new RegExp(`{{${key}}}`, 'g');
-            processedBody = processedBody.replace(tag, value);
-            processedSubject = processedSubject.replace(tag, value);
+            processedBody = processedBody.replace(tag, value); processedSubject = processedSubject.replace(tag, value);
         }
 
         const result = await sendMarketingEmail({
-            toEmail: adminUser.email,
-            subject: processedSubject,
-            htmlBody: processedBody.replace(/\n/g, '<br>'),
-            smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort,
-            smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail,
+            toEmail: adminUser.email, subject: processedSubject, htmlBody: processedBody.replace(/\n/g, '<br>'),
+            smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail,
         });
 
         if (result.success) toast({ title: "Test Email Sent", description: result.message });
         else toast({ title: "Test Email Failed", description: result.message, variant: "destructive" });
-    } catch (error) {
-        toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
-    } finally {
-        setIsTestSending(false);
-    }
+    } catch (error) { toast({ title: "Error", description: (error as Error).message, variant: "destructive" });
+    } finally { setIsTestSending(false); }
   };
 
-  const renderDelayInputs = (
-    baseFieldName: "noBookingReminderDelay" | "abandonedCartDelay" | "recurringEngagementDelay",
-    label: string
-  ) => (
-    <div className="space-y-2">
-      <FormLabel className="text-sm">{label}</FormLabel>
+  const renderDelayInputs = (baseFieldName: "noBookingReminderDelay" | "abandonedCartDelay" | "recurringEngagementDelay", label: string) => (
+    <div className="space-y-2"><FormLabel className="text-sm">{label}</FormLabel>
       <div className="grid grid-cols-3 gap-2">
         <FormField control={form.control} name={`${baseFieldName}.days`} render={({ field }) => (<FormItem><FormLabel className="text-xs text-muted-foreground">Days</FormLabel><FormControl><Input type="number" placeholder="e.g., 1" {...field} /></FormControl><FormMessage /></FormItem>)} />
         <FormField control={form.control} name={`${baseFieldName}.hours`} render={({ field }) => (<FormItem><FormLabel className="text-xs text-muted-foreground">Hours</FormLabel><FormControl><Input type="number" placeholder="e.g., 24" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -192,81 +221,57 @@ export default function MarketingAutomationPage() {
       </div>
     </div>
   );
+  
+  const renderAutomationCard = (id: 'noBookingReminder' | 'abandonedCart' | 'recurringEngagement', title: string, description: string, icon: React.ReactNode, subject: string, categoryIdField: keyof MarketingAutomationFormData) => (
+    <Card>
+      <CardHeader><CardTitle className="flex items-center">{icon}{title}</CardTitle><CardDescription>{description}</CardDescription></CardHeader>
+      <CardContent className="space-y-6">
+        <FormField control={form.control} name={`${id}Enabled`} render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center"><Mail className="mr-2 h-4 w-4"/>Enable "{title}"</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSaving || isTestSending} /></FormControl></FormItem>)}/>
+        {form.watch(`${id}Enabled`) && (
+          <div className="pl-4 border-l-2 ml-2 space-y-4">
+            {id !== 'recurringEngagement' && renderDelayInputs(`${id}Delay`, "Send After")}
+            {id === 'recurringEngagement' && renderDelayInputs(`${id}Delay`, "Send Every")}
+            <FormField control={form.control} name={`${id}CategoryId`} render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center"><Layers className="mr-2 h-4 w-4"/>Category for {"{{category_services}}"} Tag</FormLabel>
+                  <Select onValueChange={field.onChange} value={field.value || "cart"} disabled={isSaving || isLoadingCategories}>
+                    <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                    <SelectContent>
+                        <SelectItem value="cart">Automatic (from user's cart)</SelectItem>
+                        <SelectItem value="none">-- None --</SelectItem>
+                        {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                  <FormDescription>Select a category, or let it be determined from the user's cart (if available).</FormDescription>
+                </FormItem>
+            )}/>
+            <FormField control={form.control} name={`${id}Template`} render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, ..." {...field} rows={5} /></FormControl><FormDescription>Use merge tags like {"{{name}}"}, {"{{popular_services}}"}, {"{{category_services}}"}, etc.</FormDescription><FormMessage /></FormItem>)}/>
+            <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend(subject, form.getValues(`${id}Template`) || 'Test', form.getValues(categoryIdField as any))} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="text-2xl flex items-center">
-            <Megaphone className="mr-2 h-6 w-6 text-primary" /> Marketing Center
-          </CardTitle>
-          <CardDescription>
-            Configure automated marketing emails and send manual campaigns.
-          </CardDescription>
+          <CardTitle className="text-2xl flex items-center"><Megaphone className="mr-2 h-6 w-6 text-primary" /> Marketing Center</CardTitle>
+          <CardDescription>Configure automated marketing emails and send manual campaigns.</CardDescription>
         </CardHeader>
       </Card>
       
       <Tabs defaultValue="email_automations" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 mb-6">
-          <TabsTrigger value="email_automations"><Mail className="mr-2 h-4 w-4" />Email Automations</TabsTrigger>
-          <TabsTrigger value="send_email"><Send className="mr-2 h-4 w-4" />Send Manual Email</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="send_email">
-            <SendManualEmailForm />
-        </TabsContent>
-
+        <TabsList className="grid w-full grid-cols-2 mb-6"><TabsTrigger value="email_automations"><Mail className="mr-2 h-4 w-4" />Email Automations</TabsTrigger><TabsTrigger value="send_email"><Send className="mr-2 h-4 w-4" />Send Manual Email</TabsTrigger></TabsList>
+        <TabsContent value="send_email"><SendManualEmailForm /></TabsContent>
         <TabsContent value="email_automations">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-              <Card>
-                <CardHeader><CardTitle className="flex items-center"><Users className="mr-2 h-5 w-5 text-primary"/>No Booking Reminder</CardTitle><CardDescription>Follow-up with users who sign up but do not book a service.</CardDescription></CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField control={form.control} name="noBookingReminderEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center"><Mail className="mr-2 h-4 w-4"/>Enable "No Booking" Reminder</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSaving || isTestSending} /></FormControl></FormItem>)}/>
-                   {form.watch("noBookingReminderEnabled") && (
-                      <div className="pl-4 border-l-2 ml-2 space-y-4">
-                          {renderDelayInputs("noBookingReminderDelay", "Send After")}
-                          <FormField control={form.control} name="noBookingReminderTemplate" render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, haven't booked yet?..." {...field} rows={5} /></FormControl><FormDescription>Placeholders: {"{{name}}"}, {"{{popular_services}}"}</FormDescription><FormMessage /></FormItem>)}/>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('A friendly reminder from Wecanfix', form.getValues('noBookingReminderTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
-                      </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="flex items-center"><ShoppingCart className="mr-2 h-5 w-5 text-primary"/>Abandoned Cart Reminder</CardTitle><CardDescription>Remind users who add items to cart but don't check out.</CardDescription></CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField control={form.control} name="abandonedCartEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center"><Mail className="mr-2 h-4 w-4"/>Enable Abandoned Cart Email</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSaving || isTestSending} /></FormControl></FormItem>)}/>
-                   {form.watch("abandonedCartEnabled") && (
-                      <div className="pl-4 border-l-2 ml-2 space-y-4">
-                          {renderDelayInputs("abandonedCartDelay", "Send After")}
-                          <FormField control={form.control} name="abandonedCartTemplate" render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, did you forget something?..." {...field} rows={5} /></FormControl><FormDescription>Placeholders: {"{{name}}"}, {"{{cart_items}}"}, {"{{cart_item_name}}"}, {"{{cart_link}}"}</FormDescription><FormMessage /></FormItem>)}/>
-                          <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('You left something in your cart!', form.getValues('abandonedCartTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
-                      </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <Card>
-                <CardHeader><CardTitle className="flex items-center"><Repeat className="mr-2 h-5 w-5 text-primary"/>Recurring Engagement</CardTitle><CardDescription>Send regular emails to all registered users.</CardDescription></CardHeader>
-                <CardContent className="space-y-6">
-                  <FormField control={form.control} name="recurringEngagementEnabled" render={({ field }) => (<FormItem className="flex flex-row items-center justify-between rounded-lg border p-4"><div className="space-y-0.5"><FormLabel className="text-base flex items-center"><Mail className="mr-2 h-4 w-4"/>Enable Recurring Emails</FormLabel></div><FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSaving || isTestSending} /></FormControl></FormItem>)}/>
-                  {form.watch("recurringEngagementEnabled") && (
-                      <div className="pl-4 border-l-2 ml-2 space-y-4">
-                          {renderDelayInputs("recurringEngagementDelay", "Send Every")}
-                          <FormField control={form.control} name="recurringEngagementTemplate" render={({ field }) => (<FormItem><FormLabel>Email Body</FormLabel><FormControl><Textarea placeholder="Hi {{name}}, here's what's new..." {...field} rows={5} /></FormControl><FormDescription>Placeholders: {"{{name}}"}, {"{{popular_services}}"}, {"{{city}}"}</FormDescription><FormMessage /></FormItem>)}/>
-                           <Button type="button" variant="secondary" size="sm" onClick={() => handleTestSend('Here\'s what\'s new at Wecanfix!', form.getValues('recurringEngagementTemplate') || 'Test')} disabled={isTestSending}><Send className="mr-2 h-4 w-4"/>Send Test Email</Button>
-                      </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              <CardFooter className="flex justify-end">
-                <Button type="submit" disabled={isSaving || isTestSending}>
-                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                  Save Automation Settings
-                </Button>
-              </CardFooter>
+              {renderAutomationCard('noBookingReminder', 'No Booking Reminder', "Follow-up with users who sign up but don't book a service.", <Users className="mr-2 h-5 w-5 text-primary"/>, "A friendly reminder from " + (globalSettings.websiteName || "Wecanfix"), "noBookingReminderCategoryId")}
+              {renderAutomationCard('abandonedCart', 'Abandoned Cart Reminder', "Remind users who add items to cart but don't check out.", <ShoppingCart className="mr-2 h-5 w-5 text-primary"/>, "You left something in your cart!", "abandonedCartCategoryId")}
+              {renderAutomationCard('recurringEngagement', 'Recurring Engagement', "Send regular emails to all registered users to keep them engaged.", <Repeat className="mr-2 h-5 w-5 text-primary"/>, "Here's what's new at " + (globalSettings.websiteName || "Wecanfix"), "recurringEngagementCategoryId")}
+              <CardFooter className="flex justify-end"><Button type="submit" disabled={isSaving || isTestSending}>{isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}Save Automation Settings</Button></CardFooter>
             </form>
           </Form>
         </TabsContent>

@@ -203,6 +203,9 @@ const Footer = () => {
             {settings?.contactMobile && (
                  <p className="text-sm mt-1">Phone: <a href={`tel:${settings.contactMobile}`} className="hover:text-primary">{settings.contactMobile}</a></p>
             )}
+            {settings?.address && (
+                 <p className="text-sm mt-1">Address: {settings.address}</p>
+            )}
           </div>
         </div>
 

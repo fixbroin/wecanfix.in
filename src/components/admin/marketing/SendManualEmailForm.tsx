@@ -6,54 +6,86 @@ import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, Send, Users, UserSearch, Copy, Tag } from "lucide-react";
+import { Loader2, Send, Users, UserSearch, Copy, Tag, Layers } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { collection, query, orderBy, getDocs, where, limit } from "firebase/firestore";
-import type { FirestoreUser } from '@/types/firestore';
+import type { FirestoreUser, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { sendBulkMarketingEmail } from '@/ai/flows/sendBulkMarketingEmailFlow';
+import { getBaseUrl } from '@/lib/config';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const sendEmailFormSchema = z.object({
   targetAudience: z.enum(['all', 'specific'], { required_error: "Please select an audience."}),
   userIds: z.array(z.string()).optional(),
   subject: z.string().min(5, "Subject must be at least 5 characters."),
   body: z.string().min(20, "Email body must be at least 20 characters."),
+  categoryId: z.string().optional(),
 });
 type SendEmailFormData = z.infer<typeof sendEmailFormSchema>;
 
 const mergeTags = [
-    { tag: '{{name}}', label: 'Full Name' },
-    { tag: '{{email}}', label: 'Email Address' },
-    { tag: '{{mobile}}', label: 'Mobile Number' },
-    { tag: '{{signupDate}}', label: 'Signup Date' },
-    { tag: '{{websiteName}}', label: 'Website Name' },
-    { tag: '{{websiteUrl}}', label: 'Website URL' },
-    { tag: '{{supportEmail}}', label: 'Support Email' },
-    { tag: '{{companyAddress}}', label: 'Company Address' },
+    { tag: '{{name}}', label: 'Full Name', group: 'User Details' },
+    { tag: '{{email}}', label: 'Email Address', group: 'User Details' },
+    { tag: '{{mobile}}', label: 'Mobile Number', group: 'User Details' },
+    { tag: '{{signupDate}}', label: 'Signup Date', group: 'User Details' },
+    { tag: '{{websiteName}}', label: 'Website Name', group: 'App Details' },
+    { tag: '{{websiteUrl}}', label: 'Website URL', group: 'App Details' },
+    { tag: '{{supportEmail}}', label: 'Support Email', group: 'App Details' },
+    { tag: '{{companyAddress}}', label: 'Company Address', group: 'App Details' },
+    { tag: '{{popular_services}}', label: 'Popular Services (Top 5)', group: 'Dynamic Content' },
+    { tag: '{{popular_categories}}', label: 'Popular Categories (Top 5)', group: 'Dynamic Content' },
+    { tag: '{{all_services}}', label: 'All Services', group: 'Dynamic Content' },
+    { tag: '{{all_categories}}', label: 'All Categories', group: 'Dynamic Content' },
+    { tag: '{{category_services}}', label: 'Services from Selected Category', group: 'Dynamic Content' },
 ];
+
+const groupedMergeTags = mergeTags.reduce((acc, tag) => {
+    (acc[tag.group] = acc[tag.group] || []).push(tag);
+    return acc;
+}, {} as Record<string, typeof mergeTags>);
+
 
 export default function SendManualEmailForm() {
   const { toast } = useToast();
   const { settings: globalSettings, isLoading: isLoadingGlobalSettings } = useGlobalSettings();
   const [isSending, setIsSending] = useState(false);
   const [allUsers, setAllUsers] = useState<FirestoreUser[]>([]);
+  const [allCategories, setAllCategories] = useState<FirestoreCategory[]>([]);
   const [isLoadingUsers, setIsLoadingUsers] = useState(false);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [userSearchTerm, setUserSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState<FirestoreUser | null>(null);
 
   const form = useForm<SendEmailFormData>({
     resolver: zodResolver(sendEmailFormSchema),
-    defaultValues: { targetAudience: 'all', userIds: [], subject: "", body: "" },
+    defaultValues: { targetAudience: 'all', userIds: [], subject: "", body: "", categoryId: "none" },
   });
 
   const watchedTargetAudience = form.watch('targetAudience');
+
+  useEffect(() => {
+    const fetchSelectData = async () => {
+      setIsLoadingCategories(true);
+      try {
+        const catQuery = query(collection(db, "adminCategories"), orderBy("name", "asc"));
+        const catSnapshot = await getDocs(catQuery);
+        setAllCategories(catSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreCategory)));
+      } catch (error) {
+        toast({ title: "Error", description: "Could not load categories for dropdown.", variant: "destructive" });
+      } finally {
+        setIsLoadingCategories(false);
+      }
+    };
+    fetchSelectData();
+  }, [toast]);
 
   useEffect(() => {
     if (watchedTargetAudience === 'specific' && allUsers.length === 0) {
@@ -79,7 +111,7 @@ export default function SendManualEmailForm() {
         (user.displayName && user.displayName.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
         (user.email && user.email.toLowerCase().includes(userSearchTerm.toLowerCase())) ||
         (user.mobileNumber && user.mobileNumber.includes(userSearchTerm))
-      ).slice(0, 5) // Limit to 5 results for performance
+      ).slice(0, 5) 
     : [];
 
   const handleUserSelect = (user: FirestoreUser) => {
@@ -104,15 +136,18 @@ export default function SendManualEmailForm() {
             return;
         }
 
+        const categoryIdToSend = (data.categoryId && data.categoryId !== 'none') ? data.categoryId : undefined;
+
         const result = await sendBulkMarketingEmail({
             targetUserIds,
             subject: data.subject,
             body: data.body,
+            categoryIdForServices: categoryIdToSend,
         });
         
         if (result.success) {
             toast({ title: "Success!", description: result.message, className: "bg-green-100 border-green-300 text-green-700" });
-            form.reset({ targetAudience: 'all', userIds: [], subject: "", body: "" });
+            form.reset({ targetAudience: 'all', userIds: [], subject: "", body: "", categoryId: "none" });
             setSelectedUser(null);
         } else {
             throw new Error(result.message);
@@ -170,6 +205,28 @@ export default function SendManualEmailForm() {
                 {isLoadingUsers && <Loader2 className="h-4 w-4 animate-spin mt-2" />}
               </div>
             )}
+            <FormField
+                control={form.control}
+                name="categoryId"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Category for Services (Optional)</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value || "none"} disabled={isSending || isLoadingCategories}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a category to list its services..." />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="none">-- None --</SelectItem>
+                        {allCategories.map(cat => <SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                    <FormDescription>If selected, you can use the {"{{category_services}}"} merge tag in your email body.</FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             <FormField control={form.control} name="subject" render={({ field }) => (<FormItem><FormLabel>Subject</FormLabel><FormControl><Input placeholder="Your Email Subject" {...field} disabled={isSending} /></FormControl><FormMessage /></FormItem>)} />
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <FormField
@@ -187,15 +244,22 @@ export default function SendManualEmailForm() {
                 <CardHeader className="p-1 pb-2"><CardTitle className="text-sm font-medium flex items-center"><Tag className="mr-2 h-4 w-4"/>Merge Tags</CardTitle></CardHeader>
                 <CardContent className="p-1">
                   <p className="text-xs text-muted-foreground mb-2">Click to copy a tag.</p>
-                  <div className="space-y-1">
-                    {mergeTags.map(tag => (
-                      <Button key={tag.tag} type="button" variant="ghost" size="sm" className="w-full justify-start text-xs h-7" onClick={() => handleCopyTag(tag.tag)}>
-                        <Copy className="mr-2 h-3 w-3" />
-                        <span className="font-mono">{tag.tag}</span>
-                        <span className="text-muted-foreground ml-2">({tag.label})</span>
-                      </Button>
-                    ))}
-                  </div>
+                  <ScrollArea className="h-64">
+                    <div className="space-y-3">
+                        {Object.entries(groupedMergeTags).map(([groupName, tags]) => (
+                            <div key={groupName}>
+                                <h4 className="font-semibold text-xs text-foreground/80 mb-1">{groupName}</h4>
+                                {tags.map(tag => (
+                                    <Button key={tag.tag} type="button" variant="ghost" size="sm" className="w-full justify-start text-xs h-7" onClick={() => handleCopyTag(tag.tag)}>
+                                        <Copy className="mr-2 h-3 w-3" />
+                                        <span className="font-mono">{tag.tag}</span>
+                                        <span className="text-muted-foreground ml-2 truncate">({tag.label})</span>
+                                    </Button>
+                                ))}
+                            </div>
+                        ))}
+                    </div>
+                  </ScrollArea>
                 </CardContent>
               </Card>
             </div>

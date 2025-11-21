@@ -9,8 +9,9 @@ import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
 import { getFirestore, Timestamp } from 'firebase-admin/firestore';
 import { initFirebaseAdmin } from '@/lib/firebase-admin';
-import type { FirestoreUser, AppSettings, GlobalWebSettings } from '@/types/firestore';
+import type { FirestoreUser, AppSettings, GlobalWebSettings, FirestoreService, FirestoreCategory } from '@/types/firestore';
 import { sendMarketingEmail } from './sendMarketingEmailFlow';
+import { getBaseUrl } from '@/lib/config';
 
 // Helper to safely get nested properties
 const get = (obj: any, path: string, defaultValue: any = ''): any => {
@@ -31,6 +32,7 @@ const BulkMarketingEmailInputSchema = z.object({
   targetUserIds: z.union([z.literal('all'), z.array(z.string())]).describe("Either 'all' to send to all users, or an array of specific user IDs."),
   subject: z.string().describe("The subject line of the email."),
   body: z.string().describe("The HTML content of the email body, with merge tags like {{name}}."),
+  categoryIdForServices: z.string().optional(), // New field for category-specific services
 });
 
 export type BulkMarketingEmailInput = z.infer<typeof BulkMarketingEmailInputSchema>;
@@ -73,18 +75,48 @@ const bulkMarketingEmailFlow = ai.defineFlow(
         throw new Error("SMTP settings are incomplete. Cannot send emails.");
       }
 
+      // Fetch dynamic content for merge tags
+      const baseUrl = getBaseUrl();
+      
+      // Popular Content
+      const popularServicesSnap = await db.collection("adminServices").where("isActive", "==", true).orderBy("rating", "desc").limit(5).get();
+      const popularServicesHtml = `<ul>${popularServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+
+      const popularCategoriesSnap = await db.collection("adminCategories").orderBy("order", "asc").limit(5).get();
+      const popularCategoriesHtml = `<ul>${popularCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+
+      // All Content
+      const allServicesSnap = await db.collection("adminServices").where("isActive", "==", true).orderBy("name", "asc").get();
+      const allServicesHtml = `<ul>${allServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+
+      const allCategoriesSnap = await db.collection("adminCategories").orderBy("order", "asc").get();
+      const allCategoriesHtml = `<ul>${allCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+
+      // New: Category-specific services
+      let categoryServicesHtml = '';
+      if (input.categoryIdForServices) {
+        const subCatsSnap = await db.collection("adminSubCategories").where("parentId", "==", input.categoryIdForServices).get();
+        const subCatIds = subCatsSnap.docs.map(doc => doc.id);
+        if (subCatIds.length > 0) {
+            const categoryServicesSnap = await db.collection("adminServices").where("subCategoryId", "in", subCatIds).where("isActive", "==", true).orderBy("name", "asc").get();
+            categoryServicesHtml = `<ul>${categoryServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+        }
+      }
+
       // 2. Fetch target users
       let users: FirestoreUser[] = [];
       if (input.targetUserIds === 'all') {
         const usersSnapshot = await db.collection('users').get();
         users = usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreUser));
       } else if (Array.isArray(input.targetUserIds) && input.targetUserIds.length > 0) {
-        // Firestore 'in' query has a limit of 30 items. We need to chunk if necessary.
         const userIds = input.targetUserIds;
+        // Firestore 'in' queries are limited to 30 items
         for (let i = 0; i < userIds.length; i += 30) {
             const chunk = userIds.slice(i, i + 30);
-            const usersSnapshot = await db.collection('users').where('__name__', 'in', chunk).get();
-            users.push(...usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreUser)));
+            if (chunk.length > 0) {
+              const usersSnapshot = await db.collection('users').where('__name__', 'in', chunk).get();
+              users.push(...usersSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreUser)));
+            }
         }
       }
 
@@ -98,7 +130,7 @@ const bulkMarketingEmailFlow = ai.defineFlow(
 
       const appDetails = {
         websiteName: globalSettings.websiteName || 'Wecanfix',
-        websiteUrl: process.env.NEXT_PUBLIC_BASE_URL || 'https://wecanfix.in',
+        websiteUrl: getBaseUrl(),
         supportEmail: globalSettings.contactEmail || 'support@wecanfix.in',
         companyAddress: globalSettings.address || '',
         logoUrl: globalSettings.logoUrl || '',
@@ -122,20 +154,25 @@ const bulkMarketingEmailFlow = ai.defineFlow(
           websiteUrl: appDetails.websiteUrl,
           supportEmail: appDetails.supportEmail,
           companyAddress: appDetails.companyAddress,
+          popular_services: popularServicesHtml,
+          popular_categories: popularCategoriesHtml,
+          all_services: allServicesHtml,
+          all_categories: allCategoriesHtml,
+          category_services: categoryServicesHtml, // New merge tag data
         };
 
         // Replace tags
         for (const [key, value] of Object.entries(mergeData)) {
             const tag = new RegExp(`{{${key}}}`, 'g');
-            emailBody = emailBody.replace(tag, value);
-            emailSubject = emailSubject.replace(tag, value);
+            emailBody = emailBody.replace(tag, value || ''); // Ensure value is not null/undefined
+            emailSubject = emailSubject.replace(tag, value || '');
         }
 
         // Send email via the single marketing email flow
         const result = await sendMarketingEmail({
           toEmail: user.email,
           subject: emailSubject,
-          htmlBody: emailBody, // Body is already HTML, no need for newline conversion
+          htmlBody: emailBody,
           smtpHost: appConfig.smtpHost,
           smtpPort: appConfig.smtpPort,
           smtpUser: appConfig.smtpUser,
@@ -164,5 +201,3 @@ const bulkMarketingEmailFlow = ai.defineFlow(
     }
   }
 );
-
-    

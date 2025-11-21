@@ -49,7 +49,7 @@ const createHtmlTemplate = (title: string, bodyContent: string, siteName: string
   <head>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }
-      .container { max-width: 100%; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+      .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
       .header { text-align: center; padding-bottom: 20px; border-bottom: 1px solid #eeeeee; }
       .header img { max-width: 150px; }
       .content { padding: 20px 0; color: #555; line-height: 1.6; }
