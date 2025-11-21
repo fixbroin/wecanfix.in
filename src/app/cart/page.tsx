@@ -28,7 +28,6 @@ import { useAuth as useAuthHook } from '@/hooks/useAuth';
 import { getGuestId } from '@/lib/guestIdManager'; 
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
 import { Badge } from '@/components/ui/badge';
-
 export interface CartItem extends FirestoreService {
   quantity: number;
 }
@@ -232,7 +231,7 @@ function CartPageContent() {
     }
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'fixbroUserCart') {
+      if (event.key === 'wecanfixUserCart') {
         loadCartItems();
       }
     };
@@ -594,7 +593,7 @@ function CartPageContent() {
 
         {promoText && (
           <Badge 
-            className="bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded mt-1 flex items-center gap-1">
+            className="bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded mt-1 inline-flex items-center gap-1 ">
             {!item.hasPriceVariants && (
             <Percent className="w-4 h-4" strokeWidth={2.75} />
             )} {promoText}
