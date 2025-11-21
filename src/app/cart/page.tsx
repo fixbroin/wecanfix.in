@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -7,7 +8,7 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import QuantitySelector from '@/components/shared/QuantitySelector';
-import { Trash2, ShoppingCart, ArrowRight, Home, Loader2, Info } from 'lucide-react';
+import { Trash2, ShoppingCart, ArrowRight, Home, Loader2,Percent, Info } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import type { FirestoreService, UserCart, PriceVariant } from '@/types/firestore';
@@ -26,6 +27,7 @@ import { logUserActivity } from '@/lib/activityLogger';
 import { useAuth as useAuthHook } from '@/hooks/useAuth'; 
 import { getGuestId } from '@/lib/guestIdManager'; 
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { Badge } from '@/components/ui/badge';
 
 export interface CartItem extends FirestoreService {
   quantity: number;
@@ -80,11 +82,12 @@ const calculateIncrementalTotalPrice = (item: CartItem): number => {
 
 const getPriceDisplayInfo = (service: CartItem, quantity: number) => {
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
-        const priceSaved = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
+        const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
+        const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
         return {
             mainPrice: `₹${service.discountedPrice ?? service.price}`,
-            priceSuffix: priceSaved > 0 ? `₹${service.price}` : null,
-            promoText: priceSaved > 0 ? `Save ₹${priceSaved.toFixed(0)}!` : null,
+            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
+            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
         };
     }
 
@@ -229,7 +232,7 @@ function CartPageContent() {
     }
 
     const handleStorageChange = (event: StorageEvent) => {
-      if (event.key === 'wecanfixUserCart') {
+      if (event.key === 'fixbroUserCart') {
         loadCartItems();
       }
     };
@@ -476,44 +479,158 @@ function CartPageContent() {
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             {cartItems.map(item => {
                const totalPriceForItem = calculateIncrementalTotalPrice(item);
-               const priceInfo = getPriceDisplayInfo(item, item.quantity);
+               const { mainPrice, priceSuffix, promoText } = getPriceDisplayInfo(item, item.quantity);
                return (
                 <Card key={item.id} className="flex flex-col sm:flex-row items-start sm:items-center p-3 sm:p-4 shadow-sm">
-                  {item.imageUrl && (
-                    <div className="relative w-full sm:w-20 md:w-24 h-32 sm:h-20 md:h-24 rounded-md overflow-hidden mb-3 sm:mb-0 sm:mr-4 flex-shrink-0">
-                      <Image src={item.imageUrl} alt={item.name} fill sizes="(max-width: 640px) 100vw, 96px" className="object-cover" data-ai-hint={item.imageHint || "service item"} />
-                    </div>
-                  )}
-                  <div className="flex-grow">
-                    <h3 className="text-md sm:text-lg font-semibold">{item.name}</h3>
-                    <p className="text-xs sm:text-sm text-muted-foreground line-clamp-2">{item.description}</p>
-                    <div className="flex items-baseline gap-2 mt-2">
-                        <p className="text-lg font-bold text-foreground">{priceInfo.mainPrice}</p>
-                        {priceInfo.priceSuffix && (<p className="text-sm text-muted-foreground">
-                            <span className="line-through"> {priceInfo.priceSuffix.replace(/[^\d₹.,]/g, "")}
-                           </span>{" "}{priceInfo.priceSuffix.replace(/[\d₹.,]/g, "")}</p>
-                         )}
-                        {item.quantity > 1 && <p className="text-xs text-muted-foreground">(Avg. ₹{(totalPriceForItem / item.quantity).toFixed(2)} each)</p>}
-                    </div>
-                    {priceInfo.promoText && <p className="text-xs font-semibold text-green-600 mt-1">{priceInfo.promoText}</p>}
-                  </div>
-                  <div className="flex flex-col items-stretch sm:items-end mt-3 sm:mt-0 space-y-2 sm:space-y-0 sm:ml-4 w-full sm:w-auto">
-                    <QuantitySelector
-                      initialQuantity={item.quantity}
-                      onQuantityChange={(newQuantity) => handleQuantityChange(item.id, newQuantity)}
-                      minQuantity={0} 
-                      maxQuantity={item.maxQuantity}
-                      className="mb-2 sm:mb-0"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="text-destructive hover:text-destructive-foreground hover:bg-destructive w-full sm:w-auto text-xs sm:text-sm"
-                      onClick={() => handleRemoveItem(item.id)} 
-                    >
-                      <Trash2 className="mr-1 h-3.5 w-3.5 sm:h-4 sm:w-4" /> Remove
-                    </Button>
-                  </div>
+                  
+                  <div
+  key={item.id}
+  className="flex flex-col p-3 my-2 gap-3 bg-card border rounded-xl shadow-sm hover:shadow-md transition-shadow duration-300 w-full"
+>
+
+  {/* MOBILE LAYOUT */}
+<div className="flex flex-col md:hidden w-full gap-3">
+
+  {/* TEXT + IMAGE ROW */}
+  <div className="flex flex-row w-full gap-3">
+    {/* LEFT TEXT */}
+    <div className="flex-1 flex flex-col">
+      <h3 className="font-bold text-base leading-tight">{item.name}</h3>
+      <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+        {item.description}
+      </p>
+
+      <div className="flex items-baseline gap-2 mt-2">
+        <p className="text-lg font-bold">{mainPrice}</p>
+        {priceSuffix && (
+          <p className="text-sm text-muted-foreground">
+            <span className="line-through">
+              {priceSuffix.replace(/[^\d₹.,]/g, "")}
+            </span>{" "}
+            {priceSuffix.replace(/[\d₹.,]/g, "")}
+          </p>
+        )}
+      </div>
+
+      {promoText && (
+        <Badge 
+            className="bg-green-600 text-white text-[10px] font-semibold px-2 py-1 rounded mt-1 flex items-center gap-1">
+            {!item.hasPriceVariants && (
+            <Percent className="w-3 h-3" strokeWidth={2.75} />
+            )} {promoText}
+        </Badge>
+      )}
+    </div>
+
+    {/* RIGHT IMAGE */}
+    <div className="flex-shrink-0 w-24 h-24 relative">
+      <Image
+        src={item.imageUrl || "/default-image.png"}
+        alt={item.name}
+        fill
+        className="rounded-lg object-cover"
+      />
+    </div>
+  </div>
+
+  {/* QUANTITY + REMOVE BUTTON ROW */}
+  <div className="flex items-center justify-between w-full gap-3">
+
+  <Button
+    variant="ghost"
+    size="sm"
+    className="text-destructive bg-destructive/10 hover:bg-destructive hover:text-white active:bg-destructive/90 text-xs"
+    onClick={() => handleRemoveItem(item.id)}
+  >
+    <Trash2 className="mr-1 h-4 w-4" />
+    Remove
+  </Button>
+
+  <QuantitySelector
+    initialQuantity={item.quantity}
+    onQuantityChange={(newQuantity) => handleQuantityChange(item.id, newQuantity)}
+    minQuantity={0}
+    maxQuantity={item.maxQuantity}
+  />
+
+</div>
+</div>
+  {/* DESKTOP LAYOUT */}
+  <div className="hidden md:flex flex-row items-center w-full gap-1">
+    {/* LEFT IMAGE */}
+    <div className="relative w-32 h-32 flex-shrink-0">
+      <Image
+  src={item.imageUrl || "/default-image.png"}
+  alt={item.name}
+  fill
+  className="object-cover rounded-lg"
+/>
+    </div>
+
+    {/* CENTER TEXT */}
+    <div className="flex-1 flex flex-col">
+      <h3 className="font-bold text-lg leading-tight text-foreground line-clamp-2">
+        {item.name}
+      </h3>
+
+      <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+        {item.description}
+      </p>
+
+      {/* PRICE & PROMO */}
+      <div className="mt-auto">
+        <div className="flex flex-wrap items-baseline gap-2 mt-2">
+          <p className="text-xl font-bold">{mainPrice}</p>
+
+          {priceSuffix && (
+            <p className="text-base text-muted-foreground">
+              <span className="line-through">
+                {priceSuffix.replace(/[^\d₹.,]/g, "")}
+              </span>{" "}
+              {priceSuffix.replace(/[\d₹.,]/g, "")}
+            </p>
+          )}
+        </div>
+
+        {promoText && (
+          <Badge 
+            className="bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded mt-1 flex items-center gap-1">
+            {!item.hasPriceVariants && (
+            <Percent className="w-4 h-4" strokeWidth={2.75} />
+            )} {promoText}
+          </Badge>
+        )}
+      </div>
+    </div>
+
+    {/* RIGHT SIDE ACTIONS */}
+    <div className="flex flex-col items-center justify-center w-32 gap-3">
+      <QuantitySelector
+        initialQuantity={item.quantity}
+        onQuantityChange={(newQuantity) =>
+          handleQuantityChange(item.id, newQuantity)
+        }
+        minQuantity={0}
+        maxQuantity={item.maxQuantity}
+      />
+
+      <Button
+  variant="ghost"
+  size="sm"
+  className=" text-destructive
+    bg-destructive/10
+    hover:bg-destructive hover:text-white
+    active:bg-destructive/90
+    w-full sm:w-auto text-xs sm:text-sm"
+  onClick={() => handleRemoveItem(item.id)}
+>
+  <Trash2 className="mr-1 h-3.5 w-3.5 sm:h-4 sm:w-4" />
+  Remove
+</Button>
+    </div>
+  </div>
+</div>
+
                 </Card>
                );
             })}
@@ -606,4 +723,3 @@ export default function CartPage() {
     </ProtectedRoute>
   );
 }
-

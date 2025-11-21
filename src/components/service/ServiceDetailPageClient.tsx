@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -8,7 +9,7 @@ import Link from 'next/link';
 import type { FirestoreService, FirestoreReview, ClientServiceData, FirestoreCategory, FirestoreSubCategory, ServiceFaqItem, PriceVariant } from '@/types/firestore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Star, ShoppingCart, ArrowLeft, Home as HomeIcon, CheckCircle, ShieldCheck, Clock, Loader2, MessageSquare, MinusCircle, PlusCircle, Ban, HelpCircle, Users } from 'lucide-react';
+import { Star, ShoppingCart, ArrowLeft, Home as HomeIcon, CheckCircle, Percent,ShieldCheck, Clock, Loader2, MessageSquare, MinusCircle, PlusCircle, Ban, HelpCircle, Users } from 'lucide-react';
 import QuantitySelector from '@/components/shared/QuantitySelector';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -57,7 +58,7 @@ interface ServicePageCache {
   reviews?: FirestoreReview[];
 }
 
-// --- START: CORRECTED TIERED PRICING LOGIC ---
+// --- START: TIERED PRICING LOGIC ---
 const getPriceForNthUnit = (service: FirestoreService | ClientServiceData, n: number): number => {
   if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0 || n <= 0) {
     return service.discountedPrice ?? service.price;
@@ -84,13 +85,15 @@ const getPriceForNthUnit = (service: FirestoreService | ClientServiceData, n: nu
 };
 
 const getPriceDisplayInfo = (service: FirestoreService | ClientServiceData, quantity: number) => {
-    // No variants — simple discounted or base price
+  // No variants — simple discounted or base price
     if (!service.hasPriceVariants || !service.priceVariants || service.priceVariants.length === 0) {
-        const priceSaved = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
+        const unitSaving = service.discountedPrice && service.discountedPrice < service.price ? service.price - service.discountedPrice : 0;
+        const totalSaving = unitSaving * (quantity > 0 ? quantity : 1);
+        
         return {
             mainPrice: `₹${service.discountedPrice ?? service.price}`,
-            priceSuffix: priceSaved > 0 ? `₹${service.price}` : null,
-            promoText: priceSaved > 0 ? `Save ₹${priceSaved.toFixed(0)}!` : null,
+            priceSuffix: unitSaving > 0 ? `₹${service.price}` : null,
+            promoText: unitSaving > 0 ? `Save ₹${totalSaving.toFixed(0)}!` : null,
         };
     }
 
@@ -124,7 +127,7 @@ const getPriceDisplayInfo = (service: FirestoreService | ClientServiceData, quan
     };
 };
 
-// --- END: CORRECTED TIERED PRICING LOGIC ---
+// --- END: TIERED PRICING LOGIC ---
 
 export default function ServiceDetailPageClient({
   serviceSlug,
@@ -545,9 +548,12 @@ export default function ServiceDetailPageClient({
                  
                  {promoText && (
                           <Badge 
-                            className="bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded mt-1">{promoText}
+                            className="bg-green-600 text-white text-sm font-semibold px-2 py-1 rounded mt-1 flex items-center gap-1">
+                               {!service.hasPriceVariants && (
+                               <Percent className="w-4 h-4" strokeWidth={2.75} />
+                              )}{promoText}
                          </Badge>
-                )}
+                        )}
                 </div>
               </div>
             </CardContent>
