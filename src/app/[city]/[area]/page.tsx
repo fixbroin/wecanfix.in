@@ -1,0 +1,178 @@
+import HomePageClient from '@/components/home/HomePageClient';
+import Breadcrumbs from '@/components/shared/Breadcrumbs';
+import { adminDb } from '@/lib/firebaseAdmin';
+import type { FirestoreArea, FirestoreCity } from '@/types/firestore';
+import type { BreadcrumbItem } from '@/types/ui';
+import { notFound } from 'next/navigation';
+import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
+import type { Metadata, ResolvingMetadata } from 'next';
+import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
+import { replacePlaceholders } from '@/lib/seoUtils';
+import { getBaseUrl } from '@/lib/config';
+import JsonLdScript from '@/components/shared/JsonLdScript';
+
+export const dynamic = 'force-dynamic';
+
+interface AreaPageProps {
+  params: Promise<{ city: string; area: string }>;
+}
+
+const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next'];
+
+async function getAreaDataForPage(citySlug: string, areaSlug: string): Promise<(FirestoreArea & { parentCityData?: FirestoreCity }) | null> {
+  try {
+    if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || areaSlug.includes('.')) {
+      return null;
+    }
+
+    const citiesRef = adminDb.collection('cities');
+    const cityQuery = citiesRef.where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
+    const citySnapshot = await cityQuery.get();
+
+    if (citySnapshot.empty) {
+      return null;
+    }
+    const parentCityDoc = citySnapshot.docs[0];
+    const parentCityData = { id: parentCityDoc.id, ...parentCityDoc.data() } as FirestoreCity;
+
+    const areasRef = adminDb.collection('areas');
+    const areaQuery = areasRef
+      .where('slug', '==', areaSlug)
+      .where('cityId', '==', parentCityData.id)
+      .where('isActive', '==', true)
+      .limit(1);
+    const areaSnapshot = await areaQuery.get();
+
+    if (areaSnapshot.empty) {
+      return null;
+    }
+    const doc = areaSnapshot.docs[0];
+    const areaData = { id: doc.id, ...doc.data() } as FirestoreArea;
+    return { ...areaData, parentCityData };
+
+  } catch (error) {
+    console.error(`[AreaPage] Error fetching area data for page:`, error);
+    return null;
+  }
+}
+
+export async function generateMetadata(
+  { params }: AreaPageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { city: citySlug, area: areaSlug } = await params;
+  const areaData = await getAreaDataForPage(citySlug, areaSlug);
+  
+  if (!areaData) return {};
+
+  const seoSettings = await getGlobalSEOSettings();
+  const appBaseUrl = getBaseUrl();
+  const placeholderData = { areaName: areaData.name, cityName: areaData.parentCityData?.name };
+
+  const title = replacePlaceholders(areaData.metaTitle || seoSettings.areaPageTitlePattern, placeholderData) || `${areaData.name}, ${areaData.parentCityData?.name} | Wecanfix`;
+  const description = replacePlaceholders(areaData.metaDescription || seoSettings.areaPageDescriptionPattern, placeholderData) || `Trusted home services in ${areaData.name}, ${areaData.parentCityData?.name}.`;
+  const keywords = replacePlaceholders(areaData.metaKeywords || seoSettings.areaPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
+
+  const ogImage = areaData.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
+
+  return {
+    title: title,
+    description: description,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${appBaseUrl}/${citySlug}/${areaSlug}`,
+    },
+    openGraph: {
+      title: title,
+      description: description,
+      url: `/${citySlug}/${areaSlug}`,
+      images: [{ url: ogImage }],
+      type: 'website',
+    },
+  };
+}
+
+export async function generateStaticParams() {
+  try {
+    const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+    const paramsArray: { city: string; area: string }[] = [];
+
+    for (const cityDoc of citiesSnapshot.docs) {
+      const cityData = cityDoc.data() as FirestoreCity;
+      if (!cityData.slug || cityData.slug.includes('.') || RESERVED_SLUGS.includes(cityData.slug)) continue; 
+      const areasQuery = adminDb
+        .collection('areas')
+        .where('cityId', '==', cityDoc.id)
+        .where('isActive', '==', true);
+      const areasSnapshot = await areasQuery.get();
+      areasSnapshot.docs.forEach(areaDoc => {
+        const areaData = areaDoc.data() as FirestoreArea;
+        if (areaData.slug && !areaData.slug.includes('.')) { 
+          paramsArray.push({ city: cityData.slug!, area: areaData.slug });
+        }
+      });
+    }
+    return paramsArray;
+  } catch (error) {
+    console.error("Error generating static params for area pages:", error);
+    return [];
+  }
+}
+
+export default async function AreaHomePage({ params }: AreaPageProps) {
+  const { city: citySlug, area: areaSlug } = await params;
+
+  if (citySlug.includes('.') || areaSlug.includes('.') || RESERVED_SLUGS.includes(citySlug)) {
+    notFound();
+  }
+  
+  const [areaData, homepageData, aggregateRating] = await Promise.all([
+    getAreaDataForPage(citySlug, areaSlug),
+    getHomepageData(),
+    getAggregateRating()
+  ]);
+  
+  if (!areaData) {
+    notFound();
+  }
+
+  const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
+  breadcrumbItems.push({ label: areaData.parentCityData!.name, href: `/${citySlug}` });
+  breadcrumbItems.push({ label: areaData.name });
+
+  const areaSchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": `Home Services in ${areaData.name}, ${areaData.parentCityData!.name}`,
+    "description": areaData.metaDescription || `Reliable home services in ${areaData.name}.`,
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "Wecanfix"
+    },
+    "areaServed": {
+      "@type": "AdministrativeArea",
+      "name": areaData.name
+    }
+  };
+
+  if (aggregateRating) {
+    (areaSchema as any).aggregateRating = {
+      "@type": "AggregateRating",
+      "ratingValue": aggregateRating.ratingValue,
+      "reviewCount": aggregateRating.reviewCount,
+      "bestRating": "5",
+      "worstRating": "1"
+    };
+  }
+
+  return (
+    <>
+      <JsonLdScript data={areaSchema} idSuffix={`area-${areaData.id}`} />
+      <HomePageClient citySlug={citySlug} areaSlug={areaSlug} breadcrumbItems={breadcrumbItems} initialData={homepageData} />
+    </>
+  );
+}

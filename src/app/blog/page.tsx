@@ -1,0 +1,171 @@
+import { adminDb } from '@/lib/firebaseAdmin';
+import type { FirestoreBlogPost, ClientBlogPost } from '@/types/firestore';
+import BlogPostCard from '@/components/blog/BlogPostCard';
+import Breadcrumbs from '@/components/shared/Breadcrumbs';
+import AppImage from '@/components/ui/AppImage';
+import type { Metadata } from 'next';
+import { getBaseUrl } from '@/lib/config';
+import Link from 'next/link';
+import { Calendar, Clock, ArrowRight } from 'lucide-react';
+
+import type { BreadcrumbItem } from '@/types/ui';
+
+export const dynamic = 'force-dynamic';
+
+export async function generateMetadata(): Promise<Metadata> {
+  const appBaseUrl = getBaseUrl();
+  const canonicalUrl = `${appBaseUrl}/blog`;
+
+  return {
+    title: "Blog",
+    description: "Tips, guides, and updates from the Wecanfix team to help you with your home needs.",
+    alternates: {
+      canonical: canonicalUrl,
+    },
+    openGraph: {
+      title: "Blog | Wecanfix",
+      description: "Tips, guides, and updates from the Wecanfix team to help you with your home needs.",
+      url: canonicalUrl,
+      type: 'website',
+    },
+  };
+}
+
+
+async function getPublishedPosts(): Promise<ClientBlogPost[]> {
+  try {
+    const postsRef = adminDb.collection('blogPosts');
+    const snapshot = await postsRef.get();
+    
+    const posts: ClientBlogPost[] = snapshot.docs
+      .map(doc => {
+        const data = doc.data() as FirestoreBlogPost;
+        return {
+          ...data,
+          id: doc.id,
+          // Serialize Timestamps to ISO strings
+          createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
+            ? data.createdAt.toDate().toISOString() 
+            : new Date().toISOString(),
+          updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
+            ? data.updatedAt.toDate().toISOString() 
+            : undefined,
+        };
+      })
+      .filter(post => post.isPublished === true)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    return posts;
+  } catch (error) {
+    console.error("Error fetching blog posts:", error);
+    return [];
+  }
+}
+
+export default async function BlogListPage() {
+  const posts = await getPublishedPosts();
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: 'Home', href: '/' },
+    { label: 'Blog' },
+  ];
+
+  const featuredPost = posts[0];
+  const otherPosts = posts.slice(1);
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      {/* Header Section */}
+      <div className="bg-primary/5 py-16 md:py-24">
+        <div className="container mx-auto px-4">
+          <Breadcrumbs items={breadcrumbItems} />
+          <div className="mt-8 text-center max-w-3xl mx-auto">
+            <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground mb-6">
+              Our <span className="text-primary">Blog</span>
+            </h1>
+            <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
+              Expert tips, home maintenance guides, and the latest updates from the Wecanfix team.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 -mt-10">
+        {posts.length > 0 ? (
+          <div className="space-y-16">
+            {/* Featured Post */}
+            {featuredPost && (
+              <Link href={`/blog/${featuredPost.slug}`} className="block group">
+                <div className="relative bg-card rounded-3xl shadow-xl overflow-hidden border border-border/50 transition-all duration-500 hover:shadow-2xl">
+                  <div className="grid grid-cols-1 lg:grid-cols-2">
+                    <div className="relative aspect-square lg:aspect-auto h-full min-h-[400px] overflow-hidden">
+                      <AppImage
+                        src={featuredPost.coverImageUrl}
+                        alt={featuredPost.title}
+                        fill
+                        className="group-hover:scale-105 transition-transform duration-700"
+                        objectPosition="top"
+                        priority
+                      />
+                      {featuredPost.categoryName && (
+                        <div className="absolute top-6 left-6">
+                          <span className="px-4 py-1.5 bg-primary text-primary-foreground text-xs font-bold rounded-full uppercase tracking-widest shadow-lg">
+                            Featured: {featuredPost.categoryName}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-8 md:p-12 lg:p-16 flex flex-col justify-center space-y-6">
+                      <div className="flex items-center gap-4 text-sm text-muted-foreground font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          {new Date(featuredPost.createdAt).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
+                        </span>
+                        {featuredPost.readingTime && (
+                          <span className="flex items-center gap-1.5 border-l pl-4">
+                            <Clock className="h-4 w-4 text-primary" />
+                            {featuredPost.readingTime}
+                          </span>
+                        )}
+                      </div>
+                      <h2 className="text-3xl md:text-4xl lg:text-5xl font-headline font-bold leading-tight group-hover:text-primary transition-colors">
+                        {featuredPost.title}
+                      </h2>
+                      <p className="text-muted-foreground text-lg line-clamp-3 leading-relaxed">
+                        {featuredPost.excerpt || featuredPost.content.replace(/<[^>]*>?/gm, '').substring(0, 160) + '...'}
+                      </p>
+                      <div className="pt-4">
+                        <div className="inline-flex items-center gap-2 text-primary font-bold text-lg group-hover:gap-4 transition-all">
+                          Read Full Article <ArrowRight className="h-5 w-5" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )}
+
+            {/* Other Posts Grid */}
+            {otherPosts.length > 0 && (
+              <div className="space-y-10">
+                <h3 className="text-3xl font-headline font-bold">Recent Articles</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 md:gap-10">
+                  {otherPosts.map((post, index) => (
+                    <BlogPostCard key={post.id} post={post} />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-24 bg-card rounded-3xl border border-dashed">
+            <div className="bg-primary/10 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Calendar className="h-10 w-10 text-primary opacity-50" />
+            </div>
+            <h2 className="text-2xl font-headline font-bold mb-2">No posts found</h2>
+            <p className="text-muted-foreground">We're working on some great content for you. Check back soon!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

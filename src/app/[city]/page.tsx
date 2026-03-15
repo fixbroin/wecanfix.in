@@ -1,0 +1,149 @@
+import HomePageClient from '@/components/home/HomePageClient';
+import { adminDb } from '@/lib/firebaseAdmin';
+import type { FirestoreCity } from '@/types/firestore';
+import Breadcrumbs from '@/components/shared/Breadcrumbs';
+import type { BreadcrumbItem } from '@/types/ui';
+import { notFound } from 'next/navigation';
+import { getHomepageData, getAggregateRating } from '@/lib/homepageUtils';
+import type { Metadata, ResolvingMetadata } from 'next';
+import { replacePlaceholders } from '@/lib/seoUtils';
+import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
+import { getBaseUrl } from '@/lib/config';
+import JsonLdScript from '@/components/shared/JsonLdScript';
+
+export const dynamic = 'force-dynamic';
+
+interface CityPageProps {
+  params: Promise<{ city: string }>;
+}
+
+const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next', 'favicon.ico'];
+
+async function getCityData(slug: string): Promise<FirestoreCity | null> {
+  try {
+    if (slug.includes('.') || RESERVED_SLUGS.includes(slug)) {
+      return null;
+    }
+    const citiesRef = adminDb.collection('cities');
+    const q = citiesRef.where('slug', '==', slug).where('isActive', '==', true).limit(1);
+    const snapshot = await q.get();
+    if (snapshot.empty) {
+        return null;
+    }
+    const doc = snapshot.docs[0];
+    return { id: doc.id, ...doc.data() } as FirestoreCity;
+  } catch (error) {
+    console.error(`[CityPage] Error fetching city data for page:`, error);
+    return null;
+  }
+}
+
+export async function generateMetadata(
+  { params }: CityPageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { city: citySlug } = await params;
+  const cityData = await getCityData(citySlug);
+  
+  if (!cityData) return {};
+
+  const seoSettings = await getGlobalSEOSettings();
+  const appBaseUrl = getBaseUrl();
+  const placeholderData = { cityName: cityData.name };
+
+  const title = replacePlaceholders(cityData.metaTitle || seoSettings.cityPageTitlePattern, placeholderData) || `${cityData.name} Home Services | Wecanfix`;
+  const description = replacePlaceholders(cityData.metaDescription || seoSettings.cityPageDescriptionPattern, placeholderData) || `Trusted home services in ${cityData.name}.`;
+  const keywords = replacePlaceholders(cityData.metaKeywords || seoSettings.cityPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
+
+  const ogImage = cityData.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
+
+  return {
+    title: title,
+    description: description,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${appBaseUrl}/${citySlug}`,
+    },
+    openGraph: {
+      title: title,
+      description: description,
+      url: `/${citySlug}`,
+      images: [{ url: ogImage }],
+      type: 'website',
+    },
+  };
+}
+
+export async function generateStaticParams() {
+   try {
+    const citiesSnapshot = await adminDb.collection('cities').where('isActive', '==', true).get();
+    const paths = citiesSnapshot.docs.map(doc => ({
+      city: (doc.data() as FirestoreCity).slug as string,
+    }));
+    return paths.filter(p => p.city && !p.city.includes('.') && !RESERVED_SLUGS.includes(p.city));
+  } catch (error) {
+    console.error("Error generating static params for city pages:", error);
+    return [];
+  }
+}
+
+export default async function CityHomePage({ params }: CityPageProps) {
+  const { city: citySlug } = await params;
+
+  if (citySlug.includes('.') || RESERVED_SLUGS.includes(citySlug)) {
+    notFound();
+  }
+  
+  const [cityData, homepageData, aggregateRating] = await Promise.all([
+    getCityData(citySlug),
+    getHomepageData(),
+    getAggregateRating()
+  ]);
+  
+  if (!cityData) {
+    notFound();
+  }
+
+  const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
+  breadcrumbItems.push({ label: cityData.name });
+
+  const appBaseUrl = getBaseUrl();
+  const citySchema = {
+    "@context": "https://schema.org",
+    "@type": "Service",
+    "name": `Home Services in ${cityData.name}`,
+    "description": cityData.metaDescription || `Professional home services in ${cityData.name}.`,
+    "provider": {
+      "@type": "LocalBusiness",
+      "name": "Wecanfix"
+    },
+    "areaServed": {
+      "@type": "City",
+      "name": cityData.name
+    }
+  };
+
+  if (aggregateRating) {
+    (citySchema as any).aggregateRating = {
+      "@type": "AggregateRating",
+      "ratingValue": aggregateRating.ratingValue,
+      "reviewCount": aggregateRating.reviewCount,
+      "bestRating": "5",
+      "worstRating": "1"
+    };
+  }
+
+  return (
+    <>
+      <JsonLdScript data={citySchema} idSuffix={`city-${cityData.id}`} />
+      <div className="container mx-auto px-4 pt-4 md:pt-6">
+        <Breadcrumbs items={breadcrumbItems} />
+      </div>
+      <HomePageClient citySlug={citySlug} initialData={homepageData} />
+    </>
+  );
+}

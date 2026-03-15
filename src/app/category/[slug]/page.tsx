@@ -1,0 +1,180 @@
+import CategoryPageClient from '@/components/category/CategoryPageClient';
+import { adminDb } from '@/lib/firebaseAdmin';
+import type { FirestoreCategory, FirestoreService } from '@/types/firestore';
+import type { BreadcrumbItem } from '@/types/ui';
+import JsonLdScript from '@/components/shared/JsonLdScript';
+import { getBaseUrl } from '@/lib/config';
+import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
+import type { Metadata, ResolvingMetadata } from 'next';
+import { replacePlaceholders } from '@/lib/seoUtils';
+import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
+
+export const dynamic = 'force-dynamic';
+
+interface CategoryPageProps {
+  params: Promise<{ slug: string }>;
+}
+
+async function getCategoryDataForPage(slug: string): Promise<{category: FirestoreCategory, aggregateRating?: any} | null> {
+  try {
+    const catRef = adminDb.collection('adminCategories');
+    const q = catRef.where('slug', '==', slug).where('isActive', '==', true).limit(1);
+    const snapshot = await q.get();
+    if (snapshot.empty) return null;
+    const doc = snapshot.docs[0];
+    const category = { id: doc.id, ...doc.data() } as FirestoreCategory;
+
+    const subCatsSnap = await adminDb.collection('adminSubCategories').where('parentId', '==', category.id).get();
+    const subCatIds = subCatsSnap.docs.map(d => d.id);
+    
+    let totalRating = 0;
+    let totalReviews = 0;
+    let minPrice = Infinity;
+    let maxPrice = 0;
+
+    if (subCatIds.length > 0) {
+        // Handle chunks of 10 for 'in' query
+        const chunks = [];
+        for (let i = 0; i < subCatIds.length; i += 10) {
+            chunks.push(subCatIds.slice(i, i + 10));
+        }
+
+        const servicesPromises = chunks.map(chunk => 
+            adminDb.collection('adminServices')
+                .where('isActive', '==', true)
+                .where('subCategoryId', 'in', chunk)
+                .get()
+        );
+
+        const servicesSnapshots = await Promise.all(servicesPromises);
+        
+        servicesSnapshots.forEach(snap => {
+            snap.forEach(sDoc => {
+                const sData = sDoc.data() as FirestoreService;
+                if (sData.rating > 0 && sData.reviewCount) {
+                    totalRating += (sData.rating * sData.reviewCount);
+                    totalReviews += sData.reviewCount;
+                }
+                const currentPrice = sData.discountedPrice || sData.price;
+                if (currentPrice < minPrice) minPrice = currentPrice;
+                if (currentPrice > maxPrice) maxPrice = currentPrice;
+            });
+        });
+    }
+
+    const aggregateRating = totalReviews > 0 ? {
+        ratingValue: (totalRating / totalReviews).toFixed(1),
+        reviewCount: totalReviews,
+        priceRange: minPrice !== Infinity ? `₹${minPrice} - ₹${maxPrice}` : undefined
+    } : undefined;
+
+    return { category, aggregateRating };
+  } catch (error) {
+    console.error('Error fetching category data for page component:', error);
+    return null;
+  }
+}
+
+export async function generateMetadata(
+  { params }: CategoryPageProps,
+  parent: ResolvingMetadata
+): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getCategoryDataForPage(slug);
+  
+  if (!data) return {};
+
+  const seoSettings = await getGlobalSEOSettings();
+  const appBaseUrl = getBaseUrl();
+  const placeholderData = { categoryName: data.category.name };
+
+  const title = replacePlaceholders(data.category.metaTitle || seoSettings.categoryPageTitlePattern, placeholderData) || `${data.category.name} Services | Wecanfix`;
+  const description = replacePlaceholders(data.category.metaDescription || seoSettings.categoryPageDescriptionPattern, placeholderData) || `Professional ${data.category.name} services near you.`;
+  const keywords = replacePlaceholders(data.category.metaKeywords || seoSettings.categoryPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
+
+  const ogImage = data.category.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
+
+  return {
+    title: title,
+    description: description,
+    keywords: keywords.length > 0 ? keywords : undefined,
+    robots: {
+      index: true,
+      follow: true,
+    },
+    alternates: {
+      canonical: `${appBaseUrl}/category/${slug}`,
+    },
+    openGraph: {
+      title: title,
+      description: description,
+      url: `/category/${slug}`,
+      images: [{ url: ogImage }],
+      type: 'website',
+    },
+  };
+}
+
+export async function generateStaticParams() {
+  try {
+    const categoriesSnapshot = await adminDb.collection('adminCategories').where('isActive', '==', true).get();
+    return categoriesSnapshot.docs
+      .map(doc => ({ slug: (doc.data() as FirestoreCategory).slug }))
+      .filter(p => p.slug);
+  } catch (error) {
+    console.error("[CategoryPage] Error generating static params:", error);
+    return [];
+  }
+}
+
+export default async function CategoryPage({ params }: CategoryPageProps) {
+  const { slug } = await params;
+  
+  const [data, fullCategoryData] = await Promise.all([
+    getCategoryDataForPage(slug),
+    getCategoryFullData(slug)
+  ]);
+  
+  const appBaseUrl = getBaseUrl();
+  const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
+  
+  if (data) {
+    breadcrumbItems.push({ label: data.category.name });
+    
+    const categorySchema = {
+      "@context": "https://schema.org",
+      "@type": "Service",
+      "name": `${data.category.name} Services`,
+      "description": data.category.seo_description || `Professional ${data.category.name} services near you.`,
+      "image": data.category.imageUrl || `${appBaseUrl}/android-chrome-512x512.png`,
+      "provider": {
+        "@type": "LocalBusiness",
+        "name": "Wecanfix"
+      }
+    };
+
+    if (data.aggregateRating) {
+      (categorySchema as any).aggregateRating = {
+        "@type": "AggregateRating",
+        "ratingValue": data.aggregateRating.ratingValue,
+        "reviewCount": data.aggregateRating.reviewCount,
+        "bestRating": "5",
+        "worstRating": "1"
+      };
+    }
+
+    return (
+      <>
+        <JsonLdScript data={categorySchema} idSuffix={`category-${data.category.id}`} />
+        <CategoryPageClient 
+            categorySlug={slug} 
+            breadcrumbItems={breadcrumbItems} 
+            initialData={fullCategoryData || undefined}
+        />
+      </>
+    );
+  } else {
+    breadcrumbItems.push({ label: "Category Not Found" });
+    return <CategoryPageClient categorySlug={slug} breadcrumbItems={breadcrumbItems} />;
+  }
+}
