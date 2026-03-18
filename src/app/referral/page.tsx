@@ -19,12 +19,16 @@ const CONFIG_COLLECTION = "appConfiguration";
 
 export const revalidate = 3600; // Revalidate every hour
 
+import { serializeFirestoreData } from '@/lib/serializeUtils';
+
+// ... (keep middle code)
+
 const getReferralSettings = unstable_cache(
   async () => {
     try {
       const referralRef = adminDb.collection(CONFIG_COLLECTION).doc(REFERRAL_CONFIG_DOC_ID);
       const referralSnap = await referralRef.get();
-      return referralSnap.exists ? (referralSnap.data() as ReferralSettings) : null;
+      return referralSnap.exists ? serializeFirestoreData<ReferralSettings>(referralSnap.data()) : null;
     } catch (error) {
       console.error("Error fetching referral settings:", error);
       return null;
@@ -39,7 +43,7 @@ const getWithdrawalSettings = unstable_cache(
     try {
       const withdrawalRef = adminDb.collection(CONFIG_COLLECTION).doc(WITHDRAWAL_CONFIG_DOC_ID);
       const withdrawalSnap = await withdrawalRef.get();
-      return withdrawalSnap.exists ? (withdrawalSnap.data() as WithdrawalSettings) : null;
+      return withdrawalSnap.exists ? serializeFirestoreData<WithdrawalSettings>(withdrawalSnap.data()) : null;
     } catch (error) {
       console.error("Error fetching withdrawal settings:", error);
       return null;

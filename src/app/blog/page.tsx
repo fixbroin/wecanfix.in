@@ -8,6 +8,7 @@ import { getBaseUrl } from '@/lib/config';
 import Link from 'next/link';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
 import { unstable_cache } from 'next/cache';
+import { serializeFirestoreData } from '@/lib/serializeUtils';
 
 import type { BreadcrumbItem } from '@/types/ui';
 
@@ -21,17 +22,13 @@ const getPublishedPosts = unstable_cache(
       
       const posts: ClientBlogPost[] = snapshot.docs
         .map(doc => {
-          const data = doc.data() as FirestoreBlogPost;
+          const data = serializeFirestoreData(doc.data()) as FirestoreBlogPost;
           return {
             ...data,
             id: doc.id,
-            // Serialize Timestamps to ISO strings
-            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
-              ? data.createdAt.toDate().toISOString() 
-              : new Date().toISOString(),
-            updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
-              ? data.updatedAt.toDate().toISOString() 
-              : undefined,
+            // Ensure createdAt and updatedAt are ISO strings for the client
+            createdAt: data.createdAt ? (typeof data.createdAt === 'string' ? data.createdAt : new Date().toISOString()) : new Date().toISOString(),
+            updatedAt: data.updatedAt ? (typeof data.updatedAt === 'string' ? data.updatedAt : undefined) : undefined,
           };
         })
         .filter(post => post.isPublished === true)
@@ -46,6 +43,7 @@ const getPublishedPosts = unstable_cache(
   ['published-blog-posts'],
   { revalidate: 3600, tags: ['blog'] }
 );
+
 
 
 export default async function BlogListPage() {
@@ -69,7 +67,7 @@ export default async function BlogListPage() {
               Our <span className="text-primary">Blog</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Expert tips, home maintenance guides, and the latest updates from the Wecanfix team.
+              Expert tips, home maintenance guides, and the latest updates from the wecanfix team.
             </p>
           </div>
         </div>

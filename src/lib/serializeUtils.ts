@@ -8,9 +8,18 @@ export function serializeFirestoreData<T>(data: any): T {
     if (data === null || data === undefined) return data;
     
     // Check for both firebase-admin and firebase client Timestamps
-    // Most Timestamps have a toDate() method
-    if (typeof data.toDate === 'function' && (data.seconds !== undefined || data._seconds !== undefined)) {
+    if (data && typeof data.toDate === 'function') {
         return data.toDate().toISOString() as any;
+    }
+
+    // Handle plain objects that look like Timestamps (seconds/_seconds property)
+    if (data && typeof data === 'object') {
+        if (data.seconds !== undefined && typeof data.seconds === 'number') {
+            return new Date(data.seconds * 1000).toISOString() as any;
+        }
+        if (data._seconds !== undefined && typeof data._seconds === 'number') {
+            return new Date(data._seconds * 1000).toISOString() as any;
+        }
     }
     
     if (Array.isArray(data)) {

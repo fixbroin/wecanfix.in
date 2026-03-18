@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, PackageSearch } from "lucide-react";
 import type { FirestoreCategory } from '@/types/firestore';
 import { unstable_cache } from 'next/cache';
+import { serializeFirestoreData } from '@/lib/serializeUtils';
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -13,7 +14,7 @@ const getCategories = unstable_cache(
     try {
       const categoriesCollectionRef = adminDb.collection("adminCategories");
       const snapshot = await categoriesCollectionRef.where("isActive", "==", true).orderBy("order", "asc").get();
-      return snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCategory));
+      return snapshot.docs.map((doc) => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as FirestoreCategory));
     } catch (err) {
       console.error("Error fetching categories: ", err);
       return [];
@@ -22,6 +23,7 @@ const getCategories = unstable_cache(
   ['admin-categories-list'],
   { revalidate: 3600, tags: ['categories'] }
 );
+
 
 export default async function AllCategoriesPage() {
   const categories = await getCategories();

@@ -10,6 +10,7 @@ import { HelpCircle, PackageSearch } from "lucide-react";
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import { unstable_cache } from 'next/cache';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { serializeFirestoreData } from '@/lib/serializeUtils';
 
 export const revalidate = 3600; // Revalidate every hour
 
@@ -18,7 +19,7 @@ const getFaqs = unstable_cache(
     try {
       const faqsCollectionRef = adminDb.collection("adminFAQs");
       const snapshot = await faqsCollectionRef.where("isActive", "==", true).orderBy("order", "asc").get();
-      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ));
+      return snapshot.docs.map(doc => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as FirestoreFAQ));
     } catch (err) {
       console.error("Error fetching FAQs:", err);
       return [];
@@ -27,6 +28,7 @@ const getFaqs = unstable_cache(
   ['admin-faqs'],
   { revalidate: 3600, tags: ['faqs'] }
 );
+
 
 export default async function FAQPage() {
   const faqs = await getFaqs();
@@ -64,7 +66,7 @@ export default async function FAQPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to know about Wecanfix services, bookings, and more.
+            Everything you need to know about wecanfix services, bookings, and more.
           </p>
         </div>
 
