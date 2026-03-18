@@ -6,15 +6,17 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Loader2, ArrowLeft, MapPin, Phone, Mail, CalendarDays, Clock, UserCircle, ExternalLink, ListOrdered, AlertTriangle, DollarSign } from 'lucide-react';
-import type { FirestoreBooking } from '@/types/firestore';
+import { Loader2, ArrowLeft, MapPin, Phone, Mail, CalendarDays, Clock, UserCircle, ExternalLink, ListOrdered, AlertTriangle, DollarSign, PlayCircle, CheckCircle, XCircle } from 'lucide-react';
+import type { FirestoreBooking, BookingStatus, FirestoreNotification } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { doc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, Timestamp, updateDoc, getDoc, collection, query, where, getDocs, limit, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useLoading } from '@/contexts/LoadingContext';
+import { triggerPushNotification } from '@/lib/fcmUtils';
+import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 
 const formatTimestampForDisplay = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
@@ -44,6 +46,7 @@ export default function ProviderBookingDetailsPage() {
   const [booking, setBooking] = useState<FirestoreBooking | null>(null);
   const [isLoadingBooking, setIsLoadingBooking] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
 
   useEffect(() => {
     if (!bookingId || !providerUser) {
@@ -94,6 +97,101 @@ export default function ProviderBookingDetailsPage() {
     showLoading();
     router.back();
   }
+
+  const updateBookingStatus = async (newStatus: BookingStatus) => {
+    if (!booking?.id || !providerUser) return;
+    setIsProcessingAction(true);
+    try {
+      const bookingDocRef = doc(db, "bookings", booking.id);
+      await updateDoc(bookingDocRef, { status: newStatus, updatedAt: Timestamp.now() });
+      toast({ title: "Success", description: `Job status updated to ${newStatus.replace(/([A-Z])/g, ' $1')}.` });
+
+      // --- SEND NOTIFICATIONS ---
+      try {
+        const providerName = providerUser?.displayName || "A provider";
+        
+        // 1. Notify Admin
+        if (newStatus === "ProviderAccepted" || newStatus === "ProviderRejected" || newStatus === "InProgressByProvider" || newStatus === "Completed") {
+            const adminQuery = query(collection(db, "users"), where("email", "==", ADMIN_EMAIL), limit(1));
+            const adminSnapshot = await getDocs(adminQuery);
+            if (!adminSnapshot.empty) {
+                const adminId = adminSnapshot.docs[0].id;
+                let adminMsg = "";
+                if (newStatus === "ProviderAccepted") adminMsg = `${providerName} accepted Booking ${booking.bookingId}.`;
+                if (newStatus === "ProviderRejected") adminMsg = `${providerName} rejected Booking ${booking.bookingId}.`;
+                if (newStatus === "InProgressByProvider") adminMsg = `${providerName} started work on Booking ${booking.bookingId}.`;
+                if (newStatus === "Completed") adminMsg = `${providerName} completed Booking ${booking.bookingId}.`;
+
+                const adminNotification: Omit<FirestoreNotification, 'id'> = {
+                    userId: adminId,
+                    title: `Provider Status: ${newStatus.replace(/([A-Z])/g, ' $1')}`,
+                    message: adminMsg,
+                    type: newStatus === "ProviderRejected" ? 'warning' : 'info',
+                    href: `/admin/bookings`,
+                    read: false,
+                    createdAt: Timestamp.now(),
+                };
+                await addDoc(collection(db, "userNotifications"), adminNotification);
+                triggerPushNotification({
+                    userId: adminId,
+                    title: adminNotification.title,
+                    body: adminNotification.message,
+                    href: adminNotification.href
+                }).catch(err => console.error("Error sending admin provider-action push:", err));
+            }
+        }
+
+        // 2. Notify User
+        if (booking.userId && (newStatus === "ProviderAccepted" || newStatus === "InProgressByProvider" || newStatus === "Completed" || newStatus === "ProviderRejected")) {
+            let userTitle = "";
+            let userMsg = "";
+            let userType: FirestoreNotification['type'] = 'info';
+
+            if (newStatus === "ProviderAccepted") {
+                userTitle = "Provider Accepted!";
+                userMsg = `${providerName} has accepted your booking ${booking.bookingId} and will arrive as scheduled.`;
+            } else if (newStatus === "InProgressByProvider") {
+                userTitle = "Work Started!";
+                userMsg = `Your provider ${providerName} has started working on booking ${booking.bookingId}.`;
+            } else if (newStatus === "Completed") {
+                userTitle = "Job Completed!";
+                userMsg = `Service for booking ${booking.bookingId} has been completed. Hope you are satisfied with our service!`;
+                userType = 'success';
+            } else if (newStatus === "ProviderRejected") {
+                userTitle = "Technician Re-assignment";
+                userMsg = `We are currently assigning a new professional technician to your booking ${booking.bookingId}. We'll notify you shortly!`;
+                userType = 'warning';
+            }
+
+            const userNotification: Omit<FirestoreNotification, 'id'> = {
+                userId: booking.userId,
+                title: userTitle,
+                message: userMsg,
+                type: userType,
+                href: '/my-bookings',
+                read: false,
+                createdAt: Timestamp.now(),
+            };
+            await addDoc(collection(db, "userNotifications"), userNotification);
+            triggerPushNotification({
+                userId: booking.userId,
+                title: userNotification.title,
+                body: userNotification.message,
+                href: userNotification.href
+            }).catch(err => console.error("Error sending user provider-action push:", err));
+        }
+      } catch (notifyErr) {
+        console.error("Error in provider details status update notifications:", notifyErr);
+      }
+      // --- END NOTIFICATIONS ---
+
+    } catch (error) {
+      console.error("Error updating job status:", error);
+      toast({ title: "Error", description: "Could not update job status.", variant: "destructive" });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  };
 
 
   if (isLoadingBooking || authIsLoading) {
@@ -233,6 +331,52 @@ export default function ProviderBookingDetailsPage() {
              {booking.updatedAt && <p>Last Updated: {formatTimestampForDisplay(booking.updatedAt)}</p>}
            </div>
         </CardContent>
+        {/* Action Buttons Footer */}
+        <CardFooter className="flex flex-col sm:flex-row justify-end gap-3 bg-muted/20 border-t p-6">
+            {booking.status === 'AssignedToProvider' && (
+                <>
+                    <Button 
+                        variant="destructive" 
+                        onClick={() => updateBookingStatus('ProviderRejected')} 
+                        disabled={isProcessingAction}
+                        className="w-full sm:w-auto"
+                    >
+                        {isProcessingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <XCircle className="mr-2 h-4 w-4" />}
+                        Reject Booking
+                    </Button>
+                    <Button 
+                        onClick={() => updateBookingStatus('ProviderAccepted')} 
+                        disabled={isProcessingAction}
+                        className="w-full sm:w-auto"
+                    >
+                        {isProcessingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                        Accept Booking
+                    </Button>
+                </>
+            )}
+
+            {booking.status === 'ProviderAccepted' && (
+                <Button 
+                    onClick={() => updateBookingStatus('InProgressByProvider')} 
+                    disabled={isProcessingAction}
+                    className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700"
+                >
+                    {isProcessingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlayCircle className="mr-2 h-4 w-4" />}
+                    Start Work
+                </Button>
+            )}
+
+            {booking.status === 'InProgressByProvider' && (
+                <Button 
+                    onClick={() => updateBookingStatus('Completed')} 
+                    disabled={isProcessingAction}
+                    className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
+                >
+                    {isProcessingAction ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle className="mr-2 h-4 w-4" />}
+                    Mark as Complete
+                </Button>
+            )}
+        </CardFooter>
       </Card>
     </div>
   );

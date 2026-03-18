@@ -10,8 +10,10 @@ import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { replacePlaceholders } from '@/lib/seoUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
 interface AreaPageProps {
   params: Promise<{ city: string; area: string }>;
@@ -19,42 +21,49 @@ interface AreaPageProps {
 
 const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next'];
 
-async function getAreaDataForPage(citySlug: string, areaSlug: string): Promise<(FirestoreArea & { parentCityData?: FirestoreCity }) | null> {
-  try {
-    if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || areaSlug.includes('.')) {
-      return null;
-    }
+const getAreaDataForPage = cache(async (citySlug: string, areaSlug: string): Promise<(FirestoreArea & { parentCityData?: FirestoreCity }) | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || areaSlug.includes('.')) {
+          return null;
+        }
 
-    const citiesRef = adminDb.collection('cities');
-    const cityQuery = citiesRef.where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
-    const citySnapshot = await cityQuery.get();
+        const citiesRef = adminDb.collection('cities');
+        const cityQuery = citiesRef.where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
+        const citySnapshot = await cityQuery.get();
 
-    if (citySnapshot.empty) {
-      return null;
-    }
-    const parentCityDoc = citySnapshot.docs[0];
-    const parentCityData = { id: parentCityDoc.id, ...parentCityDoc.data() } as FirestoreCity;
+        if (citySnapshot.empty) {
+          return null;
+        }
+        const parentCityDoc = citySnapshot.docs[0];
+        const parentCityData = { id: parentCityDoc.id, ...parentCityDoc.data() } as FirestoreCity;
 
-    const areasRef = adminDb.collection('areas');
-    const areaQuery = areasRef
-      .where('slug', '==', areaSlug)
-      .where('cityId', '==', parentCityData.id)
-      .where('isActive', '==', true)
-      .limit(1);
-    const areaSnapshot = await areaQuery.get();
+        const areasRef = adminDb.collection('areas');
+        const areaQuery = areasRef
+          .where('slug', '==', areaSlug)
+          .where('cityId', '==', parentCityData.id)
+          .where('isActive', '==', true)
+          .limit(1);
+        const areaSnapshot = await areaQuery.get();
 
-    if (areaSnapshot.empty) {
-      return null;
-    }
-    const doc = areaSnapshot.docs[0];
-    const areaData = { id: doc.id, ...doc.data() } as FirestoreArea;
-    return { ...areaData, parentCityData };
+        if (areaSnapshot.empty) {
+          return null;
+        }
+        const doc = areaSnapshot.docs[0];
+        const areaData = { id: doc.id, ...doc.data() } as FirestoreArea;
+        return { ...areaData, parentCityData };
 
-  } catch (error) {
-    console.error(`[AreaPage] Error fetching area data for page:`, error);
-    return null;
-  }
-}
+      } catch (error) {
+        console.error(`[AreaPage] Error fetching area data for page:`, error);
+        return null;
+      }
+    },
+    [`city-area-data-${citySlug}-${areaSlug}`],
+    { revalidate: 3600, tags: ['cities', 'areas', `city-area-${citySlug}-${areaSlug}`] }
+  )();
+});
+
 
 export async function generateMetadata(
   { params }: AreaPageProps,

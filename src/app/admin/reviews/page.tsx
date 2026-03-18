@@ -63,25 +63,25 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const reviewsCollectionRef = collection(db, "adminReviews");
-    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"));
-    const reviewUnsubscribe = onSnapshot(qReviews, (querySnapshot) => {
-      const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
-      setReviews(fetchedReviews);
-      initialReviewsLoaded = true;
-      tryStopLoading();
-    }, (error) => {
-      console.error("Error fetching reviews: ", error);
-      toast({ title: "Error", description: "Could not fetch reviews.", variant: "destructive" });
-      initialReviewsLoaded = true;
-      tryStopLoading();
-    });
+    const fetchReviews = async () => {
+        try {
+            const reviewsCollectionRef = collection(db, "adminReviews");
+            const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"));
+            const querySnapshot = await getDocs(qReviews);
+            const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
+            setReviews(fetchedReviews);
+        } catch (error) {
+            console.error("Error fetching reviews: ", error);
+            toast({ title: "Error", description: "Could not fetch reviews.", variant: "destructive" });
+        } finally {
+            initialReviewsLoaded = true;
+            tryStopLoading();
+        }
+    };
 
     fetchPrerequisites();
+    fetchReviews();
 
-    return () => {
-        reviewUnsubscribe();
-    };
   }, [toast]);
 
   const filteredReviews = useMemo(() => {

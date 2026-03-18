@@ -12,26 +12,75 @@ import type { Metadata, ResolvingMetadata } from 'next';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import ShareButtons from '@/components/blog/ShareButtons';
 import BlogPostCard from '@/components/blog/BlogPostCard';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
+import Breadcrumbs from '@/components/shared/Breadcrumbs';
+
+export const revalidate = 3600; // Revalidate every hour
 
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getBlogPost(slug: string): Promise<FirestoreBlogPost | null> {
-  try {
-    const blogRef = adminDb.collection('blogPosts');
-    const q = blogRef.where('slug', '==', slug).where('isPublished', '==', true).limit(1);
-    const snapshot = await q.get();
-    
-    if (snapshot.empty) return null;
-    
-    const doc = snapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as FirestoreBlogPost;
-  } catch (error) {
-    console.error('Error fetching blog post:', error);
-    return null;
-  }
-}
+const getBlogPost = cache(async (slug: string): Promise<FirestoreBlogPost | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const blogRef = adminDb.collection('blogPosts');
+        const q = blogRef.where('slug', '==', slug).where('isPublished', '==', true).limit(1);
+        const snapshot = await q.get();
+        
+        if (snapshot.empty) return null;
+        
+        const doc = snapshot.docs[0];
+        return { id: doc.id, ...doc.data() } as FirestoreBlogPost;
+      } catch (error) {
+        console.error('Error fetching blog post:', error);
+        return null;
+      }
+    },
+    [`blog-post-${slug}`],
+    { revalidate: 3600, tags: ['blog', `blog-${slug}`] }
+  )();
+});
+
+const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): Promise<ClientBlogPost[]> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const blogPostsRef = adminDb.collection('blogPosts');
+        let q = blogPostsRef.where('isPublished', '==', true);
+        
+        if (categoryId) {
+          q = q.where('categoryId', '==', categoryId);
+        }
+        
+        const snapshot = await q.limit(4).get();
+        return snapshot.docs
+          .map(doc => {
+            const data = doc.data() as FirestoreBlogPost;
+            return {
+              ...data,
+              id: doc.id,
+              createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
+                ? data.createdAt.toDate().toISOString() 
+                : new Date().toISOString(),
+              updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
+                ? data.updatedAt.toDate().toISOString() 
+                : undefined,
+            } as ClientBlogPost;
+          })
+          .filter(post => post.slug !== currentSlug)
+          .slice(0, 3);
+      } catch (error) {
+        console.error('Error fetching related posts:', error);
+        return [];
+      }
+    },
+    [`related-posts-${currentSlug}`],
+    { revalidate: 3600, tags: ['blog'] }
+  )();
+});
 
 export async function generateMetadata(
   { params }: BlogPostPageProps,
@@ -73,50 +122,6 @@ export async function generateMetadata(
   };
 }
 
-export async function generateStaticParams() {
-  try {
-    const blogSnapshot = await adminDb.collection('blogPosts').where('isPublished', '==', true).get();
-    return blogSnapshot.docs.map(doc => ({
-      slug: (doc.data() as FirestoreBlogPost).slug,
-    }));
-  } catch (error) {
-    console.error("Error generating static params for blog:", error);
-    return [];
-  }
-}
-
-async function getRelatedPosts(currentSlug: string, categoryId?: string): Promise<ClientBlogPost[]> {
-  try {
-    const blogPostsRef = adminDb.collection('blogPosts');
-    let q = blogPostsRef.where('isPublished', '==', true);
-    
-    if (categoryId) {
-      q = q.where('categoryId', '==', categoryId);
-    }
-    
-    const snapshot = await q.limit(4).get();
-    return snapshot.docs
-      .map(doc => {
-        const data = doc.data() as FirestoreBlogPost;
-        return {
-          ...data,
-          id: doc.id,
-          createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
-            ? data.createdAt.toDate().toISOString() 
-            : new Date().toISOString(),
-          updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
-            ? data.updatedAt.toDate().toISOString() 
-            : undefined,
-        } as ClientBlogPost;
-      })
-      .filter(post => post.slug !== currentSlug)
-      .slice(0, 3);
-  } catch (error) {
-    console.error('Error fetching related posts:', error);
-    return [];
-  }
-}
-
 export default async function BlogPostPage({ params }: BlogPostPageProps) {
   const { slug } = await params;
   const post = await getBlogPost(slug);
@@ -127,20 +132,24 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
 
   const relatedPosts = await getRelatedPosts(slug, post.categoryId);
 
-  const appBaseUrl = getBaseUrl();
-  const postUrl = `${appBaseUrl}/blog/${post.slug}`;
-  
-  const publishDate = post.createdAt instanceof Timestamp ? post.createdAt.toDate() : new Date();
-  const formattedDate = format(publishDate, 'MMMM dd, yyyy');
+  const breadcrumbItems = [
+    { label: "Home", href: "/" },
+    { label: "Blog", href: "/blog" },
+    { label: post.title },
+  ];
 
+  const appBaseUrl = getBaseUrl();
   const blogSchema = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
     "headline": post.title,
+    "description": post.excerpt || post.metaDescription,
     "image": post.coverImageUrl || `${appBaseUrl}/default-image.png`,
+    "datePublished": post.createdAt instanceof Timestamp ? post.createdAt.toDate().toISOString() : String(post.createdAt),
+    "dateModified": post.updatedAt instanceof Timestamp ? post.updatedAt.toDate().toISOString() : (post.createdAt instanceof Timestamp ? post.createdAt.toDate().toISOString() : String(post.createdAt)),
     "author": {
       "@type": "Person",
-      "name": post.authorName || "Wecanfix Team"
+      "name": post.authorName || "Wecanfix Expert"
     },
     "publisher": {
       "@type": "Organization",
@@ -150,101 +159,115 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
         "url": `${appBaseUrl}/android-chrome-512x512.png`
       }
     },
-    "datePublished": publishDate.toISOString(),
-    "description": post.excerpt || post.metaDescription || post.meta_description
+    "mainEntityOfPage": {
+      "@type": "WebPage",
+      "@id": `${appBaseUrl}/blog/${slug}`
+    }
   };
 
   return (
-    <article className="min-h-screen pb-20 bg-background/50">
+    <article className="min-h-screen bg-background pb-20">
       <JsonLdScript data={blogSchema} idSuffix={`blog-${post.id}`} />
       
-      {/* Hero Section */}
-      <div className="relative w-full aspect-square md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden">
-        <AppImage 
-          src={post.coverImageUrl} 
-          alt={post.title} 
-          fill 
-          priority
-          objectPosition="top"
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
-        <div className="absolute inset-0 flex items-end pb-20 md:pb-32">
-          <div className="container mx-auto px-4">
-            <div className="max-w-4xl">
-              <Link href="/blog" className="hidden md:inline-flex items-center text-sm font-medium mb-6 text-white/80 hover:text-white transition-colors group">
-                <ArrowLeft className="mr-2 h-4 w-4 transition-transform group-hover:-translate-x-1" /> Back to Blog
-              </Link>
-              {post.categoryName && (
-                <span className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs font-bold rounded-full mb-4 uppercase tracking-wider">
-                  {post.categoryName}
-                </span>
-              )}
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-headline font-bold mb-6 text-white leading-[1.1]">
-                {post.title}
-              </h1>
-              <div className="flex flex-wrap items-center gap-6 text-sm md:text-base font-medium text-white/90">
-                <div className="flex items-center">
-                  <Calendar className="mr-2 h-4 w-4 text-primary" /> {formattedDate}
+      {/* Header with Background */}
+      <div className="relative bg-primary/5 py-16 md:py-24 overflow-hidden">
+        {/* Decorative elements */}
+        <div className="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full -mr-32 -mt-32 blur-3xl" />
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-primary/5 rounded-full -ml-32 -mb-32 blur-3xl" />
+        
+        <div className="container mx-auto px-4 relative z-10">
+          <Breadcrumbs items={breadcrumbItems} />
+          
+          <div className="max-w-4xl mx-auto text-center mt-8">
+            {post.categoryName && (
+              <span className="px-4 py-1.5 bg-primary/10 text-primary text-xs font-bold rounded-full uppercase tracking-widest mb-6 inline-block">
+                {post.categoryName}
+              </span>
+            )}
+            <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground leading-tight mb-8">
+              {post.title}
+            </h1>
+            
+            <div className="flex flex-wrap items-center justify-center gap-6 text-muted-foreground font-medium">
+              <div className="flex items-center gap-2">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
+                  {post.authorName?.charAt(0) || <User className="h-5 w-5" />}
                 </div>
-                <div className="flex items-center">
-                  <User className="mr-2 h-4 w-4 text-primary" /> {post.authorName || "Wecanfix Team"}
-                </div>
-                <div className="flex items-center">
-                  <Clock className="mr-2 h-4 w-4 text-primary" /> {post.readingTime || "5 min"} read
-                </div>
+                <span>{post.authorName || 'Wecanfix Expert'}</span>
               </div>
+              <div className="flex items-center gap-2">
+                <Calendar className="h-5 w-5 text-primary" />
+                <span>{post.createdAt instanceof Timestamp ? format(post.createdAt.toDate(), 'MMMM dd, yyyy') : 'N/A'}</span>
+              </div>
+              {post.readingTime && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-primary" />
+                  <span>{post.readingTime} read</span>
+                </div>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      <div className="container mx-auto px-4 -mt-16 md:-mt-24 relative z-10">
-        <div className="max-w-4xl mx-auto bg-card rounded-3xl shadow-2xl overflow-hidden border border-border/50">
-          {/* Content */}
-          <div className="p-6 md:p-12 lg:p-16">
-            <div 
-              className="prose prose-lg md:prose-xl dark:prose-invert max-w-none 
-                prose-headings:font-headline prose-headings:font-bold 
-                prose-p:text-foreground/80 prose-p:leading-relaxed
-                prose-img:rounded-2xl prose-img:shadow-xl
-                prose-a:text-primary prose-a:no-underline hover:prose-a:underline"
-              dangerouslySetInnerHTML={{ __html: post.content }}
-            />
+      <div className="container mx-auto px-4 -mt-12 relative z-20">
+        <div className="max-w-4xl mx-auto">
+          {/* Main Content Card */}
+          <div className="bg-card rounded-3xl shadow-2xl border border-border/50 overflow-hidden mb-16">
+            <div className="relative aspect-[21/9] w-full">
+              <AppImage
+                src={post.coverImageUrl}
+                alt={post.title}
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
             
-            {/* Tags */}
-            {post.tags && post.tags.length > 0 && (
-              <div className="mt-12 pt-8 border-t flex flex-wrap gap-2">
-                {post.tags.map(tag => (
-                  <span key={tag} className="px-4 py-1.5 bg-muted text-muted-foreground rounded-full text-sm font-medium hover:bg-primary/10 hover:text-primary transition-colors cursor-default">
-                    #{tag}
-                  </span>
+            <div className="p-8 md:p-12 lg:p-16">
+              <div 
+                className="prose prose-lg dark:prose-invert max-w-none 
+                  prose-headings:font-headline prose-headings:font-bold prose-headings:text-foreground
+                  prose-p:text-muted-foreground prose-p:leading-relaxed
+                  prose-strong:text-foreground prose-strong:font-bold
+                  prose-ul:list-disc prose-li:marker:text-primary
+                  prose-img:rounded-3xl prose-img:shadow-xl"
+                dangerouslySetInnerHTML={{ __html: post.content }}
+              />
+              
+              <div className="mt-16 pt-8 border-t border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                <div className="flex flex-wrap gap-2">
+                  {post.tags?.split(',').map(tag => (
+                    <span key={tag} className="px-4 py-1.5 bg-muted text-muted-foreground text-xs font-bold rounded-full">
+                      #{tag.trim()}
+                    </span>
+                  ))}
+                </div>
+                <ShareButtons 
+                  title={post.title} 
+                  url={`${getBaseUrl()}/blog/${post.slug}`} 
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Related Posts Section */}
+          {relatedPosts.length > 0 && (
+            <div className="space-y-10">
+              <div className="flex items-center justify-between">
+                <h2 className="text-3xl font-headline font-bold">Related Articles</h2>
+                <Link href="/blog" className="text-primary font-bold hover:underline flex items-center gap-2 group">
+                  View All Blog <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+                </Link>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                {relatedPosts.map(rp => (
+                  <BlogPostCard key={rp.id} post={rp} />
                 ))}
               </div>
-            )}
-
-            {/* Social Share */}
-            <div className="mt-12 pt-8 border-t">
-              <ShareButtons title={post.title} url={postUrl} />
             </div>
-          </div>
+          )}
         </div>
-
-        {/* Related Posts */}
-        {relatedPosts.length > 0 && (
-          <div className="max-w-6xl mx-auto mt-20">
-            <div className="flex items-center justify-between mb-8">
-              <h2 className="text-3xl font-headline font-bold">Related Articles</h2>
-              <Link href="/blog" className="text-primary font-semibold hover:underline flex items-center gap-2">
-                View All <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              {relatedPosts.map(rp => (
-                <BlogPostCard key={rp.id} post={rp} />
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </article>
   );

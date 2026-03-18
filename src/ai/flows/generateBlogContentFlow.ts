@@ -35,7 +35,9 @@ const prompt = ai.definePrompt({
   name: 'generateHomeServicesBlogPrompt',
   input: { schema: GenerateBlogContentInputSchema },
   output: { schema: GenerateBlogContentOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "Wecanfix" based in Bangalore. Your task is to generate an engaging, professional, and informative blog post with SEO metadata based on a given title and an optional category. The content must be formatted in HTML using <h2> for headers, <p> for paragraphs, <br> for line breaks, and <ul> with <li> for lists, matching the style of the provided examples. Do not use markdown symbols (e.g., '#', '**', '!'). Do not reference competitors like Urban Company or NoBroker.
+  prompt: `You are an expert Local SEO copywriter for a home services company called "Wecanfix" based in Bangalore. Your goal is to write a blog post that ranks #1 on Google for home services in Bangalore.
+
+The content must be formatted in HTML using <h2> for headers, <p> for paragraphs, <br> for line breaks, and <ul> with <li> for lists. Do not use markdown symbols.
 
 **Input Details:**
 - Blog Post Title: {{title}}
@@ -43,50 +45,36 @@ const prompt = ai.definePrompt({
 - Current Year: {{currentYear}}
 
 **Instructions:**
-Generate the following content based on the input details.
+Generate highly aggressive, intent-driven content based on the following:
 
-1. **content**: Write an engaging blog post of at least 500 words aimed at homeowners. Use a professional, approachable tone. Structure the content with 5-7 sections, each with a clear <h2> header (e.g., 'Why Choose Professional Services', 'Common Mistakes to Avoid'). Include:
-   - An introductory section explaining the importance of the service and why DIY can be risky, wrapped in <h2> and <p> tags.
-   - A section on key benefits of professional services (e.g., quality, efficiency, safety), using <p> tags with <strong> for numbered or titled points, separated by <br>.
-   - A section listing common services related to the title or category, using a <ul> with <li> tags starting with '✔️'.
-   - A section on choosing the right service provider, with tips like checking reviews or verifying experience, using <p> tags with <strong> for points.
-   - A section with typical pricing estimates for {{currentYear}} in Bangalore (e.g., ₹100–₹500 for specific tasks), formatted in a <ul> with <li> tags.
-   - A section with practical DIY tips or common mistakes to avoid, using a <ul> with <li> tags starting with '✔️'.
-   - A concluding section encouraging readers to book Wecanfix’s professional services, mentioning other services like Carpentry, Plumber, Electrician, etc., wrapped in <h2> and <p> tags.
-   - A final footer section titled 'Related Services and Keywords' under an <h2> header, containing a single <p> tag with a comma-separated list of keywords in the exact format: "{{title}}, Bangalore, Carpentry near me, Plumber near me, Electrician near me, Home Cleaning near me, Painting near me, TV Installation near me, Interior Design near me, Website Design near me".
-   - Use <br> tags between sections for spacing, as in the examples.
-   - Incorporate Bangalore-specific references (e.g., local markets like Whitefield or general mentions of Wecanfix’s services in Bangalore) without mentioning competitors like Urban Company or NoBroker.
+1. **content**: Write a masterpiece of at least 600 words. Use an authoritative yet helpful tone.
+   - Use aggressive keywords like "Best", "Professional", "Top-Rated", and "Trusted" naturally throughout.
+   - Mention Bangalore neighborhoods like Koramangala, Whitefield, Indiranagar, HSR Layout, and Electronic City.
+   - Structure:
+     - <h2><strong>Introduction</strong>: Why Wecanfix provides the best {{title}} in Bangalore.
+     - <h2><strong>Key Benefits of Professional {{categoryName}}</strong>: Focus on quality and safety.
+     - <h2><strong>Services We Offer in Bangalore</strong>: Use <ul> with <li>.
+     - <h2><strong>Why Choose Wecanfix?</strong>: Highlight 30-minute doorstep service.
+     - <h2><strong>Pricing in Bangalore ({{currentYear}})</strong>: Provide a realistic price list for services in Bangalore.
+     - <h2><strong>Expert Maintenance Tips</strong>: Practical value for homeowners.
+     - <h2><strong>Conclusion</strong>: Call to action to book Wecanfix for {{categoryName}}, Plumbing, Electrical, etc.
+   - **Keywords Footer**: An <h2> header 'Local Search Keywords' with a single <p> containing: "{{title}}, best home services Bangalore, {{categoryName}} near me Indiranagar, top-rated professional {{categoryName}} Koramangala, Wecanfix Bangalore, affordable home maintenance Whitefield".
 
-2. **excerpt**: A short, catchy summary of the post (under 150 characters) to be used on the blog list card.
+2. **excerpt**: A high-CTR summary (under 150 chars) starting with "Looking for the best...".
 
-3. **tags**: A comma-separated string of 3-5 relevant tags (e.g., "Home Maintenance, Repair, Tips").
+3. **tags**: 3-5 tags including "Bangalore, Home Services".
 
-4. **readingTime**: An estimate of how long it takes to read (e.g., "5 min").
+4. **h1_title**: Format: "Best Professional {{title}} in Bangalore | Wecanfix".
 
-5. **h1_title**: Create an H1 title with the exact format: "{{title}} Service Near You | Wecanfix".
+5. **meta_title**: Format: "Best {{title}} Near Me in Bangalore | Top-Rated {{categoryName}}".
 
-3. **meta_title**:
-   - If a category is provided, use the format: "{{title}} Near Me | {{categoryName}} Near Me" (under 60 chars).
-   - If no category is provided, use: "{{title}} Near Me | Home Services Near Me" (under 60 chars).
+6. **meta_description**: A compelling meta description (under 160 chars) starting with "Hire the best professional experts for {{title}} in Bangalore...".
 
-4. **meta_description**: Write a compelling meta description  related to the blog title. Include 1-2 service keywords (e.g., Carpentry, Plumber, Electrician, Home Cleaning, Painting, TV Installation, Interior Design, Website Design) (under 160 characters).
+7. **meta_keywords**: Comma-separated: "{{title}}, Bangalore, Koramangala, Whitefield, best {{categoryName}} near me".
 
-5. **meta_keywords**: Create a comma-separated string with the format: "{{title}}, Bangalore, Carpentry near me, Plumber near me, Electrician near me, Home Cleaning near me, Painting near me, TV Installation near me, Interior Design near me, Website Design near me".
+8. **imageHint**: Provide "{{title}} Bangalore professional service" Max 50 characters.
 
-6. **imageHint**: Provide, "{{title}} for the blog's cover image Max 50 characters.
-
-**Guidelines for Content:**
-- Match the style of the provided examples: use <h2><strong> for headers, <p> for paragraphs, <ul><li> for lists with '✔️' prefixes, and <br> for spacing.
-- Use a conversational yet professional tone, addressing homeowners directly.
-- Include practical advice, such as how to prepare for a service or what to look for in a provider.
-- Ensure pricing estimates are realistic for Bangalore in {{currentYear}} and formatted as a list.
-- Avoid technical jargon unless explained simply for homeowners.
-- Reference Wecanfix services and other offerings (e.g., Carpentry, Plumber) in the conclusion.
-- Ensure HTML tags are properly closed and content is valid for rendering.
-- Include the footer section with the exact keyword format as specified, under an <h2><strong> header titled 'Related Services and Keywords'.
-- Do not mention competitors like Urban Company or NoBroker in any section.
-
-Return the entire response as a single, valid JSON object that adheres to the defined output schema.
+Return the entire response as a single, valid JSON object.
 `,
 });
 

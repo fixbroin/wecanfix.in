@@ -20,8 +20,8 @@ export type GenerateServiceDetailsInput = z.infer<typeof GenerateServiceDetailsI
 
 const GenerateServiceDetailsOutputSchema = z.object({
   shortDescription: z.string().describe("A concise, one-sentence description for the service card. Max 200 characters."),
-  fullDescription: z.string().describe("A slightly longer, one-paragraph marketing description for the service detail page. Highlight key benefits. MUST BE UNDER 300 characters."),
-  pleaseNote: z.array(z.string()).describe("An array of 2-4 important notes or disclaimers for the customer. For a carpenter, an example would be 'Our partners do not carry a ladder; please arrange one if required.' or 'We use only branded products.'."),
+  fullDescription: z.string().describe("A slightly longer, one-paragraph marketing description for the service detail page. Highlight key benefits like speed, quality, and professionalism. MUST BE UNDER 300 characters."),
+  pleaseNote: z.array(z.string()).describe("An array of 2-4 important notes or disclaimers for the customer."),
   imageHint: z.string().describe("One or two keywords for an AI image search for the service's main image. E.g., 'plumber fixing' or 'clean kitchen'. Max 50 characters."),
   serviceHighlights: z.array(z.string()).describe("An array of 3-5 short, punchy strings highlighting key features or benefits of the service."),
   includedItems: z.array(z.string()).describe("An array of 3-5 strings listing what is included in the service package."),
@@ -32,18 +32,18 @@ const GenerateServiceDetailsOutputSchema = z.object({
   }).describe("An estimated time for how long the service task takes."),
   serviceFaqs: z.array(
     z.object({
-      question: z.string().describe("A frequently asked question about the service."),
-      answer: z.string().describe("A clear and helpful answer to the question."),
+      question: z.string().describe("A frequently asked question about the service. Frame it to capture voice search intent (e.g., 'How much does it cost to...')."),
+      answer: z.string().describe("A clear, helpful, and localized answer to the question."),
     })
-  ).describe("An array of 2-3 frequently asked questions and their answers related to this specific service."),
+  ).describe("An array of 3-4 frequently asked questions. These are crucial for 'People Also Ask' rich snippets on Google."),
   seo: z.object({
-    h1_title: z.string().describe("An H1 title with the exact format '{{serviceName}} Service Near You'."),
-    seo_title: z.string().describe("An SEO-optimized meta title, under 60 characters, with the format '{{serviceName}} Near Me | {{categoryName}} Near Me'."),
-    seo_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks."),
-    seo_keywords: z.string().describe("A comma-separated string of 10 relevant SEO keywords. Must include variations like '{{serviceName}} near me', '{{serviceName}} near you', '{{categoryName}} near me', '{{categoryName}} near you'."),
+    h1_title: z.string().describe("An H1 title with the exact format 'Best Professional {{serviceName}}'."),
+    seo_title: z.string().describe("An SEO-optimized meta title, under 60 characters, with the format 'Best {{serviceName}} Near Me | Professional {{categoryName}}'."),
+    seo_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks using words like 'Top-rated' and 'Affordable'."),
+    seo_keywords: z.string().describe("A comma-separated string of 10 relevant SEO keywords. Must include variations like 'best {{serviceName}} near me', 'professional {{categoryName}} services', 'book {{serviceName}} online'."),
   }).describe("SEO related content for the service page."),
-  rating: z.coerce.number().min(4).max(5).describe("A random rating between 4.0 and 5.0, with one decimal place (e.g., 4.3, 4.8)."),
-  reviewCount: z.coerce.number().int().min(100).max(1000).describe("A random integer review count between 100 and 1000."),
+  rating: z.coerce.number().min(4.5).max(5).describe("A random rating between 4.5 and 5.0, with one decimal place (e.g., 4.8, 4.9) to boost click-through rates."),
+  reviewCount: z.coerce.number().int().min(150).max(1500).describe("A random integer review count between 150 and 1500."),
 });
 export type GenerateServiceDetailsOutput = z.infer<typeof GenerateServiceDetailsOutputSchema>;
 
@@ -55,55 +55,55 @@ const prompt = ai.definePrompt({
   name: 'generateServiceDetailsPrompt',
   input: { schema: GenerateServiceDetailsInputSchema },
   output: { schema: GenerateServiceDetailsOutputSchema },
-  prompt: `You are an expert copywriter and SEO specialist for a home services company called "Wecanfix". Your task is to generate comprehensive, compelling, and SEO-friendly content for a specific service.
+  prompt: `You are an expert Local SEO copywriter for a home services company called "Wecanfix". Your task is to generate highly aggressive, intent-driven content and SEO metadata for a specific service to rank #1 on Google.
 
 Service Name: {{serviceName}}
 Category: {{categoryName}}
 Sub-Category: {{subCategoryName}}
 
-Please generate the content based on the service details provided. Adhere to the following structure and use the provided example as a guide for tone, style, and level of detail.
+Please generate the content based on the service details provided. Adhere to the following structure and focus on high-intent keywords like "Best", "Professional", "Top-Rated", and "Near Me". Ensure the FAQs are designed to win Google's "People Also Ask" boxes.
 
 **EXAMPLE**
 For a service named "Digital or Electronic Lock Installation" in the "Carpentry" category:
 
 *   **shortDescription**: "Install one digital or electronic lock on a wooden door."
-*   **fullDescription**: "Book skilled carpenters for safe and secure installation of one digital or electronic lock on a wooden door. Labour only; lock and accessories must be provided by the customer."
+*   **fullDescription**: "Book skilled, professional carpenters for the safe and secure installation of your digital or electronic lock on a wooden door. Top-rated service with transparent pricing."
 *   **pleaseNote**: ["Lock must be provided by the customer", "Installation applicable for standard wooden doors only", "Electrical connection, configuration, or setup beyond installation not included", "Our partners do not carry a ladder; please arrange one if needed"]
 *   **imageHint**: "Digital lock installation wooden door"
-*   **serviceHighlights**: ["Safe and proper digital lock installation", "Skilled carpenters handle delicate fittings", "Labour only, customer provides lock and accessories"]
-*   **includedItems**: ["Installation of one digital or electronic lock on a wooden door", "Carpenter with basic tools for proper fitting", "Physical mounting of the lock"]
+*   **serviceHighlights**: ["Safe and proper digital lock installation", "Skilled professionals handle delicate fittings", "Labour only, customer provides lock and accessories"]
+*   **includedItems**: ["Installation of one digital or electronic lock on a wooden door", "Professional carpenter with basic tools", "Physical mounting of the lock"]
 *   **excludedItems**: ["Lock supply or purchase assistance", "Installation on metal, glass, PVC, or sliding doors", "Electrical wiring or configuration of smart features"]
 *   **taskTime**: { "value": 60, "unit": "minutes" }
-*   **serviceFaqs**: [{ "question": "What does the digital or electronic lock installation service include?", "answer": "The service includes installing one digital/electronic door lock (with keypad, biometric, or card access) on a wooden door using customer-provided hardware and installation manual." }, { "question": "Is the digital lock provided in this service?", "answer": "No, the digital or electronic lock must be provided by the customer. We only provide professional installation." }, { "question": "Can this be installed on any door type?", "answer": "This service is applicable for wooden or engineered wood doors. We do not install on metal, glass, or uPVC doors." }]
+*   **serviceFaqs**: [{ "question": "What does the professional digital lock installation service include?", "answer": "The service includes installing one digital or electronic door lock on a wooden door using customer-provided hardware by an expert carpenter." }, { "question": "Do you provide the digital lock?", "answer": "No, the digital or electronic lock must be provided by the customer. We offer top-rated professional installation services." }, { "question": "Can this be installed on any door type?", "answer": "This service is specifically for wooden or engineered wood doors. We currently do not install on metal, glass, or uPVC doors." }]
 *   **seo**: {
-        "h1_title": "Digital or Electronic Lock Installation Service Near You",
-        "seo_title": "Digital & Electronic Lock Installation Near Me | Carpenter Near Me",
-        "seo_description": "Book professional digital or electronic lock installation near me by skilled carpenters. Secure fitting on wooden doors for enhanced safety. Labour only, lock provided by customer.",
-        "seo_keywords": "digital lock installation near me, electronic lock fitting near me, carpenter near me, carpenter near you, smart lock installation near me, wooden door lock installation near me"
+        "h1_title": "Best Professional Digital or Electronic Lock Installation",
+        "seo_title": "Best Digital Lock Installation Near Me | Professional Carpenter",
+        "seo_description": "Book top-rated, professional digital lock installation near you. Secure fitting on wooden doors by expert carpenters. Affordable, transparent pricing.",
+        "seo_keywords": "best digital lock installation near me, professional electronic lock fitting, expert carpenter near me, smart lock installation services"
     }
-*   **rating**: 4.7
-*   **reviewCount**: 321
+*   **rating**: 4.8
+*   **reviewCount**: 452
 
 **INSTRUCTIONS**
 
 Now, using the input service details ({{serviceName}}, {{categoryName}}, {{subCategoryName}}), generate the complete JSON output following the schema.
 
 1.  **shortDescription**: A concise, one-sentence description for a service card. Max 200 chars.
-2.  **fullDescription**: A slightly longer, one-paragraph marketing description for the service detail page. Highlight key benefits. It is VERY IMPORTANT that this description is UNDER 300 characters.
-3.  **pleaseNote**: An array of 2-4 important notes or disclaimers for the customer.
-4.  **imageHint**: One or two keywords for an AI image search. Max 50 characters.
-5.  **serviceHighlights**: An array of 2-4 short, punchy strings highlighting key features.
+2.  **fullDescription**: A slightly longer marketing description highlighting "professional" and "top-rated" qualities. MUST BE UNDER 300 chars.
+3.  **pleaseNote**: An array of 2-4 important notes or disclaimers.
+4.  **imageHint**: One or two keywords for an AI image search. Max 50 chars.
+5.  **serviceHighlights**: An array of 2-4 short, punchy strings highlighting key benefits.
 6.  **includedItems**: An array of 3-5 strings listing what is included.
 7.  **excludedItems**: An array of 2-4 strings listing what is NOT included.
 8.  **taskTime**: An object with the estimated time to complete the task.
-9.  **serviceFaqs**: An array of 2-3 relevant question/answer objects about this service.
+9.  **serviceFaqs**: An array of 3-4 specific question/answer objects designed for voice search and "People Also Ask" boxes.
 10. **seo**: An object with SEO content:
-    *   **h1_title**: Format: "{{serviceName}} Service Near You".
-    *   **seo_title**: Format: "{{serviceName}} Near Me | {{categoryName}} Near Me" (under 60 chars).
-    *   **seo_description**: SEO meta description (under 160 chars).
-    *   **seo_keywords**: 10 comma-separated keywords including '{{serviceName}} near me', '{{categoryName}} near me'.
-11. **rating**: A random float between 4.0 and 5.0 (one decimal place).
-12. **reviewCount**: A random integer between 100 and 5000.
+    *   **h1_title**: Format: "Best Professional {{serviceName}}".
+    *   **seo_title**: Format: "Best {{serviceName}} Near Me | Professional {{categoryName}}" (under 60 chars).
+    *   **seo_description**: SEO meta description (under 160 chars) using "Top-rated" or "Affordable".
+    *   **seo_keywords**: 10 comma-separated high-intent keywords.
+11. **rating**: A random float between 4.5 and 5.0 (one decimal place).
+12. **reviewCount**: A random integer between 150 and 1500.
 
 Return the entire response as a single, valid JSON object that adheres to the defined output schema.
 `,

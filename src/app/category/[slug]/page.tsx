@@ -8,72 +8,80 @@ import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { replacePlaceholders } from '@/lib/seoUtils';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
 }
 
-async function getCategoryDataForPage(slug: string): Promise<{category: FirestoreCategory, aggregateRating?: any} | null> {
-  try {
-    const catRef = adminDb.collection('adminCategories');
-    const q = catRef.where('slug', '==', slug).where('isActive', '==', true).limit(1);
-    const snapshot = await q.get();
-    if (snapshot.empty) return null;
-    const doc = snapshot.docs[0];
-    const category = { id: doc.id, ...doc.data() } as FirestoreCategory;
+const getCategoryDataForPage = cache(async (slug: string): Promise<{category: FirestoreCategory, aggregateRating?: any} | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const catRef = adminDb.collection('adminCategories');
+        const q = catRef.where('slug', '==', slug).where('isActive', '==', true).limit(1);
+        const snapshot = await q.get();
+        if (snapshot.empty) return null;
+        const doc = snapshot.docs[0];
+        const category = { id: doc.id, ...doc.data() } as FirestoreCategory;
 
-    const subCatsSnap = await adminDb.collection('adminSubCategories').where('parentId', '==', category.id).get();
-    const subCatIds = subCatsSnap.docs.map(d => d.id);
-    
-    let totalRating = 0;
-    let totalReviews = 0;
-    let minPrice = Infinity;
-    let maxPrice = 0;
+        const subCatsSnap = await adminDb.collection('adminSubCategories').where('parentId', '==', category.id).get();
+        const subCatIds = subCatsSnap.docs.map(d => d.id);
+        
+        let totalRating = 0;
+        let totalReviews = 0;
+        let minPrice = Infinity;
+        let maxPrice = 0;
 
-    if (subCatIds.length > 0) {
-        // Handle chunks of 10 for 'in' query
-        const chunks = [];
-        for (let i = 0; i < subCatIds.length; i += 10) {
-            chunks.push(subCatIds.slice(i, i + 10));
+        if (subCatIds.length > 0) {
+            const chunks = [];
+            for (let i = 0; i < subCatIds.length; i += 10) {
+                chunks.push(subCatIds.slice(i, i + 10));
+            }
+
+            const servicesPromises = chunks.map(chunk => 
+                adminDb.collection('adminServices')
+                    .where('isActive', '==', true)
+                    .where('subCategoryId', 'in', chunk)
+                    .get()
+            );
+
+            const servicesSnapshots = await Promise.all(servicesPromises);
+            
+            servicesSnapshots.forEach(snap => {
+                snap.forEach(sDoc => {
+                    const sData = sDoc.data() as FirestoreService;
+                    if (sData.rating > 0 && sData.reviewCount) {
+                        totalRating += (sData.rating * sData.reviewCount);
+                        totalReviews += sData.reviewCount;
+                    }
+                    const currentPrice = sData.discountedPrice || sData.price;
+                    if (currentPrice < minPrice) minPrice = currentPrice;
+                    if (currentPrice > maxPrice) maxPrice = currentPrice;
+                });
+            });
         }
 
-        const servicesPromises = chunks.map(chunk => 
-            adminDb.collection('adminServices')
-                .where('isActive', '==', true)
-                .where('subCategoryId', 'in', chunk)
-                .get()
-        );
+        const aggregateRating = totalReviews > 0 ? {
+            ratingValue: (totalRating / totalReviews).toFixed(1),
+            reviewCount: totalReviews,
+            priceRange: minPrice !== Infinity ? `₹${minPrice} - ₹${maxPrice}` : undefined
+        } : undefined;
 
-        const servicesSnapshots = await Promise.all(servicesPromises);
-        
-        servicesSnapshots.forEach(snap => {
-            snap.forEach(sDoc => {
-                const sData = sDoc.data() as FirestoreService;
-                if (sData.rating > 0 && sData.reviewCount) {
-                    totalRating += (sData.rating * sData.reviewCount);
-                    totalReviews += sData.reviewCount;
-                }
-                const currentPrice = sData.discountedPrice || sData.price;
-                if (currentPrice < minPrice) minPrice = currentPrice;
-                if (currentPrice > maxPrice) maxPrice = currentPrice;
-            });
-        });
-    }
+        return { category, aggregateRating };
+      } catch (error) {
+        console.error('Error fetching category data for page component:', error);
+        return null;
+      }
+    },
+    [`category-summary-${slug}`],
+    { revalidate: 3600, tags: ['categories', `category-summary-${slug}`] }
+  )();
+});
 
-    const aggregateRating = totalReviews > 0 ? {
-        ratingValue: (totalRating / totalReviews).toFixed(1),
-        reviewCount: totalReviews,
-        priceRange: minPrice !== Infinity ? `₹${minPrice} - ₹${maxPrice}` : undefined
-    } : undefined;
-
-    return { category, aggregateRating };
-  } catch (error) {
-    console.error('Error fetching category data for page component:', error);
-    return null;
-  }
-}
 
 export async function generateMetadata(
   { params }: CategoryPageProps,

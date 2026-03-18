@@ -10,8 +10,9 @@ import { replacePlaceholders } from '@/lib/seoUtils';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { cache } from 'react';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
 interface CityPageProps {
   params: Promise<{ city: string }>;
@@ -19,7 +20,7 @@ interface CityPageProps {
 
 const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next', 'favicon.ico'];
 
-async function getCityData(slug: string): Promise<FirestoreCity | null> {
+const getCityData = cache(async (slug: string): Promise<FirestoreCity | null> => {
   try {
     if (slug.includes('.') || RESERVED_SLUGS.includes(slug)) {
       return null;
@@ -36,7 +37,8 @@ async function getCityData(slug: string): Promise<FirestoreCity | null> {
     console.error(`[CityPage] Error fetching city data for page:`, error);
     return null;
   }
-}
+});
+
 
 export async function generateMetadata(
   { params }: CityPageProps,
@@ -98,10 +100,11 @@ export default async function CityHomePage({ params }: CityPageProps) {
     notFound();
   }
   
-  const [cityData, homepageData, aggregateRating] = await Promise.all([
+  const [cityData, homepageData, aggregateRating, seoSettings] = await Promise.all([
     getCityData(citySlug),
     getHomepageData(),
-    getAggregateRating()
+    getAggregateRating(),
+    getGlobalSEOSettings()
   ]);
   
   if (!cityData) {
@@ -112,14 +115,22 @@ export default async function CityHomePage({ params }: CityPageProps) {
   breadcrumbItems.push({ label: cityData.name });
 
   const appBaseUrl = getBaseUrl();
+  const placeholderData = { cityName: cityData.name };
+  const h1Title = replacePlaceholders(cityData.h1_title || seoSettings.cityPageH1Pattern, placeholderData) || `Best Professional Home Services in ${cityData.name}`;
+
   const citySchema = {
     "@context": "https://schema.org",
-    "@type": "Service",
-    "name": `Home Services in ${cityData.name}`,
-    "description": cityData.metaDescription || `Professional home services in ${cityData.name}.`,
-    "provider": {
-      "@type": "LocalBusiness",
-      "name": "Wecanfix"
+    "@type": "LocalBusiness",
+    "name": `Wecanfix ${cityData.name}`,
+    "url": `${appBaseUrl}/${citySlug}`,
+    "description": cityData.metaDescription || `Professional home services in ${cityData.name}. Trusted experts by Wecanfix.`,
+    "telephone": seoSettings.structuredDataTelephone,
+    "image": cityData.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/android-chrome-512x512.png`,
+    "address": {
+      "@type": "PostalAddress",
+      "addressLocality": cityData.name,
+      "addressRegion": seoSettings.structuredDataRegion,
+      "addressCountry": "IN"
     },
     "areaServed": {
       "@type": "City",
@@ -143,7 +154,8 @@ export default async function CityHomePage({ params }: CityPageProps) {
       <div className="container mx-auto px-4 pt-4 md:pt-6">
         <Breadcrumbs items={breadcrumbItems} />
       </div>
-      <HomePageClient citySlug={citySlug} initialData={homepageData} />
+      <HomePageClient citySlug={citySlug} initialData={homepageData} initialH1Title={h1Title} />
     </>
   );
 }
+

@@ -1,4 +1,3 @@
-// src/app/about-us/page.tsx
 import { adminDb } from '@/lib/firebaseAdmin';
 import type { ContentPage, GlobalWebSettings } from "@/types/firestore";
 import { Button } from "@/components/ui/button";
@@ -10,25 +9,34 @@ import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
 import { getBaseUrl } from '@/lib/config'; 
 import AppImage from '@/components/ui/AppImage';
+import { unstable_cache } from 'next/cache';
+import { cache } from 'react';
+import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export const dynamic = 'force-dynamic'; 
+export const revalidate = 3600; // Revalidate every hour
 
 const PAGE_SLUG = "about-us";
 
-async function getPageData(slug: string): Promise<ContentPage | null> {
-  try {
-    const pageDocRef = adminDb.collection("contentPages").doc(slug);
-    const docSnap = await pageDocRef.get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      return { id: docSnap.id, ...data } as ContentPage;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching content page for slug "${slug}":`, error);
-    return null;
-  }
-}
+const getPageData = cache(async (slug: string): Promise<ContentPage | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const pageDocRef = adminDb.collection("contentPages").doc(slug);
+        const docSnap = await pageDocRef.get();
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          return { id: docSnap.id, ...data } as ContentPage;
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error fetching content page for slug "${slug}":`, error);
+        return null;
+      }
+    },
+    [`content-page-${slug}`],
+    { revalidate: 3600, tags: ['content'] }
+  )();
+});
 
 async function getGlobalWebsiteSettings(): Promise<GlobalWebSettings | null> {
     try {
@@ -39,157 +47,51 @@ async function getGlobalWebsiteSettings(): Promise<GlobalWebSettings | null> {
         }
         return null;
     } catch (error) {
-        console.error("Error fetching global web settings for metadata:", error);
-        return null; 
+        console.error("Error fetching global web settings for about-us metadata:", error);
+        return null;
     }
 }
 
 export async function generateMetadata(
-  props: {}, 
+  props: {},
   parent: ResolvingMetadata
 ): Promise<Metadata> {
-  const resolvedParent = await parent;
-
   const pageData = await getPageData(PAGE_SLUG);
   const seoSettings = await getGlobalSEOSettings();
-  const webSettings = await getGlobalWebsiteSettings();
-  const siteName = resolvedParent.openGraph?.siteName || seoSettings.siteName || "Wecanfix";
-  const defaultSuffix = seoSettings.defaultMetaTitleSuffix || ` - ${siteName}`;
-  const appBaseUrl = getBaseUrl(); 
+  const appBaseUrl = getBaseUrl();
 
-  if (!pageData) {
-    return {
-      title: `Page Not Found${defaultSuffix}`,
-      description: "The page you are looking for does not exist.",
-      openGraph: {
-        title: `Page Not Found${defaultSuffix}`,
-        description: "The page you are looking for does not exist.",
-        siteName: siteName,
-      }
-    };
-  }
+  if (!pageData) return { title: `About Us | Wecanfix` };
 
-  const title = `${pageData.title}${defaultSuffix}`;
-  const description = pageData.content?.substring(0, 160) || seoSettings.defaultMetaDescription || `Information about ${pageData.title}`;
-  const keywords = seoSettings.defaultMetaKeywords?.split(',').map(k => k.trim()).filter(k => k);
-  const ogImage = pageData.imageUrl || webSettings?.websiteIconUrl || webSettings?.logoUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
-  const canonicalUrl = `${appBaseUrl}/${PAGE_SLUG}`;
+  const title = pageData.metaTitle || `About Us | ${seoSettings.siteName || 'Wecanfix'}`;
+  const description = pageData.metaDescription || pageData.excerpt || "Learn more about Wecanfix - Bangalore's most trusted home services provider.";
 
   return {
     title: title,
     description: description,
-    keywords: keywords && keywords.length > 0 ? keywords : undefined,
     alternates: {
-      canonical: canonicalUrl,
+      canonical: `${appBaseUrl}/about-us`,
     },
     openGraph: {
       title: title,
       description: description,
-      url: canonicalUrl,
-      siteName: siteName,
-      type: 'article',
-      images: ogImage ? [{ url: ogImage }] : [],
+      url: `/about-us`,
+      type: 'website',
     },
   };
 }
 
 export default async function AboutUsPage() {
-  try {
-    const pageData = await getPageData(PAGE_SLUG);
+  const pageData = await getPageData(PAGE_SLUG);
 
-    const breadcrumbItems: BreadcrumbItem[] = [
-      { label: "Home", href: "/" },
-      { label: pageData?.title || "About Us" },
-    ];
-
-    if (!pageData) {
-      return (
-        <div className="container mx-auto px-4 py-16 text-center">
-          <PackageSearch className="mx-auto h-24 w-24 text-muted-foreground mb-6" />
-          <h1 className="text-4xl font-bold text-destructive mb-4">404 - Page Not Found</h1>
-          <p className="text-lg text-muted-foreground mb-8">
-            Sorry, the page for '{PAGE_SLUG}' could not be found.
-          </p>
-          <Link href="/" passHref>
-            <Button variant="outline">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Go Back to Home
-            </Button>
-          </Link>
-        </div>
-      );
-    }
-
+  if (!pageData) {
     return (
-      <div className="min-h-screen bg-muted/20 pb-16">
-        <div className="container mx-auto px-4 py-8">
-          <Breadcrumbs items={breadcrumbItems} />
-          
-          <div className="max-w-4xl mx-auto mt-6 bg-card rounded-2xl shadow-sm border border-border/50 overflow-hidden">
-            {pageData.imageUrl && (
-                <div className="relative w-full aspect-[21/9] overflow-hidden">
-                    <AppImage 
-                        src={pageData.imageUrl} 
-                        alt={pageData.title} 
-                        fill 
-                        priority
-                        className="object-cover hover:scale-105 transition-transform duration-700"
-                        aiHint={pageData.imageHint || "about us banner"}
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-6 md:p-10">
-                        <h1 className="text-3xl md:text-5xl font-headline font-bold text-white drop-shadow-md">
-                        {pageData.title}
-                        </h1>
-                    </div>
-                </div>
-            )}
-
-            <div className="p-6 md:p-10 lg:p-12">
-                {!pageData.imageUrl && (
-                    <div className="mb-8 border-b pb-6">
-                        <h1 className="text-4xl font-headline font-bold text-foreground">
-                        {pageData.title}
-                        </h1>
-                    </div>
-                )}
-
-                {pageData.content ? (
-                    <article
-                    className="prose prose-lg prose-neutral dark:prose-invert max-w-none whitespace-pre-wrap
-                                prose-headings:font-headline prose-headings:text-foreground prose-headings:font-bold
-                                prose-p:text-foreground/80 prose-p:leading-relaxed
-                                prose-a:text-primary hover:prose-a:text-primary/80 prose-a:font-semibold
-                                prose-strong:text-foreground prose-strong:font-bold
-                                prose-ul:list-disc prose-ol:list-decimal
-                                prose-li:marker:text-primary"
-                    dangerouslySetInnerHTML={{ __html: pageData.content }}
-                    />
-                ): (
-                    <p className="text-muted-foreground italic text-center py-10">Content for this section is currently being updated. Please check back soon.</p>
-                )}
-            </div>
-          </div>
-
-          <div className="max-w-4xl mx-auto mt-12 bg-primary/10 rounded-2xl p-8 text-center border border-primary/20">
-              <h3 className="text-2xl font-headline font-bold text-foreground mb-3">Ready to experience the Wecanfix difference?</h3>
-              <p className="text-muted-foreground mb-6">Book a trusted professional for your home needs today.</p>
-              <Link href="/" passHref>
-                  <Button size="lg" className="rounded-full px-8 shadow-lg shadow-primary/25">
-                      Explore Our Services
-                  </Button>
-              </Link>
-          </div>
-
+      <div className="container mx-auto px-4 py-24 text-center">
+        <div className="bg-muted w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+          <PackageSearch className="h-10 w-10 text-muted-foreground" />
         </div>
-      </div>
-    );
-  } catch (error) {
-    console.error(`Error rendering page ${PAGE_SLUG}:`, error);
-    return (
-      <div className="container mx-auto px-4 py-16 text-center">
-        <PackageSearch className="mx-auto h-24 w-24 text-muted-foreground mb-6" />
-        <h1 className="text-4xl font-bold text-destructive mb-4">Server Error</h1>
-        <p className="text-lg text-muted-foreground mb-8">
-          Sorry, an error occurred while trying to load this page.
+        <h1 className="text-3xl font-bold mb-4">About Us Page Not Found</h1>
+        <p className="text-muted-foreground mb-8">
+          The content for this page is currently being updated.
         </p>
         <Link href="/" passHref>
           <Button variant="outline">
@@ -199,4 +101,83 @@ export default async function AboutUsPage() {
       </div>
     );
   }
+
+  const breadcrumbItems: BreadcrumbItem[] = [
+    { label: "Home", href: "/" },
+    { label: pageData.title },
+  ];
+
+  const appBaseUrl = getBaseUrl();
+  const organizationSchema = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    "name": "Wecanfix",
+    "url": appBaseUrl,
+    "logo": `${appBaseUrl}/android-chrome-512x512.png`,
+    "description": pageData.metaDescription || "Wecanfix is Bangalore's leading home services provider, offering professional carpentry, electrical, plumbing, and more.",
+    "contactPoint": {
+      "@type": "ContactPoint",
+      "telephone": "+91-7353113455",
+      "contactType": "customer service",
+      "areaServed": "IN",
+      "availableLanguage": ["en", "kn", "hi"]
+    },
+    "sameAs": [
+      "https://www.facebook.com/wecanfix.in",
+      "https://x.com/wecanfix_in",
+      "https://www.instagram.com/wecanfix.in/",
+      "https://www.linkedin.com/company/wecanfix-in",
+      "https://www.youtube.com/@wecanfix-in"
+    ]
+  };
+
+  return (
+    <div className="min-h-screen bg-background pb-20">
+      <JsonLdScript data={organizationSchema} idSuffix="about-org" />
+      {/* Hero Section */}
+      <div className="bg-primary/5 py-20 md:py-32">
+        <div className="container mx-auto px-4">
+          <Breadcrumbs items={breadcrumbItems} />
+          <div className="max-w-4xl mx-auto text-center mt-12">
+            <h1 className="text-5xl md:text-7xl font-headline font-bold text-foreground mb-8">
+              {pageData.title}
+            </h1>
+            {pageData.excerpt && (
+              <p className="text-xl md:text-2xl text-muted-foreground leading-relaxed">
+                {pageData.excerpt}
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 -mt-16">
+        <div className="max-w-4xl mx-auto bg-card rounded-[3rem] shadow-2xl border border-border/50 overflow-hidden">
+          {pageData.coverImageUrl && (
+            <div className="relative aspect-video w-full">
+              <AppImage
+                src={pageData.coverImageUrl}
+                alt={pageData.title}
+                fill
+                className="object-cover"
+                priority
+              />
+            </div>
+          )}
+          
+          <div className="p-8 md:p-16 lg:p-20">
+            <div 
+              className="prose prose-xl dark:prose-invert max-w-none 
+                prose-headings:font-headline prose-headings:font-bold prose-headings:text-foreground
+                prose-p:text-muted-foreground prose-p:leading-relaxed
+                prose-strong:text-foreground prose-strong:font-bold
+                prose-ul:list-disc prose-li:marker:text-primary
+                prose-img:rounded-3xl prose-img:shadow-xl"
+              dangerouslySetInnerHTML={{ __html: pageData.content }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }

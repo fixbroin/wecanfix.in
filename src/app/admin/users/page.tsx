@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -9,12 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuCheckboxItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, DropdownMenuSub, DropdownMenuSubTrigger, DropdownMenuSubContent, DropdownMenuItem } from "@/components/ui/dropdown-menu";
-import { Users, Eye, Trash2, Loader2, UserCircle, PackageSearch, ShieldCheck, ShieldAlert, XCircle, Search, Download, FileDown, UserCheck, UserX, UserPlus, Phone, Mail, Calendar, MessageCircle, ChevronRight, FileSpreadsheet, FileText as FilePdfIcon, CheckCircle2 } from "lucide-react";
+import { Users, Eye, Trash2, Loader2, UserCircle, PackageSearch, ShieldCheck, ShieldAlert, XCircle, Search, Download, FileDown, UserCheck, UserX, UserPlus, Phone, Mail, Calendar, MessageCircle, ChevronDown, FileSpreadsheet, FileText as FilePdfIcon, CheckCircle2 } from "lucide-react";
 import type { FirestoreUser, Address } from '@/types/firestore';
-import { db, auth } from '@/lib/firebase'; 
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp } from "firebase/firestore";
-import { updateProfile } from "firebase/auth"; 
+import { db } from '@/lib/firebase'; 
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, limit, startAfter, getDocs, where, type QueryDocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import UserDetailsModal from '@/components/admin/UserDetailsModal'; 
 import { Input } from '@/components/ui/input';
@@ -26,7 +23,8 @@ import 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { getArchivedUsers } from '@/lib/adminDashboardUtils';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const formatUserTimestamp = (timestamp?: Timestamp): string => {
   if (!timestamp) return 'N/A';
@@ -58,8 +56,13 @@ const availableFields: { key: SelectableUserField; label: string }[] = [
   { key: 'lastLoginAt', label: 'Last Login' },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function AdminUsersPage() {
   const [users, setUsers] = useState<FirestoreUser[]>([]);
+  const [lastDoc, setLastDoc] = useState<QueryDocumentSnapshot | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export default function AdminUsersPage() {
   const [selectedUserForModal, setSelectedUserForModal] = useState<FirestoreUser | null>(null);
   const [isUserDetailsModalOpen, setIsUserDetailsModalOpen] = useState(false);
   const [isExportDialogOpen, setIsExportDialogOpen] = useState(false);
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
 
   const [selectedFields, setSelectedFields] = useState<Partial<Record<SelectableUserField, boolean>>>({
     displayName: true, email: true, mobileNumber: true, fullAddress: false, 
@@ -77,41 +81,81 @@ export default function AdminUsersPage() {
   });
 
   useEffect(() => {
-    setIsLoading(true);
-    const usersCollectionRef = collection(db, "users");
-    const q = query(usersCollectionRef, orderBy("createdAt", "desc"));
+    if (searchTerm.trim().length > 0) {
+      const delayDebounceFn = setTimeout(async () => {
+        setIsLoading(true);
+        try {
+          const usersRef = collection(db, "users");
+          const term = searchTerm.trim();
+          
+          // 1. Exact email match
+          const emailQuery = query(usersRef, where("email", "==", term));
+          // 2. Exact mobile match
+          const mobileQuery = query(usersRef, where("mobileNumber", "==", term));
+          // 3. Name prefix match
+          const nameQuery = query(usersRef, where("displayName", ">=", term), where("displayName", "<=", term + '\uf8ff'));
+          
+          const [emailSnap, mobileSnap, nameSnap] = await Promise.all([
+            getDocs(emailQuery),
+            getDocs(mobileQuery),
+            getDocs(nameQuery)
+          ]);
 
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
-      const fetchedUsers = querySnapshot.docs.map(doc => ({
-        ...doc.data(),
-        id: doc.id, 
-      } as FirestoreUser));
-      setUsers(fetchedUsers);
-      setIsLoading(false);
-    }, (error) => {
-      console.error("Error fetching users: ", error);
-      toast({ title: "Error", description: "Could not fetch users.", variant: "destructive" });
-      setIsLoading(false);
-    });
+          let results = [...emailSnap.docs, ...mobileSnap.docs, ...nameSnap.docs].map(docSnap => ({
+            ...docSnap.data(),
+            id: docSnap.id
+          } as FirestoreUser));
 
-    return () => unsubscribe();
-  }, [toast]);
+          const uniqueResults = Array.from(new Map(results.map(u => [u.id, u])).values());
+          setUsers(uniqueResults);
+          setHasMore(false);
+        } catch (error) {
+          console.error("Search error:", error);
+        } finally {
+          setIsLoading(false);
+        }
+      }, 400);
+      return () => clearTimeout(delayDebounceFn);
+    } else {
+      setIsLoading(true);
+      const usersCollectionRef = collection(db, "users");
+      const q = query(usersCollectionRef, orderBy("createdAt", "desc"), limit(PAGE_SIZE));
 
-  const stats = useMemo(() => {
-    return {
-      total: users.length,
-      active: users.filter(u => u.isActive).length,
-      disabled: users.filter(u => !u.isActive).length,
-      newToday: users.filter(u => {
-        if (!u.createdAt) return false;
-        const today = new Date();
-        const created = u.createdAt.toDate();
-        return created.getDate() === today.getDate() && 
-               created.getMonth() === today.getMonth() && 
-               created.getFullYear() === today.getFullYear();
-      }).length
-    };
-  }, [users]);
+      const unsubscribe = onSnapshot(q, (querySnapshot) => {
+        const fetchedUsers = querySnapshot.docs.map(doc => ({
+          ...doc.data(),
+          id: doc.id, 
+        } as FirestoreUser));
+        setUsers(fetchedUsers);
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+        setHasMore(querySnapshot.docs.length === PAGE_SIZE);
+        setIsLoading(false);
+      }, (error) => {
+        console.error("Error fetching users: ", error);
+        setIsLoading(false);
+      });
+
+      return () => unsubscribe();
+    }
+  }, [searchTerm]);
+
+  const loadMoreUsers = async () => {
+    if (isLoadingMore || !hasMore || searchTerm.trim().length > 0) return;
+    setIsLoadingMore(true);
+    try {
+      const moreUsers = await getArchivedUsers();
+      
+      const existingIds = new Set(users.map(u => u.id));
+      const newItems = moreUsers.filter(u => !existingIds.has(u.id));
+      
+      setUsers(prev => [...prev, ...newItems]);
+      setHasMore(false);
+    } catch (error) {
+      console.error("Error loading more users:", error);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
@@ -128,6 +172,7 @@ export default function AdminUsersPage() {
     setIsUpdatingStatus(userId);
     try {
       await updateDoc(doc(db, "users", userId), { isActive: !currentStatus });
+      await triggerRefresh('users'); // SmartSync
       toast({ title: "Status Updated", description: `User is now ${!currentStatus ? 'Active' : 'Disabled'}.` });
     } catch (error) {
       toast({ title: "Update Failed", variant: "destructive" });
@@ -141,6 +186,7 @@ export default function AdminUsersPage() {
     setIsDeleting(userId);
     try {
       await deleteDoc(doc(db, "users", userId));
+      await triggerRefresh('users'); // SmartSync
       toast({ title: "User Deleted", description: "The record has been removed from Firestore." });
     } catch (error) {
       toast({ title: "Delete Failed", variant: "destructive" });
@@ -158,6 +204,7 @@ export default function AdminUsersPage() {
     if (!selectedUserForModal?.id) return false;
     try {
         await updateDoc(doc(db, "users", selectedUserForModal.id), updatedUserData);
+        await triggerRefresh('users'); // SmartSync
         toast({ title: "Updated", description: "User details synchronized." });
         setIsUserDetailsModalOpen(false);
         return true;
@@ -236,7 +283,10 @@ export default function AdminUsersPage() {
       <div className="flex justify-between items-start mb-4">
         <div className="flex items-center gap-3 text-left">
           <div className="relative">
-            <Avatar className="h-12 w-12 border-2 border-primary/10 shadow-sm">
+            <Avatar 
+              className="h-12 w-12 border-2 border-primary/10 shadow-sm cursor-zoom-in"
+              onClick={() => user.photoURL && setSelectedImage(user.photoURL)}
+            >
               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || undefined} />
               <AvatarFallback className="bg-primary/5 text-primary font-black uppercase">
                 {user.displayName ? user.displayName.charAt(0) : <UserCircle size={24}/>}
@@ -298,7 +348,7 @@ export default function AdminUsersPage() {
         </Button>
         <AlertDialog>
           <AlertDialogTrigger asChild>
-            <Button variant="ghost" className="h-10 px-3 rounded-xl bg-destructive/5 text-destructive border border-destructive/10 hover:bg-destructive hover:text-destructive-foreground transition-all duration-300 shadow-sm" disabled={isDeleting === user.id || !user.id}>
+            <Button variant="ghost" className="h-10 px-3 rounded-xl bg-destructive/5 text-destructive border border-destructive/10 hover:bg-destructive hover:text-white transition-all duration-300 shadow-sm" disabled={isDeleting === user.id || !user.id}>
               <Trash2 className="h-4 w-4" />
             </Button>
           </AlertDialogTrigger>
@@ -328,20 +378,6 @@ export default function AdminUsersPage() {
           </div>
           <h1 className="text-4xl font-black tracking-tight">User Directory</h1>
           <p className="text-muted-foreground text-sm font-medium">Manage and audit your registered user ecosystem.</p>
-        </div>
-
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-card border shadow-sm p-2 rounded-[2rem]">
-          {[
-            { label: 'Total', value: stats.total, color: 'text-primary', icon: Users },
-            { label: 'Active', value: stats.active, color: 'text-emerald-600', icon: UserCheck },
-            { label: 'Disabled', value: stats.disabled, color: 'text-destructive', icon: UserX },
-            { label: 'Today', value: `+${stats.newToday}`, color: 'text-primary', icon: UserPlus },
-          ].map((s) => (
-            <div key={s.label} className="px-4 py-2 text-center border-r last:border-none border-dashed">
-              <p className="text-[9px] font-black uppercase text-muted-foreground mb-0.5 tracking-tighter">{s.label}</p>
-              <p className={cn("text-lg font-black leading-none", s.color)}>{s.value}</p>
-            </div>
-          ))}
         </div>
       </header>
 
@@ -397,7 +433,10 @@ export default function AdminUsersPage() {
                       {filteredUsers.map((user, idx) => (
                         <motion.tr key={user.id} initial={{ opacity: 0, y: -5 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.2, delay: idx < 15 ? idx * 0.03 : 0 }} className="group border-b border-muted/40 transition-all hover:bg-primary/[0.02]">
                           <TableCell className="pl-8">
-                            <Avatar className="h-10 w-10 border shadow-sm group-hover:scale-110 transition-transform">
+                            <Avatar 
+                              className="h-10 w-10 border shadow-sm group-hover:scale-110 transition-transform cursor-zoom-in"
+                              onClick={() => user.photoURL && setSelectedImage(user.photoURL)}
+                            >
                               <AvatarImage src={user.photoURL || undefined} alt={user.displayName || user.email || undefined} />
                               <AvatarFallback className="text-xs font-black bg-primary/10 text-primary">{user.displayName ? user.displayName.charAt(0).toUpperCase() : 'U'}</AvatarFallback>
                             </Avatar>
@@ -455,6 +494,21 @@ export default function AdminUsersPage() {
                   {filteredUsers.map((user, idx) => renderUserCard(user, idx))}
                 </AnimatePresence>
               </div>
+
+              {hasMore && !searchTerm && (
+                <div className="p-8 text-center border-t border-muted/40">
+                  <Button 
+                    variant="outline" 
+                    size="lg" 
+                    onClick={loadMoreUsers} 
+                    disabled={isLoadingMore} 
+                    className="min-w-[200px] rounded-2xl border-2 border-primary/20 hover:bg-primary hover:text-primary-foreground transition-all duration-300 shadow-sm font-black uppercase text-xs tracking-widest h-12"
+                  >
+                    {isLoadingMore ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : <ChevronDown className="h-5 w-5 mr-2" />}
+                    Load More Users
+                  </Button>
+                </div>
+              )}
             </>
           )}
         </CardContent>
@@ -468,7 +522,28 @@ export default function AdminUsersPage() {
         </Dialog>
       )}
 
-      {/* Export Pop-up */}
+      {/* Image Preview Dialog */}
+      <Dialog open={!!selectedImage} onOpenChange={(open) => !open && setSelectedImage(null)}>
+        <DialogContent className="max-w-md p-0 border-none bg-transparent shadow-none flex items-center justify-center">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Profile Photo Preview</DialogTitle>
+          </DialogHeader>
+          {selectedImage && (
+            <div className="relative w-[90vw] h-[90vw] max-w-[400px] max-h-[400px] rounded-[2.5rem] overflow-hidden border-4 border-white shadow-2xl bg-card">
+              <AppImage src={selectedImage} alt="Profile Preview" fill className="object-cover" />
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-4 right-4 h-10 w-10 rounded-full bg-black/20 hover:bg-black/40 text-white backdrop-blur-md"
+                onClick={() => setSelectedImage(null)}
+              >
+                <XCircle className="h-6 w-6" />
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={isExportDialogOpen} onOpenChange={setIsExportDialogOpen}>
         <DialogContent className="max-w-md w-[95vw] border-none shadow-2xl rounded-[2.5rem] p-8 bg-card">
           <DialogHeader>

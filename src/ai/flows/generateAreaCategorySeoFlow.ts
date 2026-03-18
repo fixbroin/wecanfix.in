@@ -15,10 +15,10 @@ const GenerateAreaCategorySeoInputSchema = z.object({
 export type GenerateAreaCategorySeoInput = z.infer<typeof GenerateAreaCategorySeoInputSchema>;
 
 const GenerateAreaCategorySeoOutputSchema = z.object({
-  h1_title: z.string().describe("An H1 title optimized for the area-category page. Format: '{{categoryName}} Services in {{areaName}} – Professional Technicians Near You'"),
-  meta_title: z.string().describe("An SEO-optimized meta title, under 60 characters. Format: '{{categoryName}} Services in {{areaName}} | Book Local Experts Near Me'"),
-  meta_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks, mentioning the area, category, and key services."),
-  meta_keywords: z.string().describe("A comma-separated string of 10 relevant SEO keywords for the area-category combination. Must include variations like '{{categoryName}} services {{areaName}}', '{{areaName}} {{categoryName}}', '{{categoryName}} near me {{areaName}}', and specific services relevant to the category."),
+  h1_title: z.string().describe("An H1 title optimized for the area-category page. Format: 'Best Professional {{categoryName}} Services in {{areaName}}, {{cityName}}'"),
+  meta_title: z.string().describe("An SEO-optimized meta title, under 60 characters. Format: 'Best {{categoryName}} in {{areaName}}, {{cityName}} | Expert {{categoryName}} Near Me'"),
+  meta_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks, mentioning the area, city, and words like 'top-rated' and 'trusted experts'."),
+  meta_keywords: z.string().describe("A comma-separated string of 10 highly relevant hyper-local SEO keywords. Must include variations like 'best {{categoryName}} in {{areaName}}', 'professional {{categoryName}} near me', 'top-rated {{categoryName}} {{areaName}} {{cityName}}'."),
 });
 export type GenerateAreaCategorySeoOutput = z.infer<typeof GenerateAreaCategorySeoOutputSchema>;
 
@@ -30,19 +30,19 @@ const prompt = ai.definePrompt({
   name: 'generateAreaCategorySeoPrompt',
   input: { schema: GenerateAreaCategorySeoInputSchema },
   output: { schema: GenerateAreaCategorySeoOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "Wecanfix".
-Your task is to generate optimized, hyper-local SEO content for a specific service category within a specific area of a city.
+  prompt: `You are an expert Local SEO copywriter for a home services company called "Wecanfix".
+Your task is to generate highly aggressive, intent-driven SEO content for a specific service category within a specific neighborhood/area of a city to rank #1 on Google.
 
 Area Name: {{areaName}}
 City Name: {{cityName}}
 Category Name: {{categoryName}}
 
-Based on these details, please generate the following content. Be professional, clear, and focused on this specific neighborhood.
+Based on these details, generate the following content. Focus on high-intent keywords like "Best", "Professional", "Top-Rated", and "Near Me".
 
-1.  **h1_title**: Create an H1 title with the format: "{{categoryName}} Services in {{areaName}} – Professional Technicians Near You".
-2.  **meta_title**: A meta title (under 60 chars) with the format: "{{categoryName}} Services in {{areaName}} | {{categoryName}} Near Me".
-3.  **meta_description**: A compelling meta description (under 160 chars) that includes the area, city, and category, encouraging local bookings.
-4.  **meta_keywords**: A comma-separated string of 10 relevant keywords. Include "{{categoryName}} services {{areaName}}", "{{areaName}} {{categoryName}}", "{{categoryName}} near me {{areaName}}", and other related local terms.
+1.  **h1_title**: Create an H1 title with the format: "Best Professional {{categoryName}} Services in {{areaName}}, {{cityName}}".
+2.  **meta_title**: A meta title (under 60 chars) with the format: "Best {{categoryName}} in {{areaName}}, {{cityName}} | Expert {{categoryName}} Near Me".
+3.  **meta_description**: A compelling meta description (under 160 chars) that includes the area, city, and category, using phrases like "trusted experts" or "affordable pricing" to drive local bookings.
+4.  **meta_keywords**: A comma-separated string of 10 high-intent keywords. Include "best {{categoryName}} {{areaName}}", "{{categoryName}} near me {{areaName}}", "professional {{categoryName}} in {{areaName}} {{cityName}}".
 
 Return the entire response as a single, valid JSON object that adheres to the defined output schema.
 `,

@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import AppImage from '@/components/ui/AppImage';
-import { XIcon, Mail, Loader2, User, Phone } from 'lucide-react'; 
+import { XIcon, Mail, Loader2, User, Phone,CheckCircle } from 'lucide-react'; 
 import { db } from '@/lib/firebase';
 import { collection, query, where, orderBy, getDocs, addDoc, Timestamp, limit } from 'firebase/firestore'; 
 import type { FirestorePopup, PopupDisplayFrequency, InquirySource, InquiryStatus, FirestorePopupInquiry, FirestoreNotification } from '@/types/firestore'; 
@@ -38,6 +38,7 @@ export default function PopupDisplayManager() {
   const { user, triggerAuthRedirect } = useAuth();
   const { showLoading } = useLoading();
   const [showPromoCode, setShowPromoCode] = useState(false);
+  const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false); // New state
   const { config: appConfig } = useApplicationConfig();
   const countryCode = appConfig?.defaultOtpCountryCode || '+91';
 
@@ -259,6 +260,7 @@ export default function PopupDisplayManager() {
 
   const handlePopupClose = () => {
     setIsPopupVisible(false);
+    setIsSubmittedSuccessfully(false);
     setEmailForSubscription('');
     setNameForSubscription(''); 
     setMobileForSubscription(''); 
@@ -373,6 +375,7 @@ export default function PopupDisplayManager() {
         }
         // --- END ADMIN NOTIFICATION ---
 
+        setIsSubmittedSuccessfully(true); // Mark as successful
         toast({ title: "Submitted!", description: `Thank you for your submission.`, className:"bg-green-100 text-green-700 border-green-300" });
         
         if (['newsletter_signup', 'lead_capture', 'subscribe'].includes(currentPopupToDisplay?.popupType)) {
@@ -388,6 +391,8 @@ export default function PopupDisplayManager() {
         setMobileForSubscription('');
         
         if (currentPopupToDisplay?.targetUrl) {
+            // If there's a promo code, give them more time to see/copy it
+            const delay = currentPopupToDisplay.promoCode ? 3000 : 1500;
             setTimeout(() => {
                  if (currentPopupToDisplay.targetUrl!.startsWith('http')) {
                     window.open(currentPopupToDisplay.targetUrl!, '_blank');
@@ -400,9 +405,12 @@ export default function PopupDisplayManager() {
                     }
                  }
                  handlePopupClose();
-            }, 1500);
-        } else {
-            handlePopupClose();
+            }, delay);
+        } else if (!currentPopupToDisplay.promoCode) {
+            // Only close automatically if there's no promo code to show
+            setTimeout(() => {
+                handlePopupClose();
+            }, 2000);
         }
     } catch (error) {
         console.error("Error saving popup submission:", error);
@@ -447,6 +455,14 @@ export default function PopupDisplayManager() {
 
   useEffect(() => {
     if (currentPopupToDisplay?.promoCode) {
+        // If there are input fields, only show promo code AFTER submission
+        const hasInputs = currentPopupToDisplay.showNameInput || currentPopupToDisplay.showEmailInput || currentPopupToDisplay.showMobileInput;
+        
+        if (hasInputs) {
+            setShowPromoCode(isSubmittedSuccessfully);
+            return;
+        }
+
         const requiredFieldsCount = currentPopupToDisplay.promoCodeConditionFieldsRequired ?? 0;
 
         if (requiredFieldsCount === 0) {
@@ -478,7 +494,7 @@ export default function PopupDisplayManager() {
     } else {
         setShowPromoCode(false);
     }
-  }, [currentPopupToDisplay, nameForSubscription, emailForSubscription, mobileForSubscription]);
+  }, [currentPopupToDisplay, nameForSubscription, emailForSubscription, mobileForSubscription, isSubmittedSuccessfully]);
 
 
   if (isLoadingPopups || !currentPopupToDisplay || !isPopupVisible) {
@@ -566,77 +582,105 @@ export default function PopupDisplayManager() {
                 {currentPopupToDisplay.displayText}
               </DialogDescription>
             )}
-            {currentPopupToDisplay.promoCode && showPromoCode && (
-              <div className="py-2">
-                <p className="text-sm text-muted-foreground">Use promo code:</p>
-                <button
-                  onClick={() => handleCopyToClipboard(currentPopupToDisplay.promoCode || '')}
-                  className="text-lg font-bold text-primary tracking-wider border border-dashed border-primary/50 bg-primary/10 py-1.5 px-3 rounded-md inline-block transition-colors hover:bg-primary/20 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
-                  aria-label={`Copy coupon code: ${currentPopupToDisplay.promoCode}`}
-                >
-                  {currentPopupToDisplay.promoCode}
-                </button>
+            {isSubmittedSuccessfully ? (
+              <div className="py-6 animate-in fade-in zoom-in duration-500">
+                <div className="mb-4 flex flex-col items-center justify-center">
+                   <div className="h-12 w-12 rounded-full bg-green-100 flex items-center justify-center text-green-600 mb-2">
+                      <CheckCircle className="h-8 w-8" />
+                   </div>
+                   <h3 className="text-xl font-bold text-foreground">Thank You!</h3>
+                   <p className="text-muted-foreground mt-1">Your submission was successful.</p>
+                </div>
+
+                {currentPopupToDisplay.promoCode && (
+                  <div className="mt-4 p-4 border border-dashed border-primary/50 bg-primary/5 rounded-xl">
+                    <p className="text-xs font-bold text-primary uppercase tracking-widest mb-2">Your Reward Code</p>
+                    <button
+                      onClick={() => handleCopyToClipboard(currentPopupToDisplay.promoCode || '')}
+                      className="text-2xl font-black text-primary tracking-tighter hover:scale-105 transition-transform cursor-pointer focus:outline-none"
+                      aria-label={`Copy coupon code: ${currentPopupToDisplay.promoCode}`}
+                    >
+                      {currentPopupToDisplay.promoCode}
+                    </button>
+                    <p className="text-[10px] text-muted-foreground mt-2 italic">Click code to copy</p>
+                  </div>
+                )}
               </div>
-            )}
-            
-            {(currentPopupToDisplay.showNameInput || currentPopupToDisplay.showEmailInput || currentPopupToDisplay.showMobileInput) && (
-              <form onSubmit={handleSubscribe} className="flex flex-col gap-3 mt-2">
-                {currentPopupToDisplay.showNameInput && (
-                    <div className="flex flex-col gap-1.5 text-left">
-                        <label className="text-xs font-medium text-muted-foreground ml-1">Full Name</label>
-                        <Input
-                            type="text"
-                            placeholder="Full Name"
-                            value={nameForSubscription}
-                            onChange={(e) => setNameForSubscription(e.target.value)}
-                            required={currentPopupToDisplay.showNameInput} 
-                            className="h-10 text-base"
-                            disabled={isSubscribing}
-                            aria-label="Full Name"
-                        />
-                    </div>
+            ) : (
+              <>
+                {currentPopupToDisplay.promoCode && showPromoCode && (
+                  <div className="py-2">
+                    <p className="text-sm text-muted-foreground">Use promo code:</p>
+                    <button
+                      onClick={() => handleCopyToClipboard(currentPopupToDisplay.promoCode || '')}
+                      className="text-lg font-bold text-primary tracking-wider border border-dashed border-primary/50 bg-primary/10 py-1.5 px-3 rounded-md inline-block transition-colors hover:bg-primary/20 cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      aria-label={`Copy coupon code: ${currentPopupToDisplay.promoCode}`}
+                    >
+                      {currentPopupToDisplay.promoCode}
+                    </button>
+                  </div>
                 )}
-                {currentPopupToDisplay.showEmailInput && (
-                    <div className="flex flex-col gap-1.5 text-left">
-                        <label className="text-xs font-medium text-muted-foreground ml-1">Email Address</label>
-                        <Input
-                            type="email"
-                            placeholder="you@example.com"
-                            value={emailForSubscription}
-                            onChange={(e) => setEmailForSubscription(e.target.value)}
-                            required={currentPopupToDisplay.showEmailInput}
-                            className="h-10 text-base"
-                            disabled={isSubscribing}
-                            aria-label="Email Address"
-                        />
-                    </div>
-                )}
-                 {currentPopupToDisplay.showMobileInput && (
-                    <div className="flex flex-col gap-1.5 text-left">
-                        <label className="text-xs font-medium text-muted-foreground ml-1">Mobile Number</label>
-                        <div className="flex gap-2">
-                            <div className="flex items-center justify-center px-3 bg-muted border rounded-md text-sm font-medium text-muted-foreground whitespace-nowrap">
-                                {countryCode}
-                            </div>
+                
+                {(currentPopupToDisplay.showNameInput || currentPopupToDisplay.showEmailInput || currentPopupToDisplay.showMobileInput) && (
+                  <form onSubmit={handleSubscribe} className="flex flex-col gap-3 mt-2">
+                    {currentPopupToDisplay.showNameInput && (
+                        <div className="flex flex-col gap-1.5 text-left">
+                            <label className="text-xs font-medium text-muted-foreground ml-1">Full Name</label>
                             <Input
-                                type="tel"
-                                placeholder="10-digit mobile number"
-                                value={mobileForSubscription}
-                                onChange={(e) => setMobileForSubscription(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                                required={currentPopupToDisplay.showMobileInput} 
+                                type="text"
+                                placeholder="Full Name"
+                                value={nameForSubscription}
+                                onChange={(e) => setNameForSubscription(e.target.value)}
+                                required={currentPopupToDisplay.showNameInput} 
                                 className="h-10 text-base"
                                 disabled={isSubscribing}
-                                aria-label="Mobile Number"
-                                maxLength={10}
+                                aria-label="Full Name"
                             />
                         </div>
-                    </div>
+                    )}
+                    {currentPopupToDisplay.showEmailInput && (
+                        <div className="flex flex-col gap-1.5 text-left">
+                            <label className="text-xs font-medium text-muted-foreground ml-1">Email Address</label>
+                            <Input
+                                type="email"
+                                placeholder="you@example.com"
+                                value={emailForSubscription}
+                                onChange={(e) => setEmailForSubscription(e.target.value)}
+                                required={currentPopupToDisplay.showEmailInput}
+                                className="h-10 text-base"
+                                disabled={isSubscribing}
+                                aria-label="Email Address"
+                            />
+                        </div>
+                    )}
+                    {currentPopupToDisplay.showMobileInput && (
+                        <div className="flex flex-col gap-1.5 text-left">
+                            <label className="text-xs font-medium text-muted-foreground ml-1">Mobile Number</label>
+                            <div className="flex gap-2">
+                                <div className="flex items-center justify-center px-3 bg-muted border rounded-md text-sm font-medium text-muted-foreground whitespace-nowrap">
+                                    {countryCode}
+                                </div>
+                                <Input
+                                    type="tel"
+                                    placeholder="10-digit mobile number"
+                                    value={mobileForSubscription}
+                                    onChange={(e) => setMobileForSubscription(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                    required={currentPopupToDisplay.showMobileInput} 
+                                    className="h-10 text-base"
+                                    disabled={isSubscribing}
+                                    aria-label="Mobile Number"
+                                    maxLength={10}
+                                />
+                            </div>
+                        </div>
+                    )}
+                    <Button type="submit" className="w-full h-10" disabled={isSubscribing}>
+                      {isSubscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4"/>}
+                      Submit
+                    </Button>
+                  </form>
                 )}
-                <Button type="submit" className="w-full h-10" disabled={isSubscribing}>
-                  {isSubscribing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Mail className="mr-2 h-4 w-4"/>}
-                  Submit
-                </Button>
-              </form>
+              </>
             )}
 
              {currentPopupToDisplay.buttonText && currentPopupToDisplay.targetUrl && (

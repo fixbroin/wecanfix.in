@@ -174,6 +174,7 @@ if (
       await setDoc(userDocRef, { lastLoginAt: Timestamp.now() }, { merge: true });
       logUserActivity('userLogin', {
         email: user.email || undefined,
+        mobileNumber: userData?.mobileNumber || user.phoneNumber || undefined,
         loginMethod: user.providerData[0]?.providerId || 'password',
         sourceGuestId: guestIdBeforeAuth
       }, user.uid, null);

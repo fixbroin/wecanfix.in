@@ -7,60 +7,46 @@ import type { Metadata } from 'next';
 import { getBaseUrl } from '@/lib/config';
 import Link from 'next/link';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
+import { unstable_cache } from 'next/cache';
 
 import type { BreadcrumbItem } from '@/types/ui';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
-export async function generateMetadata(): Promise<Metadata> {
-  const appBaseUrl = getBaseUrl();
-  const canonicalUrl = `${appBaseUrl}/blog`;
+const getPublishedPosts = unstable_cache(
+  async (): Promise<ClientBlogPost[]> => {
+    try {
+      const postsRef = adminDb.collection('blogPosts');
+      const snapshot = await postsRef.get();
+      
+      const posts: ClientBlogPost[] = snapshot.docs
+        .map(doc => {
+          const data = doc.data() as FirestoreBlogPost;
+          return {
+            ...data,
+            id: doc.id,
+            // Serialize Timestamps to ISO strings
+            createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
+              ? data.createdAt.toDate().toISOString() 
+              : new Date().toISOString(),
+            updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
+              ? data.updatedAt.toDate().toISOString() 
+              : undefined,
+          };
+        })
+        .filter(post => post.isPublished === true)
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      
+      return posts;
+    } catch (error) {
+      console.error("Error fetching blog posts:", error);
+      return [];
+    }
+  },
+  ['published-blog-posts'],
+  { revalidate: 3600, tags: ['blog'] }
+);
 
-  return {
-    title: "Blog",
-    description: "Tips, guides, and updates from the Wecanfix team to help you with your home needs.",
-    alternates: {
-      canonical: canonicalUrl,
-    },
-    openGraph: {
-      title: "Blog | Wecanfix",
-      description: "Tips, guides, and updates from the Wecanfix team to help you with your home needs.",
-      url: canonicalUrl,
-      type: 'website',
-    },
-  };
-}
-
-
-async function getPublishedPosts(): Promise<ClientBlogPost[]> {
-  try {
-    const postsRef = adminDb.collection('blogPosts');
-    const snapshot = await postsRef.get();
-    
-    const posts: ClientBlogPost[] = snapshot.docs
-      .map(doc => {
-        const data = doc.data() as FirestoreBlogPost;
-        return {
-          ...data,
-          id: doc.id,
-          // Serialize Timestamps to ISO strings
-          createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
-            ? data.createdAt.toDate().toISOString() 
-            : new Date().toISOString(),
-          updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
-            ? data.updatedAt.toDate().toISOString() 
-            : undefined,
-        };
-      })
-      .filter(post => post.isPublished === true)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    return posts;
-  } catch (error) {
-    console.error("Error fetching blog posts:", error);
-    return [];
-  }
-}
 
 export default async function BlogListPage() {
   const posts = await getPublishedPosts();

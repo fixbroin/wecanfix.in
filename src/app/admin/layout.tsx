@@ -2,7 +2,7 @@
 "use client";
 
 import type { PropsWithChildren } from 'react';
-import React, { Suspense, useEffect, useState, useRef, useCallback } from 'react'; 
+import React, { Suspense, useEffect, useState, useRef, useCallback, useMemo } from 'react'; 
 import { usePathname, useRouter } from 'next/navigation';
 import {
   SidebarProvider,
@@ -49,15 +49,18 @@ const AdminPageLoader = () => (
   </div>
 );
 
-const PROCESSED_BOOKING_NOTIFICATIONS_KEY = 'wecanfix_processedBookingNotifications';
-
 export default function AdminLayout({ children }: PropsWithChildren) {
-  const { user: adminUser, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();
+  const { user: adminUser, firestoreUser, isLoading: authIsLoading, logOut: handleLogoutAuth } = useAuth();
   const { toast } = useToast();
   const pathname = usePathname();
   const router = useRouter();
   const { showLoading, hideLoading } = useLoading();
   const [isFloatingChatOpen, setIsFloatingChatOpen] = useState(false);
+
+  // Derived isAdmin check from firestoreUser for better reliability on refresh
+  const isAdmin = useMemo(() => {
+    return firestoreUser && firestoreUser.email && ADMIN_EMAIL && firestoreUser.email.toLowerCase() === ADMIN_EMAIL.toLowerCase();
+  }, [firestoreUser]);
 
   const { count: unreadAdminNotificationsCount, isLoading: isLoadingAdminNotifications } = useUnreadNotificationsCount(adminUser?.uid);
 
@@ -68,7 +71,8 @@ export default function AdminLayout({ children }: PropsWithChildren) {
 
   const [showNewBookingPopup, setShowNewBookingPopup] = useState(false);
   const [newBookingPopupDetails, setNewBookingPopupDetails] = useState<{ bookingDocId: string; bookingHumanId: string; notificationId: string; } | null>(null);
-  const [processedBookingNotificationIds, setProcessedBookingNotificationIds] = useState<string[]>([]);
+  // Use a ref for tracking processed/dismissed IDs within the current instance to avoid effect re-runs
+  const processedBookingNotificationIdsRef = useRef<string[]>([]);
 
   useEffect(() => {
     const manifestLink = document.querySelector<HTMLLinkElement>('link[rel="manifest"]');
@@ -83,19 +87,7 @@ export default function AdminLayout({ children }: PropsWithChildren) {
   }, []);
 
   useEffect(() => {
-    const storedProcessedIds = sessionStorage.getItem(PROCESSED_BOOKING_NOTIFICATIONS_KEY);
-    if (storedProcessedIds) {
-      try {
-        setProcessedBookingNotificationIds(JSON.parse(storedProcessedIds));
-      } catch (e) {
-        console.error("Error parsing processed notification IDs:", e);
-        sessionStorage.removeItem(PROCESSED_BOOKING_NOTIFICATIONS_KEY);
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!adminUser?.uid || authIsLoading) return;
+    if (!adminUser?.uid || authIsLoading || !isAdmin) return;
 
     const notificationsRef = collection(db, "userNotifications");
     const q = query(
@@ -108,54 +100,68 @@ export default function AdminLayout({ children }: PropsWithChildren) {
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (snapshot.empty) return;
-      let triggeredForThisSnapshot = false;
-      snapshot.docs.forEach(docSnap => {
-        if (triggeredForThisSnapshot) return;
-        const notification = { id: docSnap.id, ...docSnap.data() } as FirestoreNotification;
-        const notificationId = notification.id!;
-        if (notification.title?.toLowerCase().includes("new booking") && !processedBookingNotificationIds.includes(notificationId)) {
-          const href = notification.href;
-          let bookingDocId = "";
-          if (href && href.startsWith('/admin/bookings/edit/')) {
-            const parts = href.split('/');
-            bookingDocId = parts[parts.length - 1];
-          }
-          let bookingHumanId = "N/A";
-          const messageMatch = notification.message?.match(/ID: (\S+)/);
-          if (messageMatch && messageMatch[1]) {
-            bookingHumanId = messageMatch[1];
-          } else {
-            const titleMatch = notification.title?.match(/ID: (\S+)/); 
-             if (titleMatch && titleMatch[1]) bookingHumanId = titleMatch[1];
-          }
-          if (bookingDocId && bookingHumanId !== "N/A") {
-            setNewBookingPopupDetails({ bookingDocId, bookingHumanId, notificationId });
-            setShowNewBookingPopup(true);
-            setProcessedBookingNotificationIds(prev => {
-              const newProcessed = [...prev, notificationId];
-              sessionStorage.setItem(PROCESSED_BOOKING_NOTIFICATIONS_KEY, JSON.stringify(newProcessed));
-              return newProcessed;
-            });
-            triggeredForThisSnapshot = true; 
-          }
-        }
+      if (snapshot.empty) {
+        setShowNewBookingPopup(false);
+        setNewBookingPopupDetails(null);
+        return;
+      }
+      
+      // Look for the most recent unread "new booking" notification not dismissed in this session
+      const relevantDoc = snapshot.docs.find(docSnap => {
+        const data = docSnap.data();
+        const title = (data.title || "").toLowerCase();
+        return title.includes("new booking") && !processedBookingNotificationIdsRef.current.includes(docSnap.id);
       });
+
+      if (relevantDoc) {
+        const notification = { id: relevantDoc.id, ...relevantDoc.data() } as FirestoreNotification;
+        const href = notification.href;
+        let bookingDocId = "";
+        if (href && href.startsWith('/admin/bookings/edit/')) {
+          const parts = href.split('/');
+          bookingDocId = parts[parts.length - 1];
+        }
+        let bookingHumanId = "N/A";
+        const messageMatch = notification.message?.match(/ID: (\S+)/);
+        if (messageMatch && messageMatch[1]) {
+          bookingHumanId = messageMatch[1];
+        } else {
+          const titleMatch = notification.title?.match(/ID: (\S+)/); 
+           if (titleMatch && titleMatch[1]) bookingHumanId = titleMatch[1];
+        }
+
+        if (bookingDocId && bookingHumanId !== "N/A") {
+          setNewBookingPopupDetails({ bookingDocId, bookingHumanId, notificationId: notification.id! });
+          setShowNewBookingPopup(true);
+        }
+      } else {
+        // Hide if the relevant notification is no longer present or was read elsewhere
+        setShowNewBookingPopup(false);
+        setNewBookingPopupDetails(null);
+      }
     }, (error) => {
       console.error("AdminLayout: Error in notifications listener:", error);
     });
     return () => unsubscribe();
-  }, [adminUser, authIsLoading, processedBookingNotificationIds, toast]);
+  }, [adminUser, authIsLoading, isAdmin]);
 
   const handleCloseNewBookingPopup = useCallback(async (markNotificationAsRead?: boolean, notificationIdToMark?: string) => {
     setShowNewBookingPopup(false);
-    setNewBookingPopupDetails(null);
+    
+    if (notificationIdToMark) {
+        // Track as dismissed in this instance so it doesn't pop up again until refresh
+        processedBookingNotificationIdsRef.current.push(notificationIdToMark);
+    }
+
     if (markNotificationAsRead && notificationIdToMark && adminUser?.uid) {
       try {
         await updateDoc(doc(db, "userNotifications", notificationIdToMark), { read: true });
+        setNewBookingPopupDetails(null);
       } catch (error) {
         console.error("AdminLayout: Failed to mark notification as read:", error);
       }
+    } else {
+        setNewBookingPopupDetails(null);
     }
   }, [adminUser?.uid]);
 
@@ -174,16 +180,25 @@ export default function AdminLayout({ children }: PropsWithChildren) {
     }
   }, [globalSettings?.chatNotificationSoundUrl]);
 
+  const hasPlayedInitialSoundRef = useRef(false);
+
   useEffect(() => {
-    if (!isLoadingAdminNotifications && !isLoadingGlobalSettings && globalSettings.chatNotificationSoundUrl && adminChatAudioRef.current && adminUser) {
+    if (!isLoadingAdminNotifications && !isLoadingGlobalSettings && globalSettings.chatNotificationSoundUrl && adminChatAudioRef.current && adminUser && isAdmin) {
+      // Play sound on initial load if there are unread notifications
+      if (!hasPlayedInitialSoundRef.current && unreadAdminNotificationsCount > 0) {
+        adminChatAudioRef.current.play().catch(e => console.warn("AdminLayout: Initial audio play failed:", e));
+        hasPlayedInitialSoundRef.current = true;
+      }
+      
+      // Play sound when count increases (new notification)
       if (unreadAdminNotificationsCount > previousTotalUnreadCountRef.current) {
-        adminChatAudioRef.current.play().catch(e => console.warn("AdminLayout: Audio play failed:", e));
+        adminChatAudioRef.current.play().catch(e => console.warn("AdminLayout: New notification audio play failed:", e));
       }
     }
     if (!isLoadingAdminNotifications) {
         previousTotalUnreadCountRef.current = unreadAdminNotificationsCount; 
     }
-  }, [unreadAdminNotificationsCount, isLoadingAdminNotifications, globalSettings, isLoadingGlobalSettings, adminUser]);
+  }, [unreadAdminNotificationsCount, isLoadingAdminNotifications, globalSettings, isLoadingGlobalSettings, adminUser, isAdmin]);
 
 
   const handleChangePassword = async () => {
@@ -222,8 +237,6 @@ export default function AdminLayout({ children }: PropsWithChildren) {
       </div>
     );
   }
-
-  const isAdmin = adminUser && adminUser.email?.toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   return (
     <ProtectedRoute>

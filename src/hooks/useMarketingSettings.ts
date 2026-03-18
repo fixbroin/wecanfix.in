@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { doc, onSnapshot, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
 import type { MarketingSettings, FirebaseClientConfig } from '@/types/firestore';
@@ -54,6 +54,7 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
   const [error, setError] = useState<string | null>(null);
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
+  const hasLoadedRef = useRef(false);
 
   const processData = useCallback((firestoreData: Partial<MarketingSettings>): MarketingSettings => {
     return {
@@ -69,21 +70,50 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
   useEffect(() => {
     const settingsDocRef = doc(db, MARKETING_CONFIG_COLLECTION, MARKETING_CONFIG_DOC_ID);
 
-    const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const processed = processData(docSnap.data());
-        setSettings(processed);
-        setCache(CACHE_KEY, processed, true);
-      }
-      setIsLoading(false);
-    }, (err) => {
-      console.error("Error fetching marketing settings:", err);
-      setError("Failed to load settings.");
-      setIsLoading(false);
-    });
+    if (!isAdmin && hasLoadedRef.current) return;
 
-    return () => unsubscribe();
-  }, [processData]);
+    if (isAdmin) {
+      const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const processed = processData(docSnap.data());
+          setSettings(processed);
+          setCache(CACHE_KEY, processed, true);
+        }
+        setIsLoading(false);
+        hasLoadedRef.current = true;
+      }, (err) => {
+        console.error("Error fetching marketing settings:", err);
+        setError("Failed to load settings.");
+        setIsLoading(false);
+      });
+      return () => unsubscribe();
+    } else {
+      const fetchMarketing = async () => {
+        const cached = getCache<MarketingSettings>(CACHE_KEY, true);
+        if (cached && !isAdmin) {
+            setIsLoading(false);
+            return;
+        }
+
+        try {
+          const docSnap = await getDoc(settingsDocRef);
+          if (docSnap.exists()) {
+            const processed = processData(docSnap.data());
+            setSettings(processed);
+            setCache(CACHE_KEY, processed, true);
+          }
+        } catch (err) {
+          console.error("Error fetching marketing settings:", err);
+          setError("Failed to load settings.");
+        } finally {
+          setIsLoading(false);
+          hasLoadedRef.current = true;
+        }
+      };
+      fetchMarketing();
+    }
+  }, [processData, isAdmin]);
 
   return { settings, isLoading, error };
 }
+

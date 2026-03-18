@@ -8,11 +8,15 @@ import { initializeFCM, onForegroundMessage } from '@/lib/fcmUtils';
 import { useAuth } from '@/hooks/useAuth';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import InjectRawHtml from '@/components/shared/InjectRawHtml'; // Import the new component
+import { usePathname } from 'next/navigation';
 
 const MarketingScriptsInjector = () => {
   const { settings: marketingSettings, isLoading: isLoadingMarketing } = useMarketingSettings();
   const { settings: globalSettings, isLoading: isLoadingGlobal } = useGlobalSettings();
   const { user, isLoading: isLoadingAuth } = useAuth();
+  const pathname = usePathname();
+
+  const isAdminPath = pathname?.startsWith('/admin');
 
   useEffect(() => {
     // Meta Pixel PageView event on route change (basic example)
@@ -155,7 +159,7 @@ const MarketingScriptsInjector = () => {
       )}
 
       {/* Microsoft Clarity */}
-      {marketingSettings.microsoftClarityProjectId && (
+      {marketingSettings.microsoftClarityProjectId && !isAdminPath && (
         <Script
           id="microsoft-clarity"
           strategy="afterInteractive"

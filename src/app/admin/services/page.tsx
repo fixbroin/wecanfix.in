@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -18,6 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getIconComponent } from '@/lib/iconMap';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -68,6 +68,7 @@ export default function AdminServicesPage() {
       const serviceQuery = query(servicesCollectionRef, orderBy("name", "asc"));
       const taxQuery = query(taxesCollectionRef, where("isActive", "==", true), orderBy("taxName", "asc"));
 
+      // Use getDocs for one-time fetch instead of onSnapshot
       const [catData, subCatData, serviceData, taxData] = await Promise.all([
         getDocs(catQuery), getDocs(subCatQuery), getDocs(serviceQuery), getDocs(taxQuery)
       ]);
@@ -119,6 +120,7 @@ export default function AdminServicesPage() {
         } catch (imgError: any) { console.warn("Error deleting image: ", imgError); }
       }
       await deleteDoc(serviceDocRef);
+      await triggerRefresh('services'); // SmartSync: Invalidate cache
       setServices(prev => prev.filter(serv => serv.id !== serviceId));
       toast({ title: "Success", description: "Service deleted successfully." });
     } catch (error) {
@@ -149,7 +151,6 @@ export default function AdminServicesPage() {
         }
     } else { finalSlugForSave = editingService!.slug; }
     
-    // This is the complete payload with all fields, including the price variations.
     const payloadForFirestore: Partial<FirestoreService> = {
       name: data.name, 
       slug: finalSlugForSave, 
@@ -197,6 +198,7 @@ export default function AdminServicesPage() {
         await addDoc(servicesCollectionRef, newServicePayload as FirestoreService); // Cast to ensure type compatibility for addDoc
         toast({ title: "Success", description: "Service added successfully." });
       }
+      await triggerRefresh('services'); // SmartSync: Invalidate cache
       setIsFormOpen(false); setEditingService(null); await fetchData();
     } catch (error) {
       console.error("Error saving service: ", error);
@@ -348,5 +350,3 @@ export default function AdminServicesPage() {
     </div>
   );
 }
-
-    

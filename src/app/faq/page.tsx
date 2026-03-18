@@ -1,107 +1,97 @@
-
-"use client";
-
-import { useState, useEffect } from 'react';
-import Link from 'next/link';
-import { Button } from "@/components/ui/button";
+import { adminDb } from '@/lib/firebaseAdmin';
+import type { FirestoreFAQ } from '@/types/firestore';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { ArrowLeft, HelpCircle, Loader2, PackageSearch } from "lucide-react";
-import type { FirestoreFAQ } from '@/types/firestore';
-import { db } from '@/lib/firebase';
-import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
-import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from '@/components/ui/skeleton';
+import { HelpCircle, PackageSearch } from "lucide-react";
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
+import { unstable_cache } from 'next/cache';
+import JsonLdScript from '@/components/shared/JsonLdScript';
 
-export default function FAQPage() {
-  const [faqs, setFaqs] = useState<FirestoreFAQ[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+export const revalidate = 3600; // Revalidate every hour
+
+const getFaqs = unstable_cache(
+  async () => {
+    try {
+      const faqsCollectionRef = adminDb.collection("adminFAQs");
+      const snapshot = await faqsCollectionRef.where("isActive", "==", true).orderBy("order", "asc").get();
+      return snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ));
+    } catch (err) {
+      console.error("Error fetching FAQs:", err);
+      return [];
+    }
+  },
+  ['admin-faqs'],
+  { revalidate: 3600, tags: ['faqs'] }
+);
+
+export default async function FAQPage() {
+  const faqs = await getFaqs();
 
   const breadcrumbItems = [
     { label: "Home", href: "/" },
     { label: "FAQ" },
   ];
 
-  useEffect(() => {
-    const fetchFAQs = async () => {
-      setIsLoading(true);
-      setError(null);
-      try {
-        const faqsCollectionRef = collection(db, "adminFAQs");
-        const q = query(faqsCollectionRef, where("isActive", "==", true), orderBy("order", "asc"));
-        const querySnapshot = await getDocs(q);
-        const fetchedFAQs = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ));
-        setFaqs(fetchedFAQs);
-      } catch (err) {
-        console.error("Error fetching FAQs:", err);
-        setError("Failed to load FAQs. Please try again later.");
-        toast({ title: "Error", description: "Could not fetch FAQs.", variant: "destructive" });
-      } finally {
-        setIsLoading(false);
+  const faqSchema = faqs.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    "mainEntity": faqs.map((faq) => ({
+      "@type": "Question",
+      "name": faq.question,
+      "acceptedAnswer": {
+        "@type": "Answer",
+        "text": faq.answer
       }
-    };
-
-    fetchFAQs();
-  }, [toast]);
+    }))
+  } : null;
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <Breadcrumbs items={breadcrumbItems} />
-      <div className="relative flex items-center justify-center mb-8">
-        <div className="absolute left-0 hidden sm:block">
-          <Link href="/" passHref>
-            <Button variant="outline" size="sm">
-              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Home
-            </Button>
-          </Link>
+    <>
+      {faqSchema && <JsonLdScript data={faqSchema} idSuffix="main-faq" />}
+      <div className="container mx-auto px-4 py-16 min-h-screen">
+      <div className="max-w-4xl mx-auto">
+        <Breadcrumbs items={breadcrumbItems} />
+        
+        <div className="text-center mt-12 mb-16">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-primary/10 mb-6">
+            <HelpCircle className="h-10 w-10 text-primary" />
+          </div>
+          <h1 className="text-4xl md:text-5xl font-headline font-bold text-foreground mb-4">
+            Frequently Asked Questions
+          </h1>
+          <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+            Everything you need to know about Wecanfix services, bookings, and more.
+          </p>
         </div>
-        <h1 className="text-3xl md:text-4xl font-headline font-semibold text-foreground text-center flex items-center justify-center">
-          <HelpCircle className="mr-3 h-8 w-8 text-primary" />
-          Frequently Asked Questions
-        </h1>
-      </div>
 
-      {isLoading ? (
-        <div className="space-y-4 max-w-2xl mx-auto">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="border rounded-md p-4">
-              <Skeleton className="h-6 w-3/4 mb-2" />
-              <Skeleton className="h-4 w-full" />
-              <Skeleton className="h-4 w-5/6 mt-1" />
-            </div>
-          ))}
-        </div>
-      ) : error ? (
-        <p className="text-center text-destructive py-10">{error}</p>
-      ) : faqs.length === 0 ? (
-        <div className="text-center py-12 max-w-md mx-auto">
-          <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-semibold mb-2">No FAQs Available</h2>
-          <p className="text-muted-foreground">We haven't added any FAQs yet. Please check back later!</p>
-        </div>
-      ) : (
-        <div className="max-w-2xl mx-auto">
-          <Accordion type="single" collapsible className="w-full">
-            {faqs.map((faq) => (
-              <AccordionItem key={faq.id} value={`item-${faq.id}`}>
-                <AccordionTrigger className="text-left hover:no-underline text-base md:text-lg">
-                  {faq.question}
-                </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground text-sm md:text-base leading-relaxed whitespace-pre-wrap">
-                  {faq.answer}
-                </AccordionContent>
-              </AccordionItem>
-            ))}
-          </Accordion>
-        </div>
-      )}
+        {faqs.length === 0 ? (
+          <div className="text-center py-20 bg-card rounded-3xl border border-dashed border-border">
+            <PackageSearch className="mx-auto h-16 w-16 text-muted-foreground/50 mb-4" />
+            <h2 className="text-2xl font-headline font-bold mb-2 text-foreground/80">No FAQs Available</h2>
+            <p className="text-muted-foreground">We're still building our knowledge base. Check back soon!</p>
+          </div>
+        ) : (
+          <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
+            <Accordion type="single" collapsible className="w-full divide-y divide-border/50">
+              {faqs.map((faq) => (
+                <AccordionItem key={faq.id} value={`item-${faq.id}`} className="border-none px-6 md:px-8 py-2">
+                  <AccordionTrigger className="text-left hover:no-underline text-lg font-bold py-6 hover:text-primary transition-colors">
+                    {faq.question}
+                  </AccordionTrigger>
+                  <AccordionContent className="text-muted-foreground text-base leading-relaxed pb-8 whitespace-pre-wrap">
+                    {faq.answer}
+                  </AccordionContent>
+                </AccordionItem>
+              ))}
+            </Accordion>
+          </div>
+        )}
+      </div>
     </div>
+    </>
   );
 }

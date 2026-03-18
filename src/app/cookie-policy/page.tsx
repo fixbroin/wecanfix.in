@@ -13,40 +13,49 @@ import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import type { BreadcrumbItem } from '@/types/ui';
 import AppImage from '@/components/ui/AppImage';
 import { Timestamp } from 'firebase-admin/firestore';
+import { unstable_cache } from 'next/cache';
+import { cache } from 'react';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
 const PAGE_SLUG = "cookie-policy";
 
-async function getPageData(slug: string): Promise<ContentPage | null> {
-  try {
-    const pageDocRef = adminDb.collection("contentPages").doc(slug);
-    const docSnap = await pageDocRef.get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      return { id: docSnap.id, ...data } as ContentPage;
-    }
-    // Fallback for global settings if dedicated page doesn't exist
-    const settingsDocRef = adminDb.collection("webSettings").doc("global");
-    const settingsSnap = await settingsDocRef.get();
-    if (settingsSnap.exists) {
-        const settings = settingsSnap.data() as GlobalWebSettings;
-        if (settings.cookiePolicyContent) {
-            return {
-                id: PAGE_SLUG,
-                slug: PAGE_SLUG,
-                title: "Cookie Policy",
-                content: settings.cookiePolicyContent,
-                updatedAt: settings.updatedAt || Timestamp.now(),
-            } as ContentPage;
+const getPageData = cache(async (slug: string): Promise<ContentPage | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const pageDocRef = adminDb.collection("contentPages").doc(slug);
+        const docSnap = await pageDocRef.get();
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          return { id: docSnap.id, ...data } as ContentPage;
         }
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching page data for ${slug}:`, error);
-    return null;
-  }
-}
+        // Fallback for global settings if dedicated page doesn't exist
+        const settingsDocRef = adminDb.collection("webSettings").doc("global");
+        const settingsSnap = await settingsDocRef.get();
+        if (settingsSnap.exists) {
+            const settings = settingsSnap.data() as GlobalWebSettings;
+            if (settings.cookiePolicyContent) {
+                return {
+                    id: PAGE_SLUG,
+                    slug: PAGE_SLUG,
+                    title: "Cookie Policy",
+                    content: settings.cookiePolicyContent,
+                    updatedAt: settings.updatedAt || Timestamp.now(),
+                } as ContentPage;
+            }
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error fetching page data for ${slug}:`, error);
+        return null;
+      }
+    },
+    [`content-page-${slug}`],
+    { revalidate: 3600, tags: ['content'] }
+  )();
+});
+
 
 export async function generateMetadata(
   props: {},

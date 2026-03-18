@@ -46,12 +46,14 @@ const checkIsLoggingEnabled = async (): Promise<boolean> => {
     }
 };
 
+import { triggerRefresh } from './revalidateUtils';
 
 export const logUserActivity = async (
   eventType: UserActivityEventType,
   eventData: UserActivityEventData,
   userId?: string | null,
-  guestId?: string | null
+  guestId?: string | null,
+  userDisplayName?: string | null
 ): Promise<void> => {
   if (!userId && !guestId) {
     return;
@@ -64,20 +66,31 @@ export const logUserActivity = async (
   }
 
   try {
-    const activityData: Omit<UserActivity, 'id'> = {
+    // Denormalize: Include name directly to save reads later
+    const finalDisplayName = userDisplayName || eventData.fullName || (userId ? "Registered User" : "Guest User");
+
+    const activityData: any = {
       userId: userId || null,
       guestId: guestId || null,
+      userDisplayName: finalDisplayName,
       eventType,
-      eventData: removeUndefinedProps(eventData), // Clean the eventData object
+      eventData: removeUndefinedProps(eventData),
       timestamp: Timestamp.now(),
       userAgent: typeof window !== 'undefined' ? navigator.userAgent : 'server',
     };
 
     const userActivitiesCollectionRef = collection(db, 'userActivities');
-    const newActivityDocRef = doc(userActivitiesCollectionRef); // Create a new doc ref with auto-generated ID
-    await setDoc(newActivityDocRef, activityData); // Use setDoc with the new reference
+    const newActivityDocRef = doc(userActivitiesCollectionRef);
+    await setDoc(newActivityDocRef, activityData);
+
+    // Smart Sync: If it's a major event, tell the server to refresh the activity cache
+    if (['newBooking', 'newUser', 'userLogin'].includes(eventType)) {
+        await triggerRefresh('users');
+    }
 
   } catch (error) {
+    // ... existing error logging ...
+
     // Log the raw error object first for better inspection in browser console
     console.error('Raw error object from Firestore setDoc in activityLogger:', error);
     

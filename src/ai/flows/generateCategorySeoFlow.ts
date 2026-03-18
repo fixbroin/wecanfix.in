@@ -12,10 +12,10 @@ const GenerateCategorySeoInputSchema = z.object({
 export type GenerateCategorySeoInput = z.infer<typeof GenerateCategorySeoInputSchema>;
 
 const GenerateCategorySeoOutputSchema = z.object({
-  h1_title: z.string().describe("An H1 title optimized for the category page. Format: '{{categoryName}} Services Near You – Professional & Trusted'"),
-  seo_title: z.string().describe("An SEO-optimized meta title, under 60 characters. Format: '{{categoryName}} Services | Book Online | Wecanfix'"),
-  seo_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks, mentioning key services relevant to the category."),
-  seo_keywords: z.string().describe("A comma-separated string of 10 relevant SEO keywords for the category. Must include variations like '{{categoryName}} services', 'book {{categoryName}}', '{{categoryName}} near me', and specific related services."),
+  h1_title: z.string().describe("An H1 title optimized for the category page. Format: 'Best Professional {{categoryName}} Services Near You'"),
+  seo_title: z.string().describe("An SEO-optimized meta title, under 60 characters. Format: 'Best {{categoryName}} Near Me | Professional {{categoryName}} Services'"),
+  seo_description: z.string().describe("An SEO-optimized meta description, under 160 characters. Should be a compelling summary that encourages clicks, mentioning top-rated experts and professional services."),
+  seo_keywords: z.string().describe("A comma-separated string of 10 highly relevant local SEO keywords. Must include variations like 'best {{categoryName}} near me', 'professional {{categoryName}} services', 'book {{categoryName}} online'."),
   imageHint: z.string().describe("One or two keywords for an AI image search for the category's main image. E.g., 'carpentry tools' or 'clean appliances'. Max 50 characters."),
 });
 export type GenerateCategorySeoOutput = z.infer<typeof GenerateCategorySeoOutputSchema>;
@@ -28,17 +28,17 @@ const prompt = ai.definePrompt({
   name: 'generateCategorySeoPrompt',
   input: { schema: GenerateCategorySeoInputSchema },
   output: { schema: GenerateCategorySeoOutputSchema },
-  prompt: `You are an expert SEO copywriter for a home services company called "Wecanfix".
-Your task is to generate optimized SEO content for a specific service category page.
+  prompt: `You are an expert Local SEO copywriter for a home services company called "Wecanfix".
+Your task is to generate highly aggressive, intent-driven SEO content for a specific service category page to rank #1 on Google.
 
 Category Name: {{categoryName}}
 
-Based on this detail, please generate the following content. Be professional, clear, and focused on attracting customers.
+Based on this detail, generate the following content. Focus on high-intent keywords like "Best", "Professional", "Top-Rated", and "Near Me".
 
-1.  **h1_title**: Create an H1 title with the format: "{{categoryName}} Services Near You – Professional & Trusted".
-2.  **seo_title**: A meta title (under 60 chars) with the format: "{{categoryName}} Services | Book Online | Wecanfix".
-3.  **seo_description**: A compelling meta description (under 160 chars) that includes the category and encourages bookings.
-4.  **seo_keywords**: A comma-separated string of 10 relevant keywords. Include "{{categoryName}} services", "{{categoryName}} near me", and other related local terms.
+1.  **h1_title**: Create an H1 title with the format: "Best Professional {{categoryName}} Services Near You".
+2.  **seo_title**: A meta title (under 60 chars) with the format: "Best {{categoryName}} Near Me | Professional {{categoryName}} Services".
+3.  **seo_description**: A compelling meta description (under 160 chars) that includes the category and words like "trusted experts" or "affordable pricing" to drive local bookings.
+4.  **seo_keywords**: A comma-separated string of 10 high-intent keywords. Include "best {{categoryName}} near me", "professional {{categoryName}} services", and other related local terms.
 5.  **imageHint**: Provide one or two keywords for an AI image search for the category's main image. Max 50 characters.
 
 Return the entire response as a single, valid JSON object that adheres to the defined output schema.

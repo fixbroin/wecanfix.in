@@ -88,7 +88,7 @@ export default function ProviderMyJobsPage() {
         }
 
         // 2. Notify User for acceptance, start, and completion
-        if (bookingData.userId && (newStatus === "ProviderAccepted" || newStatus === "InProgressByProvider" || newStatus === "Completed")) {
+        if (bookingData.userId && (newStatus === "ProviderAccepted" || newStatus === "InProgressByProvider" || newStatus === "Completed" || newStatus === "ProviderRejected")) {
             let userTitle = "";
             let userMsg = "";
             let userType: FirestoreNotification['type'] = 'info';
@@ -103,6 +103,10 @@ export default function ProviderMyJobsPage() {
                 userTitle = "Job Completed!";
                 userMsg = `Service for booking ${bookingData.bookingId} has been completed. Hope you are satisfied with our service!`;
                 userType = 'success';
+            } else if (newStatus === "ProviderRejected") {
+                userTitle = "Technician Re-assignment";
+                userMsg = `We are currently assigning a new professional technician to your booking ${bookingData.bookingId}. We'll notify you shortly!`;
+                userType = 'warning';
             }
 
             const userNotification: Omit<FirestoreNotification, 'id'> = {

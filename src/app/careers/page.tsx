@@ -10,25 +10,34 @@ import { getBaseUrl } from '@/lib/config';
 import AppImage from '@/components/ui/AppImage';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import { Timestamp } from 'firebase-admin/firestore';
+import { unstable_cache } from 'next/cache';
+import { cache } from 'react';
 
-export const dynamic = 'force-dynamic'; 
+export const revalidate = 3600; // Revalidate every hour
 
 const PAGE_SLUG = "careers";
 
-async function getPageData(slug: string): Promise<ContentPage | null> {
-  try {
-    const pageDocRef = adminDb.collection("contentPages").doc(slug);
-    const docSnap = await pageDocRef.get();
-    if (docSnap.exists) {
-      const data = docSnap.data();
-      return { id: docSnap.id, ...data } as ContentPage;
-    }
-    return null;
-  } catch (error) {
-    console.error(`Error fetching content page for slug "${slug}":`, error);
-    return null;
-  }
-}
+const getPageData = cache(async (slug: string): Promise<ContentPage | null> => {
+  return unstable_cache(
+    async () => {
+      try {
+        const pageDocRef = adminDb.collection("contentPages").doc(slug);
+        const docSnap = await pageDocRef.get();
+        if (docSnap.exists) {
+          const data = docSnap.data();
+          return { id: docSnap.id, ...data } as ContentPage;
+        }
+        return null;
+      } catch (error) {
+        console.error(`Error fetching content page for slug "${slug}":`, error);
+        return null;
+      }
+    },
+    [`content-page-${slug}`],
+    { revalidate: 3600, tags: ['content'] }
+  )();
+});
+
 
 export async function generateMetadata(
   props: {},

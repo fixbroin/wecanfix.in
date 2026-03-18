@@ -8,8 +8,11 @@ import { replacePlaceholders } from '@/lib/seoUtils';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 3600; // Revalidate every hour
 
 interface AreaCategoryPageProps {
   params: Promise<{ city: string; area: string; categorySlug: string }>;
@@ -17,69 +20,58 @@ interface AreaCategoryPageProps {
 
 const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next'];
 
-async function getCityData(citySlug: string): Promise<FirestoreCity | null> {
-  try {
-    if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.')) return null;
-    const citiesRef = adminDb.collection('cities');
-    const cityQuery = citiesRef.where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
-    const citySnapshot = await cityQuery.get();
-    if (citySnapshot.empty) return null;
-    const doc = citySnapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as FirestoreCity;
-  } catch (error) {
-    console.error(`[AreaCategoryPage] Page: Error fetching city data:`, error);
-    return null;
-  }
-}
+const getPageData = cache(async (citySlug: string, areaSlug: string, categorySlug: string) => {
+  return unstable_cache(
+    async () => {
+      try {
+        if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || areaSlug.includes('.') || categorySlug.includes('.')) return null;
+        
+        const citiesRef = adminDb.collection('cities');
+        const cityQuery = citiesRef.where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
+        const citySnapshot = await cityQuery.get();
+        if (citySnapshot.empty) return null;
+        const cityData = { id: citySnapshot.docs[0].id, ...citySnapshot.docs[0].data() } as FirestoreCity;
 
-async function getAreaData(cityId: string, areaSlug: string): Promise<FirestoreArea | null> {
-  try {
-    if (areaSlug.includes('.')) return null;
-    const areasRef = adminDb.collection('areas');
-    const areaQuery = areasRef.where('cityId', '==', cityId).where('slug', '==', areaSlug).where('isActive', '==', true).limit(1);
-    const areaSnapshot = await areaQuery.get();
-    if (areaSnapshot.empty) return null;
-    const doc = areaSnapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as FirestoreArea;
-  } catch (error) {
-    console.error(`[AreaCategoryPage] Page: Error fetching area data:`, error);
-    return null;
-  }
-}
+        const areasRef = adminDb.collection('areas');
+        const areaQuery = areasRef.where('cityId', '==', cityData.id).where('slug', '==', areaSlug).where('isActive', '==', true).limit(1);
+        const areaSnapshot = await areaQuery.get();
+        if (areaSnapshot.empty) return null;
+        const areaData = { id: areaSnapshot.docs[0].id, ...areaSnapshot.docs[0].data() } as FirestoreArea;
 
-async function getCategoryData(categorySlug: string): Promise<FirestoreCategory | null> {
-  try {
-    if (categorySlug.includes('.')) return null;
-    const categoriesRef = adminDb.collection('adminCategories');
-    const categoryQuery = categoriesRef.where('slug', '==', categorySlug).limit(1);
-    const categorySnapshot = await categoryQuery.get();
-    if (categorySnapshot.empty) return null;
-    const doc = categorySnapshot.docs[0];
-    return { id: doc.id, ...doc.data() } as FirestoreCategory;
-  } catch (error) {
-    console.error(`[AreaCategoryPage] Page: Error fetching category data:`, error);
-    return null;
-  }
-}
+        const categoriesRef = adminDb.collection('adminCategories');
+        const categoryQuery = categoriesRef.where('slug', '==', categorySlug).limit(1);
+        const categorySnapshot = await categoryQuery.get();
+        if (categorySnapshot.empty) return null;
+        const categoryData = { id: categorySnapshot.docs[0].id, ...categorySnapshot.docs[0].data() } as FirestoreCategory;
+
+        return { cityData, areaData, categoryData };
+      } catch (error) {
+        console.error(`[AreaCategoryPage] Error fetching page data:`, error);
+        return null;
+      }
+    },
+    [`area-category-data-${citySlug}-${areaSlug}-${categorySlug}`],
+    { revalidate: 3600, tags: ['cities', 'areas', 'categories'] }
+  )();
+});
 
 export async function generateMetadata(
   { params }: AreaCategoryPageProps,
   parent: ResolvingMetadata
 ): Promise<Metadata> {
   const { city: citySlug, area: areaSlug, categorySlug } = await params;
-  const cityData = await getCityData(citySlug);
-  const areaData = cityData ? await getAreaData(cityData.id, areaSlug) : null;
-  const categoryData = await getCategoryData(categorySlug);
+  const pageData = await getPageData(citySlug, areaSlug, categorySlug);
   
-  if (!cityData || !areaData || !categoryData) return {};
+  if (!pageData) return {};
+  const { cityData, areaData, categoryData } = pageData;
 
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
   const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name };
 
-  const title = replacePlaceholders(categoryData.metaTitle || seoSettings.areaCategoryPageTitlePattern, placeholderData) || `${categoryData.name} in ${areaData.name}, ${cityData.name} | Wecanfix`;
-  const description = replacePlaceholders(categoryData.metaDescription || seoSettings.areaCategoryPageDescriptionPattern, placeholderData) || `Expert ${categoryData.name} services in ${areaData.name}, ${cityData.name}. Reliable and professional home services by Wecanfix.`;
-  const keywords = replacePlaceholders(categoryData.metaKeywords || seoSettings.areaCategoryPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
+  const title = replacePlaceholders(categoryData.metaTitle || seoSettings.areaCategoryPageTitlePattern, placeholderData) || `Best ${categoryData.name} in ${areaData.name}, ${cityData.name} | Expert ${categoryData.name} Near Me`;
+  const description = replacePlaceholders(categoryData.metaDescription || seoSettings.areaCategoryPageDescriptionPattern, placeholderData) || `Hire top-rated ${categoryData.name} experts in ${areaData.name}, ${cityData.name}. Trusted professionals, transparent pricing, and quality home services near you.`;
+  const keywords = (replacePlaceholders(categoryData.metaKeywords || seoSettings.areaCategoryPageKeywordsPattern, placeholderData) || `${categoryData.name} in ${areaData.name}, best ${categoryData.name} near me`).split(',').map(k => k.trim()).filter(k => k);
 
   const ogImage = categoryData.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
 
@@ -111,13 +103,20 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
     notFound();
   }
 
-  const cityData = await getCityData(citySlug);
-  const areaData = cityData ? await getAreaData(cityData.id, areaSlug) : null;
-  const categoryData = await getCategoryData(catSlug);
+  const [pageData, fullCategoryData, aggregateRating] = await Promise.all([
+    getPageData(citySlug, areaSlug, catSlug),
+    getCategoryFullData(catSlug),
+    getAggregateRating()
+  ]);
 
-  if (!cityData || !areaData || !categoryData) {
+  if (!pageData) {
     notFound();
   }
+  const { cityData, areaData, categoryData } = pageData;
+
+  const seoSettings = await getGlobalSEOSettings();
+  const placeholderData = { cityName: cityData.name, areaName: areaData.name, categoryName: categoryData.name };
+  const h1Title = replacePlaceholders(categoryData.h1_title || seoSettings.areaCategoryPageH1Pattern, placeholderData) || `Best Professional ${categoryData.name} in ${areaData.name}, ${cityData.name}`;
 
   const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
   breadcrumbItems.push({ label: cityData.name, href: `/${citySlug}` });
@@ -129,11 +128,17 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
     "@context": "https://schema.org",
     "@type": "Service",
     "name": `${categoryData.name} in ${areaData.name}, ${cityData.name}`,
-    "description": categoryData.metaDescription || `Professional ${categoryData.name} services in ${areaData.name}, ${cityData.name}.`,
+    "description": categoryData.metaDescription || `Professional ${categoryData.name} services in ${areaData.name}, ${cityData.name}. Trusted experts by Wecanfix.`,
     "image": categoryData.imageUrl || `${appBaseUrl}/android-chrome-512x512.png`,
     "provider": {
       "@type": "LocalBusiness",
-      "name": "Wecanfix"
+      "name": "Wecanfix",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": areaData.name,
+        "addressRegion": cityData.name,
+        "addressCountry": "IN"
+      }
     },
     "areaServed": {
       "@type": "AdministrativeArea",
@@ -141,10 +146,28 @@ export default async function AreaCategoryPage({ params }: AreaCategoryPageProps
     }
   };
 
+  if (aggregateRating) {
+    (areaCategorySchema as any).aggregateRating = {
+      "@type": "AggregateRating",
+      "ratingValue": aggregateRating.ratingValue,
+      "reviewCount": aggregateRating.reviewCount,
+      "bestRating": "5",
+      "worstRating": "1"
+    };
+  }
+
   return (
     <>
       <JsonLdScript data={areaCategorySchema} idSuffix={`area-cat-${cityData.id}-${areaData.id}-${categoryData.id}`} />
-      <CategoryPageClient categorySlug={catSlug} citySlug={citySlug} areaSlug={areaSlug} breadcrumbItems={breadcrumbItems} />
+      <CategoryPageClient 
+        categorySlug={catSlug} 
+        citySlug={citySlug} 
+        areaSlug={areaSlug} 
+        breadcrumbItems={breadcrumbItems} 
+        initialData={fullCategoryData || undefined}
+        initialH1Title={h1Title}
+      />
     </>
   );
 }
+

@@ -85,32 +85,23 @@ export const initializeFCM = async (userId?: string | null): Promise<string | nu
   }
 };
 
-let isForegroundListenerAttached = false;
-
 // Listener for foreground messages (app is active tab)
 export const onForegroundMessage = () => {
-  if (typeof window === 'undefined' || !isSupported() || isForegroundListenerAttached) {
+  if (typeof window === 'undefined' || !isSupported()) {
     return;
   }
   const messaging = getMessaging(app);
-  isForegroundListenerAttached = true;
-
   onMessage(messaging, (payload) => {
     console.log("FCM Utils: Message received in foreground: ", payload);
     
     // Play custom sound based on notification type/data
-    // Added a 1.5s delay to let the default notification sound play first without conflict
-    setTimeout(() => {
-        try {
-          const soundType = payload.data?.sound || 'default';
-          const soundFile = soundType === 'order' ? '/sounds/order_sound.wav' : '/sounds/default-notification.mp3';
-          console.log(`FCM Utils: Playing ${soundType} sound:`, soundFile);
-          const audio = new Audio(soundFile);
-          audio.play().catch(e => console.warn("FCM Utils: Could not play notification sound:", e));
-        } catch (soundErr) {
-          console.error("FCM Utils: Sound play error:", soundErr);
-        }
-    }, 1500);
+    try {
+      const soundFile = payload.data?.sound === 'order' ? '/sounds/order_sound.wav' : '/sounds/default-notification.mp3';
+      const audio = new Audio(soundFile);
+      audio.play().catch(e => console.warn("FCM Utils: Could not play notification sound:", e));
+    } catch (soundErr) {
+      console.error("FCM Utils: Sound play error:", soundErr);
+    }
 
     // If in a WebView, send the data to the native app
     if (isWebView()) {

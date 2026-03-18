@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -20,6 +19,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { defaultSeoValues } from '@/lib/seoUtils';
 import { useGlobalSEOSettings } from '@/hooks/useGlobalSEOSettings';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const SEO_SETTINGS_DOC_ID = "global";
 const SEO_SETTINGS_COLLECTION = "seoSettings";
@@ -117,6 +117,7 @@ export default function SEOSettingsPage() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('global'); // SmartSync: Refresh all SEO metadata
       toast({ title: "Success", description: "SEO settings saved successfully." });
     } catch (error) {
       console.error("Error saving SEO settings:", error);
@@ -135,6 +136,7 @@ export default function SEOSettingsPage() {
         updatedAt: Timestamp.now(),
       };
       await setDoc(settingsDocRef, dataToSave, { merge: true });
+      await triggerRefresh('global'); // SmartSync: Refresh all SEO metadata
       form.reset(defaultSeoValues);
       toast({ title: "Reset Successful", description: "SEO settings have been restored to defaults." });
     } catch (error) {

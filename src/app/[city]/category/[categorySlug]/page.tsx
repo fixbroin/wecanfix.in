@@ -3,12 +3,16 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import type { FirestoreCategory, FirestoreCity } from '@/types/firestore';
 import type { BreadcrumbItem } from '@/types/ui';
 import { notFound } from 'next/navigation';
-import { getCategoryFullData } from '@/lib/homepageUtils';
+import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import type { Metadata, ResolvingMetadata } from 'next';
 import { replacePlaceholders } from '@/lib/seoUtils';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { getBaseUrl } from '@/lib/config';
 import JsonLdScript from '@/components/shared/JsonLdScript';
+import { cache } from 'react';
+import { unstable_cache } from 'next/cache';
+
+export const revalidate = 3600; // Revalidate every hour
 
 interface PageProps {
   params: Promise<{ city: string; categorySlug: string }>;
@@ -16,37 +20,44 @@ interface PageProps {
 
 const RESERVED_SLUGS = ['api', 'admin', 'provider', 'auth', 'static', '_next'];
 
-async function getPageData(citySlug: string, categorySlug: string): Promise<{ city: FirestoreCity | null; category: FirestoreCategory | null }> {
-  if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || categorySlug.includes('.')) {
-    return { city: null, category: null };
-  }
+const getPageData = cache(async (citySlug: string, categorySlug: string): Promise<{ city: FirestoreCity | null; category: FirestoreCategory | null }> => {
+  return unstable_cache(
+    async () => {
+      if (RESERVED_SLUGS.includes(citySlug) || citySlug.includes('.') || categorySlug.includes('.')) {
+        return { city: null, category: null };
+      }
 
-  let cityData: FirestoreCity | null = null;
-  let categoryData: FirestoreCategory | null = null;
+      let cityData: FirestoreCity | null = null;
+      let categoryData: FirestoreCategory | null = null;
 
-  try {
-    const cityQuery = adminDb.collection('cities').where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
-    const citySnapshot = await cityQuery.get();
-    if (!citySnapshot.empty) {
-      const doc = citySnapshot.docs[0];
-      cityData = { id: doc.id, ...doc.data() } as FirestoreCity;
-    }
-  } catch (error) {
-    console.error(`[CityCategoryPage] Page: Error fetching city data for slug ${citySlug}:`, error);
-  }
+      try {
+        const cityQuery = adminDb.collection('cities').where('slug', '==', citySlug).where('isActive', '==', true).limit(1);
+        const citySnapshot = await cityQuery.get();
+        if (!citySnapshot.empty) {
+          const doc = citySnapshot.docs[0];
+          cityData = { id: doc.id, ...doc.data() } as FirestoreCity;
+        }
+      } catch (error) {
+        console.error(`[CityCategoryPage] Page: Error fetching city data for slug ${citySlug}:`, error);
+      }
 
-  try {
-    const categoryQuery = adminDb.collection('adminCategories').where('slug', '==', categorySlug).limit(1);
-    const categorySnapshot = await categoryQuery.get();
-    if (!categorySnapshot.empty) {
-      const doc = categorySnapshot.docs[0];
-      categoryData = { id: doc.id, ...doc.data() } as FirestoreCategory;
-    }
-  } catch (error) {
-    console.error(`[CityCategoryPage] Page: Error fetching category data for slug ${categorySlug}:`, error);
-  }
-  return { city: cityData, category: categoryData };
-}
+      try {
+        const categoryQuery = adminDb.collection('adminCategories').where('slug', '==', categorySlug).limit(1);
+        const categorySnapshot = await categoryQuery.get();
+        if (!categorySnapshot.empty) {
+          const doc = categorySnapshot.docs[0];
+          categoryData = { id: doc.id, ...doc.data() } as FirestoreCategory;
+        }
+      } catch (error) {
+        console.error(`[CityCategoryPage] Page: Error fetching category data for slug ${categorySlug}:`, error);
+      }
+      return { city: cityData, category: categoryData };
+    },
+    [`city-category-data-${citySlug}-${categorySlug}`],
+    { revalidate: 3600, tags: ['cities', 'categories', `city-cat-${citySlug}-${categorySlug}`] }
+  )();
+});
+
 
 export async function generateMetadata(
   { params }: PageProps,
@@ -54,16 +65,16 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { city: citySlug, categorySlug } = await params;
   const { city: cityData, category: categoryData } = await getPageData(citySlug, categorySlug);
-  
+
   if (!cityData || !categoryData) return {};
 
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
   const placeholderData = { cityName: cityData.name, categoryName: categoryData.name };
 
-  const title = replacePlaceholders(categoryData.metaTitle || seoSettings.cityCategoryPageTitlePattern, placeholderData) || `${categoryData.name} in ${cityData.name} | Wecanfix`;
-  const description = replacePlaceholders(categoryData.metaDescription || seoSettings.cityCategoryPageDescriptionPattern, placeholderData) || `Book trusted ${categoryData.name} services in ${cityData.name} with Wecanfix.`;
-  const keywords = replacePlaceholders(categoryData.metaKeywords || seoSettings.cityCategoryPageKeywordsPattern, placeholderData).split(',').map(k => k.trim()).filter(k => k);
+  const title = replacePlaceholders(categoryData.metaTitle || seoSettings.cityCategoryPageTitlePattern, placeholderData) || `Best ${categoryData.name} Services in ${cityData.name} | Professional ${categoryData.name} Near Me`;
+  const description = replacePlaceholders(categoryData.metaDescription || seoSettings.cityCategoryPageDescriptionPattern, placeholderData) || `Hire the best professional ${categoryData.name} services in ${cityData.name}. Trusted experts, transparent pricing, and high-quality home solutions near you.`;
+  const keywords = (replacePlaceholders(categoryData.metaKeywords || seoSettings.cityCategoryPageKeywordsPattern, placeholderData) || `${categoryData.name} in ${cityData.name}, best ${categoryData.name} near me`).split(',').map(k => k.trim()).filter(k => k);
 
   const ogImage = categoryData.imageUrl || seoSettings.structuredDataImage || `${appBaseUrl}/default-image.png`;
 
@@ -95,9 +106,10 @@ export default async function CityCategoryPage({ params }: PageProps) {
     notFound();
   }
 
-  const [pageData, fullCategoryData] = await Promise.all([
+  const [pageData, fullCategoryData, aggregateRating] = await Promise.all([
     getPageData(citySlugParam, categorySlugParam),
-    getCategoryFullData(categorySlugParam)
+    getCategoryFullData(categorySlugParam),
+    getAggregateRating()
   ]);
 
   const { city: cityData, category: categoryData } = pageData;
@@ -105,6 +117,10 @@ export default async function CityCategoryPage({ params }: PageProps) {
   if (!cityData || !categoryData) {
     notFound();
   }
+
+  const seoSettings = await getGlobalSEOSettings();
+  const placeholderData = { cityName: cityData.name, categoryName: categoryData.name };
+  const h1Title = replacePlaceholders(categoryData.h1_title || seoSettings.cityCategoryPageH1Pattern, placeholderData) || `Best Professional ${categoryData.name} Services in ${cityData.name}`;
 
   const appBaseUrl = getBaseUrl();
   const breadcrumbItems: BreadcrumbItem[] = [{ label: "Home", href: "/" }];
@@ -115,18 +131,35 @@ export default async function CityCategoryPage({ params }: PageProps) {
     "@context": "https://schema.org",
     "@type": "Service",
     "name": `${categoryData.name} in ${cityData.name}`,
-    "description": categoryData.metaDescription || `Professional ${categoryData.name} services in ${cityData.name}.`,
+    "description": categoryData.metaDescription || `Professional ${categoryData.name} services in ${cityData.name}. Trusted home maintenance and repairs by Wecanfix.`,
     "image": categoryData.imageUrl || `${appBaseUrl}/android-chrome-512x512.png`,
     "provider": {
       "@type": "LocalBusiness",
-      "name": "Wecanfix"
+      "name": "Wecanfix",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": cityData.name,
+        "addressRegion": "Karnataka",
+        "addressCountry": "IN"
+      }
     },
     "areaServed": {
       "@type": "City",
       "name": cityData.name
     }
   };
-  
+
+  // Add Aggregate Rating to Schema if available
+  if (aggregateRating) {
+    (categoryCitySchema as any).aggregateRating = {
+      "@type": "AggregateRating",
+      "ratingValue": aggregateRating.ratingValue,
+      "reviewCount": aggregateRating.reviewCount,
+      "bestRating": "5",
+      "worstRating": "1"
+    };
+  }
+
   return (
     <>
       <JsonLdScript data={categoryCitySchema} idSuffix={`city-cat-${cityData.id}-${categoryData.id}`} />
@@ -135,7 +168,9 @@ export default async function CityCategoryPage({ params }: PageProps) {
         citySlug={citySlugParam}
         breadcrumbItems={breadcrumbItems}
         initialData={fullCategoryData || undefined}
+        initialH1Title={h1Title}
       />
     </>
   );
 }
+

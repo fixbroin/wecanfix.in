@@ -48,26 +48,29 @@ export default function AdminProviderApplicationsPage() {
 
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
 
-  useEffect(() => {
+  const fetchApplications = async () => {
     setIsLoading(true);
-    const applicationsCollectionRef = collection(db, PROVIDER_APPLICATION_COLLECTION);
-    const q = query(applicationsCollectionRef, orderBy("createdAt", "desc"));
-
-    const unsubscribe = onSnapshot(q, (querySnapshot) => {
+    try {
+      const applicationsCollectionRef = collection(db, PROVIDER_APPLICATION_COLLECTION);
+      const q = query(applicationsCollectionRef, orderBy("createdAt", "desc"));
+      const querySnapshot = await getDocs(q);
       const fetchedApplications = querySnapshot.docs.map(docSnap => ({
         id: docSnap.id,
         ...docSnap.data(),
       } as ProviderApplication));
       setApplications(fetchedApplications);
-      setIsLoading(false);
-    }, (error) => {
+    } catch (error) {
       console.error("Error fetching provider applications: ", error);
       toast({ title: "Error", description: "Could not fetch provider applications.", variant: "destructive" });
+    } finally {
       setIsLoading(false);
-    });
+    }
+  };
 
-    return () => unsubscribe();
+  useEffect(() => {
+    fetchApplications();
   }, [toast]);
+
 
   const filteredApplications = useMemo(() => {
     if (filterStatus === "all") {
@@ -101,6 +104,8 @@ export default function AdminProviderApplicationsPage() {
       setShowNotesInputFor(null); 
       setAdminReviewNotes("");
       setPendingStatusForNotes(null);
+      await fetchApplications(); // Refresh list
+
 
       // Send email to provider
       if (appConfig.smtpHost && appConfig.senderEmail && appToUpdate.email && appToUpdate.userId) {
