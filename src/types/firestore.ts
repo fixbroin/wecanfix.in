@@ -379,8 +379,13 @@ export interface ContentPage {
   slug: string; // e.g., "about-us", "terms-and-conditions"
   title: string; // e.g., "About Us"
   content: string; // HTML or Markdown content
+  metaTitle?: string;
+  metaDescription?: string;
+  metaKeywords?: string;
+  excerpt?: string;
   imageUrl?: string; // Banner Image
   imageHint?: string; // AI search hint
+  coverImageUrl?: string;
   updatedAt: Timestamp;
 }
 
@@ -1197,7 +1202,7 @@ export interface ProviderApplication {
   userId: string; // Firebase Auth UID of the applicant
   status: ProviderApplicationStatus;
 
-  // Step 1: Work Category & Skills
+  // Step 1: Client Category & Skills
   workCategoryId?: string;
   workCategoryName?: string; // Denormalized
   experienceLevelId?: string;
@@ -1280,7 +1285,7 @@ export interface FirestoreBlogPost {
   coverImageUrl: string;
   imageHint?: string;
   excerpt?: string; // Optional excerpt
-  tags?: string[]; // Optional tags
+  tags?: string; // Optional tags (comma-separated string for compatibility with .split(','))
   readingTime?: string; // Optional reading time (e.g., "5 min")
   isPublished: boolean;
   authorId?: string; // Optional: link to an admin/author user

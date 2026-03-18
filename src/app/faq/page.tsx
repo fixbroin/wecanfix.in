@@ -18,8 +18,15 @@ const getFaqs = unstable_cache(
   async () => {
     try {
       const faqsCollectionRef = adminDb.collection("adminFAQs");
-      const snapshot = await faqsCollectionRef.where("isActive", "==", true).orderBy("order", "asc").get();
-      return snapshot.docs.map(doc => ({ ...serializeFirestoreData(doc.data()), id: doc.id } as FirestoreFAQ));
+      // Simplified query to avoid requiring a composite index
+      const snapshot = await faqsCollectionRef.where("isActive", "==", true).get();
+      
+      const faqs = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreFAQ));
+      
+      // Sort in memory and serialize BEFORE returning to cache
+      return serializeFirestoreData(
+        faqs.sort((a, b) => (a.order || 0) - (b.order || 0))
+      );
     } catch (err) {
       console.error("Error fetching FAQs:", err);
       return [];
@@ -66,7 +73,7 @@ export default async function FAQPage() {
             Frequently Asked Questions
           </h1>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Everything you need to know about wecanfix services, bookings, and more.
+            Everything you need to know about Wecanfix services, bookings, and more.
           </p>
         </div>
 

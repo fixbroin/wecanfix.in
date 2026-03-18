@@ -60,6 +60,7 @@ interface CategoryPageClientProps {
   areaSlug?: string;
   breadcrumbItems?: BreadcrumbItem[];
   initialData?: FullCategoryData;
+  initialH1Title?: string;
 }
 
 export default function CategoryPageClient({ 
@@ -67,7 +68,8 @@ export default function CategoryPageClient({
   citySlug, 
   areaSlug, 
   breadcrumbItems: initialBreadcrumbItems, 
-  initialData 
+  initialData,
+  initialH1Title
 }: CategoryPageClientProps) {
   const router = useRouter();
   const { toast } = useToast();

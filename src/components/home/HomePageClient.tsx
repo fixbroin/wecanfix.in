@@ -30,7 +30,7 @@ import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cart
 import { useToast } from '@/hooks/use-toast';
 import { getGuestId } from '@/lib/guestIdManager';
 import { logUserActivity } from '@/lib/activityLogger';
-import { Badge } from '@/components/ui/badge';
+import { Badge } from '@/components/badge';
 import type { HomepageData } from '@/lib/homepageUtils';
 import { LazySection } from '@/components/shared/LazySection';
 import CategoryCard from './CategoryCard';
@@ -118,6 +118,7 @@ interface HomePageClientProps {
   areaSlug?: string;
   breadcrumbItems?: BreadcrumbItem[];
   initialData?: HomepageData;
+  initialH1Title?: string;
 }
 
 const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service }) => {
@@ -365,13 +366,13 @@ const HomepageServiceCarousel: React.FC<{ services: FirestoreService[] }> = ({ s
   );
 };
 
-export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, initialData }: HomePageClientProps) {
+export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, initialData, initialH1Title }: HomePageClientProps) {
   const { config: appConfig, isLoading: isLoadingAppSettings } = useApplicationConfig();
   const [isMounted, setIsMounted] = useState(false);
   const router = useRouter();
   const [structuredData, setStructuredData] = useState<Record<string, any> | null>(() => getCache<Record<string, any>>('structuredData', true) || null);
   const [seoSettings, setSeoSettings] = useState<FirestoreSEOSettings | null>(() => initialData?.seoSettings || getCache<FirestoreSEOSettings>('seoSettings', true) || null);
-  const [pageH1, setPageH1] = useState<string | undefined>(() => initialData?.seoSettings.homepageH1 || getCache<string>('pageH1', true) || undefined);
+  const [pageH1, setPageH1] = useState<string | undefined>(() => initialH1Title || initialData?.seoSettings.homepageH1 || getCache<string>('pageH1', true) || undefined);
   const { showLoading } = useLoading();
 
   const [featuresConfig, setFeaturesConfig] = useState<FeaturesConfiguration>(() => initialData?.featuresConfig || getCache<FeaturesConfiguration>('featuresConfig', true) || defaultFeaturesConfig);
@@ -393,7 +394,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
     const cachedStructuredData = getCache<Record<string, any>>('structuredData');
     
     if (initialData && !citySlug && !areaSlug) {
-        setPageH1(initialData.seoSettings.homepageH1);
+        setPageH1(initialH1Title || initialData.seoSettings.homepageH1);
         setIsLoadingPageData(false);
         return;
     }
@@ -410,10 +411,6 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
     try {
       let currentSeoSettings = seoSettings;
       if (!currentSeoSettings) {
-          // If we don't have it in state (not from initialData or cache), we need a fallback.
-          // Since getGlobalSEOSettings is server-only, we must fetch from Firestore directly here if needed,
-          // OR assume it's always provided by server.
-          // For resilience, let's fetch directly from client db if missing.
           const settingsDocRef = doc(db, 'seoSettings', 'global');
           const docSnap = await getDoc(settingsDocRef);
           if (docSnap.exists()) {
@@ -426,7 +423,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
       if (!currentSeoSettings) return;
 
       const fetchedSeoSettings = currentSeoSettings;
-      let currentH1 = fetchedSeoSettings.homepageH1;
+      let currentH1 = initialH1Title || fetchedSeoSettings.homepageH1;
       let fetchedCityData: FirestoreCity | null = null;
       let fetchedAreaData: FirestoreArea | null = null;
       let currentCityNameForLd = fetchedSeoSettings.structuredDataLocality;
@@ -437,7 +434,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
             const citySnap = await getDocs(cityQuery);
             if (!citySnap.empty) {
                 fetchedCityData = {id: citySnap.docs[0].id, ...(citySnap.docs[0].data() as Omit<FirestoreCity, 'id'>)} as FirestoreCity;
-                currentH1 = fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("Wecanfix", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
+                currentH1 = initialH1Title || fetchedCityData.h1_title || fetchedSeoSettings.homepageH1?.replace("Wecanfix", fetchedCityData.name) || `Services in ${fetchedCityData.name}`;
                 currentCityNameForLd = fetchedCityData.name;
             }
         } catch (e) { console.error("Error fetching city data for H1/LD:", e); }
@@ -449,7 +446,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
             const areaSnap = await getDocs(areaQuery);
             if (!areaSnap.empty) {
                 fetchedAreaData = {id: areaSnap.docs[0].id, ...(areaSnap.docs[0].data() as Omit<FirestoreArea, 'id'>)} as FirestoreArea;
-                currentH1 = fetchedAreaData.h1_title || `Services in ${fetchedAreaData.name}, ${fetchedCityData.name}`;
+                currentH1 = initialH1Title || fetchedAreaData.h1_title || `Services in ${fetchedAreaData.name}, ${fetchedCityData.name}`;
             }
         } catch (e) { console.error("Error fetching area data for H1/LD:", e); }
       }
@@ -519,14 +516,9 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
       console.error("Error in fetchPageSpecificData:", error);
       setIsLoadingPageData(false);
     }
-  }, [citySlug, areaSlug, initialData, seoSettings]);
+  }, [citySlug, areaSlug, initialData, seoSettings, initialH1Title]);
 
   const setupRealtimeListeners = useCallback(() => {
-    if (initialData && isMounted) {
-        // Even if we have initialData, we might want to start listeners after first render
-        // but let's keep initialData logic simple for now and only start listeners if not already active
-    }
-
     // 1. Features Config Listener
     const configDocRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
     const unsubscribeConfig = onSnapshot(configDocRef, (docSnap) => {
@@ -562,7 +554,7 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
       unsubscribePopular();
       unsubscribeRecent();
     };
-  }, [isMounted]);
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);

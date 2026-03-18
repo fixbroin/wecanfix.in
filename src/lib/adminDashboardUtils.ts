@@ -71,10 +71,10 @@ export const getDashboardData = unstable_cache(
       const topServices = Object.entries(serviceCounts)
         .map(([serviceId, count]) => {
           const serviceDetails = servicesDataMap.get(serviceId);
-          return serviceDetails ? { ...serializeFirestoreData(serviceDetails), count } : null;
+          return serviceDetails ? { ...serializeFirestoreData<any>(serviceDetails), count } : null;
         })
         .filter(item => item !== null)
-        .sort((a, b) => b.count - a.count)
+        .sort((a, b) => (b as any).count - (a as any).count)
         .slice(0, 10);
 
       // 3. Analytics: Search Hotspots
@@ -102,7 +102,7 @@ export const getDashboardData = unstable_cache(
           return {
             id: doc.id,
             type: 'new_booking',
-            timestamp: serializeFirestoreData(data.createdAt),
+            timestamp: serializeFirestoreData<string>(data.createdAt),
             title: 'New Booking',
             description: `ID: ${data.bookingId.substring(0, 8)} • ${data.customerName}`,
             href: `/admin/bookings/edit/${doc.id}`,
@@ -113,15 +113,15 @@ export const getDashboardData = unstable_cache(
           return {
             id: doc.id,
             type: 'new_user_signup',
-            timestamp: serializeFirestoreData(data.createdAt),
+            timestamp: serializeFirestoreData<string>(data.createdAt),
             title: 'New User Signup',
             description: `${data.displayName || data.email}`,
             href: `/admin/users`,
           };
         })
-      ].sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 7);
+      ].sort((a, b) => new Date(b.timestamp as string).getTime() - new Date(a.timestamp as string).getTime()).slice(0, 7);
 
-      return {
+      return serializeFirestoreData<DashboardData>({
         stats: {
           completedRevenue,
           totalBookings: bookingsSnap.size,
@@ -134,7 +134,7 @@ export const getDashboardData = unstable_cache(
           topSearchTerms
         },
         recentActivities: activities
-      };
+      });
     } catch (error) {
       console.error("Error in getDashboardData:", error);
       throw error;
@@ -149,14 +149,13 @@ export const getArchivedBookings = unstable_cache(
     try {
       let q = adminDb.collection('bookings').orderBy('createdAt', 'desc');
       
-      // If we're fetching archive, we skip the first 10 (which are live on client)
       const offset = 10;
       const snapshot = await q.offset(offset).limit(50).get();
       
-      return snapshot.docs.map(doc => ({
-        ...serializeFirestoreData(doc.data()),
+      return serializeFirestoreData(snapshot.docs.map(doc => ({
+        ...doc.data(),
         id: doc.id
-      } as FirestoreBooking));
+      } as FirestoreBooking)));
     } catch (error) {
       console.error("Error in getArchivedBookings:", error);
       return [];
@@ -164,6 +163,27 @@ export const getArchivedBookings = unstable_cache(
   },
   ['archived-bookings', 'bookings'],
   { revalidate: 86400 } // 24 hours
+);
+
+export const getArchivedUsers = unstable_cache(
+  async (): Promise<FirestoreUser[]> => {
+    try {
+      let q = adminDb.collection('users').orderBy('createdAt', 'desc');
+      
+      const offset = 20;
+      const snapshot = await q.offset(offset).limit(50).get();
+      
+      return serializeFirestoreData(snapshot.docs.map(doc => ({
+        ...doc.data(),
+        id: doc.id
+      } as FirestoreUser)));
+    } catch (error) {
+      console.error("Error in getArchivedUsers:", error);
+      return [];
+    }
+  },
+  ['archived-users', 'users'],
+  { revalidate: 86400, tags: ['users'] }
 );
 
 export const getArchivedActivities = unstable_cache(
@@ -174,10 +194,10 @@ export const getArchivedActivities = unstable_cache(
         .limit(100)
         .get();
 
-      return snapshot.docs.map(doc => ({
-        ...serializeFirestoreData(doc.data()),
+      return serializeFirestoreData(snapshot.docs.map(doc => ({
+        ...doc.data(),
         id: doc.id
-      } as UserActivity));
+      } as UserActivity)));
     } catch (error) {
       console.error("Error in getArchivedActivities:", error);
       return [];
@@ -186,4 +206,3 @@ export const getArchivedActivities = unstable_cache(
   ['archived-activities'],
   { revalidate: 86400, tags: ['users'] }
 );
-

@@ -145,10 +145,9 @@ export function HeroCarousel() {
                 >
                   {/* Image Layer with Ken Burns effect */}
                   <div className={cn(
-                      "absolute inset-0 transition-transform duration-[10000ms] ease-linear",
-                      isActive ? "scale-110" : "scale-100"
-                  )}>
-                    <AppImage
+                     "absolute inset-0 transition-transform ease-linear",
+                     isActive ? "scale-110" : "scale-100"
+                  )} style={{ transitionDuration: '10000ms' }}>                    <AppImage
                         src={slide.imageUrl}
                         alt={slide.title || "Wecanfix Promotion"}
                         fill

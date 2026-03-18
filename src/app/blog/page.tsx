@@ -67,7 +67,7 @@ export default async function BlogListPage() {
               Our <span className="text-primary">Blog</span>
             </h1>
             <p className="text-lg md:text-xl text-muted-foreground leading-relaxed">
-              Expert tips, home maintenance guides, and the latest updates from the wecanfix team.
+              Expert tips, home maintenance guides, and the latest updates from the Wecanfix team.
             </p>
           </div>
         </div>
