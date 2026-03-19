@@ -18,6 +18,25 @@ import Breadcrumbs from '@/components/shared/Breadcrumbs';
 
 export const revalidate = 3600; // Revalidate every hour
 
+/**
+ * Server-side helper to safely get milliseconds from various timestamp formats.
+ * Important for Server Components handling both Admin SDK and serialized client-side data.
+ */
+function getTimestampMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'object') {
+    if (ts.seconds !== undefined) return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+    if (ts._seconds !== undefined) return ts._seconds * 1000 + (ts._nanoseconds || 0) / 1000000;
+    if (ts instanceof Date) return ts.getTime();
+  }
+  if (typeof ts === 'string') {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return typeof ts === 'number' ? ts : 0;
+}
+
 interface BlogPostPageProps {
   params: Promise<{ slug: string }>;
 }
@@ -62,12 +81,14 @@ const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): 
             return {
               ...data,
               id: doc.id,
-              createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
-                ? (data.createdAt as any).toDate().toISOString() 
-                : new Date().toISOString(),
-              updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
-                ? (data.updatedAt as any).toDate().toISOString() 
-                : undefined,
+              createdAt: (() => {
+                const millis = getTimestampMillis(data.createdAt);
+                return millis ? new Date(millis).toISOString() : new Date().toISOString();
+              })(),
+              updatedAt: (() => {
+                const millis = getTimestampMillis(data.updatedAt);
+                return millis ? new Date(millis).toISOString() : undefined;
+              })(),
             } as ClientBlogPost;
           })
           .filter(post => post.slug !== currentSlug)
@@ -114,8 +135,14 @@ export async function generateMetadata(
       url: `/blog/${slug}`,
       images: [{ url: ogImage }],
       type: 'article',
-      publishedTime: post.createdAt instanceof Timestamp ? post.createdAt.toDate().toISOString() : undefined,
-      modifiedTime: post.updatedAt instanceof Timestamp ? post.updatedAt.toDate().toISOString() : undefined,
+      publishedTime: (() => {
+        const millis = getTimestampMillis(post.createdAt);
+        return millis ? new Date(millis).toISOString() : undefined;
+      })(),
+      modifiedTime: (() => {
+        const millis = getTimestampMillis(post.updatedAt);
+        return millis ? new Date(millis).toISOString() : undefined;
+      })(),
       authors: post.authorName ? [post.authorName] : undefined,
     },
   };
@@ -138,45 +165,15 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
   ];
 
   const getDisplayDate = (date: any): string => {
-    if (!date) return 'N/A';
-    try {
-      if (date instanceof Timestamp) {
-        return format(date.toDate(), 'MMMM dd, yyyy');
-      }
-      // Handle serialized Firestore timestamp
-      if (date && typeof date.toDate === 'function') {
-        return format(date.toDate(), 'MMMM dd, yyyy');
-      }
-      if (date && (date.seconds || (date as any)._seconds)) {
-        const s = date.seconds || (date as any)._seconds;
-        return format(new Date(s * 1000), 'MMMM dd, yyyy');
-      }
-      if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
-        const parsedDate = new Date(date);
-        return isNaN(parsedDate.getTime()) ? 'N/A' : format(parsedDate, 'MMMM dd, yyyy');
-      }
-    } catch (e) {
-      console.error("Error formatting date:", e);
-    }
-    return 'N/A';
+    const millis = getTimestampMillis(date);
+    if (!millis) return 'N/A';
+    return format(new Date(millis), 'MMMM dd, yyyy');
   };
 
   const getIsoDate = (date: any): string => {
-    if (!date) return new Date().toISOString();
-    try {
-      if (date instanceof Timestamp) return date.toDate().toISOString();
-      if (date && (date.seconds || (date as any)._seconds)) {
-        const s = date.seconds || (date as any)._seconds;
-        return new Date(s * 1000).toISOString();
-      }
-      if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
-        const parsedDate = new Date(date);
-        return isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString();
-      }
-    } catch (e) {
-      console.error("Error formatting ISO date:", e);
-    }
-    return new Date().toISOString();
+    const millis = getTimestampMillis(date);
+    if (!millis) return new Date().toISOString();
+    return new Date(millis).toISOString();
   };
 
   const calculateReadingTime = (content: string) => {

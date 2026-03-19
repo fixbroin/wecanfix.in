@@ -18,6 +18,7 @@ import { generateInvoicePdf } from '@/lib/sriinvoiceGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface ManageInvoicesTabProps {
   onEditInvoice: (invoice: FirestoreInvoice) => void;
@@ -50,7 +51,7 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
         id: docSnap.id,
       } as FirestoreInvoice));
       // Sort on the client side since we can't combine orderBy with a different filter
-      fetchedInvoices.sort((a, b) => (b.invoiceDate?.toMillis() || 0) - (a.invoiceDate?.toMillis() || 0));
+      fetchedInvoices.sort((a, b) => getTimestampMillis(b.invoiceDate) - getTimestampMillis(a.invoiceDate));
       setInvoices(fetchedInvoices);
       setIsLoading(false);
     }, (error) => {
@@ -148,9 +149,9 @@ export default function ManageInvoicesTab({ onEditInvoice }: ManageInvoicesTabPr
     }
   };
 
-  const formatDate = (timestamp?: Timestamp) => {
-    if (!timestamp) return 'N/A';
-    return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formatDate = (timestamp?: any) => {
+    const millis = getTimestampMillis(timestamp);
+    return millis ? new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
   };
 
   const getStatusBadgeVariant = (status: InvoicePaymentStatus) => {

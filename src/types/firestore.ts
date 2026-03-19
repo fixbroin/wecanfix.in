@@ -1285,7 +1285,7 @@ export interface FirestoreBlogPost {
   coverImageUrl: string;
   imageHint?: string;
   excerpt?: string; // Optional excerpt
-  tags?: string; // Optional tags (comma-separated string for compatibility with .split(','))
+  tags?: string[] | string; // Optional tags (can be array or comma-separated string)
   readingTime?: string; // Optional reading time (e.g., "5 min")
   isPublished: boolean;
   authorId?: string; // Optional: link to an admin/author user

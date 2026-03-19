@@ -28,7 +28,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 import { getCache, setCache } from '@/lib/client-cache';
 import { useLoading } from '@/contexts/LoadingContext';
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { cn } from '@/lib/utils';
+import { cn, getTimestampMillis } from '@/lib/utils';
 import { LazySection } from '@/components/shared/LazySection';
 
 interface ServiceDetailPageClientProps {
@@ -215,8 +215,14 @@ export default function ServiceDetailPageClient({
         parentCategoryName,
         parentCategorySlug,
         parentCategoryId,
-        createdAt: firestoreServiceData.createdAt && firestoreServiceData.createdAt instanceof Timestamp ? firestoreServiceData.createdAt.toDate().toISOString() : String(firestoreServiceData.createdAt || ''),
-        updatedAt: firestoreServiceData.updatedAt && firestoreServiceData.updatedAt instanceof Timestamp ? firestoreServiceData.updatedAt.toDate().toISOString() : String(firestoreServiceData.updatedAt || ''),
+        createdAt: (() => {
+            const millis = getTimestampMillis(firestoreServiceData.createdAt);
+            return millis ? new Date(millis).toISOString() : String(firestoreServiceData.createdAt || '');
+        })(),
+        updatedAt: (() => {
+            const millis = getTimestampMillis(firestoreServiceData.updatedAt);
+            return millis ? new Date(millis).toISOString() : String(firestoreServiceData.updatedAt || '');
+        })(),
         taskTimeValue: firestoreServiceData.taskTimeValue,
         taskTimeUnit: firestoreServiceData.taskTimeUnit,
         includedItems: firestoreServiceData.includedItems,

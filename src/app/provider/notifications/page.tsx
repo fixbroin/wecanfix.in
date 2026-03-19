@@ -13,6 +13,7 @@ import type { FirestoreNotification } from "@/types/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from 'date-fns';
 import { useLoading } from "@/contexts/LoadingContext";
+import { getTimestampMillis } from "@/lib/utils";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -263,7 +264,10 @@ export default function ProviderNotificationsPage() {
                       )}
                       <p className="text-xs text-muted-foreground mt-0.5">{notification.message}</p>
                       <p className="text-[10px] text-muted-foreground mt-1.5">
-                        {notification.createdAt ? formatDistanceToNow(notification.createdAt.toDate(), { addSuffix: true }) : 'just now'}
+                        {(() => {
+                            const millis = getTimestampMillis(notification.createdAt);
+                            return millis ? formatDistanceToNow(new Date(millis), { addSuffix: true }) : 'just now';
+                        })()}
                       </p>
                     </div>
                     {!notification.read && (

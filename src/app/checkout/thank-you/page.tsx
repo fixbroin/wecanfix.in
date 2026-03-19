@@ -21,6 +21,7 @@ import { logUserActivity } from '@/lib/activityLogger';
 import { getGuestId } from '@/lib/guestIdManager';
 import { sendWhatsAppFlow } from '@/ai/flows/sendWhatsAppFlow';
 import { triggerPushNotification } from '@/lib/fcmUtils';
+import { getTimestampMillis } from '@/lib/utils';
 
 // Add type declarations for GTM dataLayer and gtag
 declare global {
@@ -383,7 +384,11 @@ export default function ThankYouPage() {
             ...(newBookingData as FirestoreBooking), 
             id: docRef.id, 
             servicesSummary, 
-            createdAt: newBookingData.createdAt.toDate().toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }), 
+            createdAt: (() => {
+                const millis = getTimestampMillis(newBookingData.createdAt);
+                return millis ? new Date(millis).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A';
+            })(),
+ 
             scheduledDateDisplay: formatDateForDisplay(newBookingData.scheduledDate),
             latitude: newBookingData.latitude === undefined ? null : newBookingData.latitude, 
             longitude: newBookingData.longitude === undefined ? null : newBookingData.longitude, 

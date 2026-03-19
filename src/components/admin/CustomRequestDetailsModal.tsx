@@ -5,8 +5,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { CustomServiceRequest } from '@/types/firestore';
-import { Timestamp } from "firebase/firestore";
 import AppImage from '@/components/ui/AppImage';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface CustomRequestDetailsModalProps {
   isOpen: boolean;
@@ -14,9 +14,10 @@ interface CustomRequestDetailsModalProps {
   request: CustomServiceRequest | null;
 }
 
-const formatDate = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const formatDate = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const DetailItem = ({ label, value }: { label: string; value?: string | number | null }) => (

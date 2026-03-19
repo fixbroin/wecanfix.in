@@ -24,6 +24,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import { getTimestampMillis } from '@/lib/utils';
 
 const WEB_SETTINGS_DOC_ID = "global";
 const WEB_SETTINGS_COLLECTION = "webSettings";
@@ -928,9 +929,7 @@ export default function WebSettingsPage() {
 
 // Global timestamp helper local to this file for cleaner code
 const formatTimestampToReadable = (timestamp: any): string => {
-    if (!timestamp) return "N/A";
-    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-      return timestamp.toDate().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-    }
-    return new Date(timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return "N/A";
+    return new Date(millis).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 };

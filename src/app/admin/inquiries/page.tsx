@@ -21,13 +21,15 @@ import { sendInquiryReplyEmail, type InquiryReplyEmailInput } from '@/ai/flows/s
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import InquiryDetailsModal from '@/components/admin/InquiryDetailsModal';
 import { Separator } from "@/components/ui/separator";
+import { getTimestampMillis } from '@/lib/utils';
 
 type Inquiry = FirestoreContactUsInquiry | FirestorePopupInquiry;
 type InquiryType = 'contact' | 'popup';
 
-const formatTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const formatTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 export default function AdminInquiriesPage() {

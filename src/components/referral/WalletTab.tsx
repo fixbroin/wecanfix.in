@@ -10,6 +10,7 @@ import { collection, query, where, onSnapshot, doc, getDoc, getDocs } from 'fire
 import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
+import { getTimestampMillis } from '@/lib/utils';
 
 const formatDate = (timestamp?: any): string => {
     if (!timestamp) return 'N/A';
@@ -84,7 +85,7 @@ export default function WalletTab() {
              }
 
              // Sort combined history by date, descending
-             combinedHistory.sort((a,b) => (b.date?.toMillis() || 0) - (a.date?.toMillis() || 0));
+             combinedHistory.sort((a,b) => getTimestampMillis(b.date) - getTimestampMillis(a.date));
 
              setWalletHistory(combinedHistory);
              setIsLoadingHistory(false);

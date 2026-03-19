@@ -14,6 +14,7 @@ import { db } from '@/lib/firebase';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, runTransaction } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { getTimestampMillis } from '@/lib/utils';
 
 export default function AdminPromoCodesPage() {
   const [promoCodes, setPromoCodes] = useState<FirestorePromoCode[]>([]);
@@ -134,9 +135,10 @@ export default function AdminPromoCodesPage() {
     }
   };
   
-  const formatDateForIndia = (timestamp?: Timestamp) => {
-    if (!timestamp) return "N/A";
-    return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  const formatDateForIndia = (timestamp?: any) => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return "N/A";
+    return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
   };
 
   const getDiscountDisplay = (type: DiscountType, value: number) => {

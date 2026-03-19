@@ -14,6 +14,7 @@ import type { FirestoreUser, ChatSession } from '@/types/firestore';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';
 import { useAuth } from '@/hooks/useAuth';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface AdminUserListForChatProps {
   onSelectUser: (user: FirestoreUser) => void;
@@ -112,25 +113,21 @@ export default function AdminUserListForChat({
       if (unreadB > 0 && unreadA === 0) return 1;
       if (unreadA !== unreadB && unreadA > 0 && unreadB > 0) return unreadB - unreadA;
 
-      const timeA = sessionA?.lastMessageTimestamp?.toMillis() || 0;
-      const timeB = sessionB?.lastMessageTimestamp?.toMillis() || 0;
+      const timeA = getTimestampMillis(sessionA?.lastMessageTimestamp);
+      const timeB = getTimestampMillis(sessionB?.lastMessageTimestamp);
 
       if (timeA !== timeB) return timeB - timeA;
       
-      const lastLoginA = a.lastLoginAt?.toMillis() || a.createdAt?.toMillis() || 0;
-      const lastLoginB = b.lastLoginAt?.toMillis() || b.createdAt?.toMillis() || 0;
+      const lastLoginA = getTimestampMillis(a.lastLoginAt) || getTimestampMillis(a.createdAt);
+      const lastLoginB = getTimestampMillis(b.lastLoginAt) || getTimestampMillis(b.createdAt);
       return lastLoginB - lastLoginA;
     });
   }, [filteredUsers, chatSessions]);
 
   const formatLastActive = (timestamp?: any): string => {
-    if (!timestamp) return 'Never';
-    try {
-      const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-      return formatDistanceToNowStrict(date, { addSuffix: true });
-    } catch (e) {
-      return 'Unknown';
-    }
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'Never';
+    return formatDistanceToNowStrict(new Date(millis), { addSuffix: true });
   };
 
   if (isLoading) {

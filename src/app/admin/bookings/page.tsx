@@ -140,21 +140,35 @@ export default function AdminBookingsPage() {
         try {
           const bookingsRef = collection(db, "bookings");
           const term = searchTerm.trim();
+          const lowerTerm = term.toLowerCase();
+          const capitalizedTerm = term.charAt(0).toUpperCase() + term.slice(1);
           
-          const idQuery = query(bookingsRef, where("bookingId", "==", term));
-          const phoneQuery = query(bookingsRef, where("customerPhone", "==", term));
-          const nameQuery = query(bookingsRef, where("customerName", ">=", term), where("customerName", "<=", term + '\uf8ff'));
-          
-          const [idSnap, phoneSnap, nameSnap] = await Promise.all([
-            getDocs(idQuery),
-            getDocs(phoneQuery),
-            getDocs(nameQuery)
-          ]);
+          const queries = [
+            query(bookingsRef, where("bookingId", ">=", term), where("bookingId", "<=", term + '\uf8ff')),
+            query(bookingsRef, where("bookingId", ">=", lowerTerm), where("bookingId", "<=", lowerTerm + '\uf8ff')),
+            query(bookingsRef, where("customerPhone", ">=", term), where("customerPhone", "<=", term + '\uf8ff')),
+            query(bookingsRef, where("customerName", ">=", term), where("customerName", "<=", term + '\uf8ff')),
+            query(bookingsRef, where("customerName", ">=", capitalizedTerm), where("customerName", "<=", capitalizedTerm + '\uf8ff')),
+          ];
 
-          let results = [...idSnap.docs, ...phoneSnap.docs, ...nameSnap.docs].map(docSnap => ({
-            ...docSnap.data(),
-            id: docSnap.id
-          } as FirestoreBooking));
+          // Add phone variations with 91 prefix matching
+          if (/^\d+$/.test(term)) {
+            queries.push(query(bookingsRef, where("customerPhone", ">=", `91${term}`), where("customerPhone", "<=", `91${term}` + '\uf8ff')));
+            queries.push(query(bookingsRef, where("customerPhone", ">=", `+91${term}`), where("customerPhone", "<=", `+91${term}` + '\uf8ff')));
+            
+            if (term.startsWith('91') && term.length > 2) {
+              const without91 = term.substring(2);
+              queries.push(query(bookingsRef, where("customerPhone", ">=", without91), where("customerPhone", "<=", without91 + '\uf8ff')));
+            }
+          }
+          
+          const snapShots = await Promise.all(queries.map(q => getDocs(q)));
+          let results: FirestoreBooking[] = [];
+          snapShots.forEach(snap => {
+            snap.docs.forEach(docSnap => {
+              results.push({ ...docSnap.data(), id: docSnap.id } as FirestoreBooking);
+            });
+          });
 
           const uniqueResults = Array.from(new Map(results.map(b => [b.id, b])).values());
           setBookings(uniqueResults);
@@ -206,15 +220,24 @@ export default function AdminBookingsPage() {
   };
 
   const filteredBookings = useMemo(() => {
+    if (!searchTerm) return bookings.filter(booking => filterStatus === "All" || booking.status === filterStatus);
+    
+    const lowerSearch = searchTerm.toLowerCase().trim();
+    // Normalize search term for phone: remove non-digits and leading 91
+    const normalizedSearchPhone = lowerSearch.replace(/\D/g, '').replace(/^91/, '');
+
     return bookings.filter(booking => {
       const matchesStatus = filterStatus === "All" || booking.status === filterStatus;
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = 
-        booking.bookingId.toLowerCase().includes(searchLower) || 
-        booking.customerName.toLowerCase().includes(searchLower) ||
-        booking.customerPhone.includes(searchTerm);
       
-      return matchesStatus && matchesSearch;
+      const bookingIdMatch = booking.bookingId.toLowerCase().includes(lowerSearch);
+      const nameMatch = booking.customerName.toLowerCase().includes(lowerSearch);
+      const emailMatch = (booking.customerEmail || '').toLowerCase().includes(lowerSearch);
+      
+      // Normalize booking phone for comparison
+      const bookingPhone = (booking.customerPhone || '').replace(/\D/g, '').replace(/^91/, '');
+      const phoneMatch = normalizedSearchPhone ? bookingPhone.includes(normalizedSearchPhone) : false;
+      
+      return matchesStatus && (bookingIdMatch || nameMatch || emailMatch || phoneMatch);
     });
   }, [bookings, filterStatus, searchTerm]);
 
@@ -324,7 +347,7 @@ export default function AdminBookingsPage() {
             <span className="text-[11px] uppercase tracking-wider text-foreground font-extrabold flex items-center">
               <CalendarDays className="h-3.5 w-3.5 mr-1 text-primary" /> Date
             </span>
-            <div className="text-sm font-bold text-foreground pl-1">
+            <div className="text-sm font-bold text-foreground">
               {formatDateForDisplay(booking.scheduledDate)}
             </div>
           </div>
@@ -332,16 +355,18 @@ export default function AdminBookingsPage() {
             <span className="text-[11px] uppercase tracking-wider text-foreground font-extrabold flex items-center">
               <Clock className="h-3.5 w-3.5 mr-1 text-primary" /> Slot
             </span>
-            <div className="text-sm font-bold text-foreground pl-1">
+            <div className="text-sm font-bold text-foreground">
               {booking.scheduledTimeSlot}
-              {booking.estimatedEndTime && (
-                <span className="ml-2 text-[10px] text-emerald-600 bg-emerald-500/10 px-1.5 py-0.5 rounded-full">
-                  Ends: {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
-                </span>
-              )}
             </div>
           </div>
         </div>
+
+        {booking.estimatedEndTime && (
+          <div className="text-xs text-emerald-600 bg-emerald-500/10 px-3 py-2 rounded-lg font-black flex items-center w-full border border-emerald-500/10">
+            <History className="h-4 w-4 mr-2" />
+            Ends: {new Date(booking.estimatedEndTime).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' })} {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+          </div>
+        )}
 
         <Separator className="bg-muted" />
 
@@ -477,7 +502,14 @@ export default function AdminBookingsPage() {
                         <TableCell className="font-mono text-xs font-bold text-primary">{booking.bookingId}</TableCell>
                         <TableCell>
                           <div className="font-extrabold text-sm mb-1">{booking.customerName}</div>
-                          <div className="text-xs font-bold">{booking.customerPhone}</div>
+                          <div className="flex items-center gap-2">
+                            <div className="text-xs font-bold">{booking.customerPhone}</div>
+                            {booking.customerPhone && (
+                              <Button variant="ghost" size="icon" className="h-7 w-7 hover:bg-primary/10 transition-colors" onClick={() => handleWhatsAppClick(booking)} title="Chat on WhatsApp">
+                                <AppImage src="/whatsapp.png" alt="WhatsApp Icon" width={18} height={18} />
+                              </Button>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <div className="text-sm font-extrabold flex items-center text-foreground">
@@ -489,9 +521,9 @@ export default function AdminBookingsPage() {
                             {booking.scheduledTimeSlot}
                           </div>
                           {booking.estimatedEndTime && (
-                            <div className="text-[10px] font-black flex items-center mt-1 text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full w-fit">
-                              <History className="h-3 w-3 mr-1" />
-                              Ends: {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                            <div className="text-xs font-black flex items-center mt-1 text-emerald-600 bg-emerald-500/10 px-2 py-1 rounded-full w-fit">
+                              <History className="h-3.5 w-3.5 mr-1.5" />
+                              Ends: {new Date(booking.estimatedEndTime).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit' })} {new Date(booking.estimatedEndTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
                             </div>
                           )}
                         </TableCell>

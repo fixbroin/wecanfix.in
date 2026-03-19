@@ -14,6 +14,25 @@ import { getAggregateRating } from '@/lib/homepageUtils';
 
 export const revalidate = 3600; // Revalidate every hour
 
+/**
+ * Server-side helper to safely get milliseconds from various timestamp formats.
+ * Important for Server Components handling both Admin SDK and serialized data.
+ */
+function getTimestampMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'object') {
+    if (ts.seconds !== undefined) return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+    if (ts._seconds !== undefined) return ts._seconds * 1000 + (ts._nanoseconds || 0) / 1000000;
+    if (ts instanceof Date) return ts.getTime();
+  }
+  if (typeof ts === 'string') {
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? 0 : d.getTime();
+  }
+  return typeof ts === 'number' ? ts : 0;
+}
+
 interface ServicePageProps {
   params: Promise<{ slug: string }>;
 }
@@ -82,17 +101,15 @@ const getServiceData = cache(async (slug: string): Promise<ClientServiceData | n
           metaKeywords: restOfServiceData.seo_keywords,
         };
         
-        if (createdAt && createdAt instanceof Timestamp) {
-          clientData.createdAt = createdAt.toDate().toISOString();
-        } else if (createdAt) {
-          clientData.createdAt = String(createdAt);
-        }
+        clientData.createdAt = (() => {
+          const millis = getTimestampMillis(createdAt);
+          return millis ? new Date(millis).toISOString() : String(createdAt || '');
+        })();
 
-        if (updatedAt && updatedAt instanceof Timestamp) {
-          clientData.updatedAt = updatedAt.toDate().toISOString();
-        } else if (updatedAt) {
-          clientData.updatedAt = String(updatedAt);
-        }
+        clientData.updatedAt = (() => {
+          const millis = getTimestampMillis(updatedAt);
+          return millis ? new Date(millis).toISOString() : String(updatedAt || '');
+        })();
 
         return clientData;
 

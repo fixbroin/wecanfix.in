@@ -36,21 +36,25 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { getTimestampMillis } from '@/lib/utils';
 
 const ITEMS_PER_PAGE = 50;
 
-const formatLogTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return formatDistanceToNow(timestamp.toDate(), { addSuffix: true });
+const formatLogTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return formatDistanceToNow(new Date(millis), { addSuffix: true });
 };
 
-const formatDateForDisplay = (timestamp?: Timestamp): string => {
-    if (!timestamp) return 'N/A';
-    return timestamp.toDate().toLocaleString('en-IN', {
+const formatDateForDisplay = (timestamp?: any): string => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return new Date(millis).toLocaleString('en-IN', {
         day: '2-digit', month: 'short', year: 'numeric',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true
     });
 };
+
 
 const getBrowserIcon = (ua: string) => {
     if (ua.includes('Chrome')) return <Monitor className="h-3 w-3 inline mr-1 text-blue-500" />;
@@ -194,8 +198,11 @@ export default function AdminVisitorInfoPage() {
           if (log.ipAddress) uniqueIPs.add(log.ipAddress);
           
           if (log.timestamp) {
-              const day = format(log.timestamp.toDate(), 'MMM dd');
-              trafficByDay[day] = (trafficByDay[day] || 0) + 1;
+              const millis = getTimestampMillis(log.timestamp);
+              if (millis) {
+                const day = format(new Date(millis), 'MMM dd');
+                trafficByDay[day] = (trafficByDay[day] || 0) + 1;
+              }
           }
       });
 
@@ -471,7 +478,10 @@ export default function AdminVisitorInfoPage() {
                              <div className="flex flex-col items-end">
                                 <span className="text-xs font-medium">{formatLogTimestamp(log.timestamp)}</span>
                                 <span className="text-[10px] text-muted-foreground opacity-60 font-mono">
-                                    {log.timestamp ? format(log.timestamp.toDate(), 'HH:mm:ss') : ''}
+                                    {(() => {
+                                        const millis = getTimestampMillis(log.timestamp);
+                                        return millis ? format(new Date(millis), 'HH:mm:ss') : '';
+                                    })()}
                                 </span>
                             </div>
                         </TableCell>

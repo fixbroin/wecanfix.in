@@ -29,6 +29,7 @@ import { useAuth as useAuthHook } from '@/hooks/useAuth';
 import { getGuestId } from '@/lib/guestIdManager';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { isWebView, requestNativePayment } from '@/lib/webview-bridge';
+import { getTimestampMillis } from '@/lib/utils';
 
 
 declare global {
@@ -316,8 +317,19 @@ export default function PaymentPage() {
     const currentDate = new Date();
     const filtered = allFetchedPromoCodes.filter(promoData => {
       if (promoData.isHidden) return false;
-      let isValid = true; const validFrom = promoData.validFrom?.toDate(); if (validFrom) { const start = new Date(validFrom); start.setHours(0,0,0,0); if (currentDate < start) isValid = false; }
-      const validUntil = promoData.validUntil?.toDate(); if (isValid && validUntil) { const end = new Date(validUntil); end.setHours(23,59,59,999); if (currentDate > end) isValid = false; }
+      let isValid = true; 
+      const validFromMillis = getTimestampMillis(promoData.validFrom);
+      if (validFromMillis) { 
+        const start = new Date(validFromMillis); 
+        start.setHours(0,0,0,0); 
+        if (currentDate < start) isValid = false; 
+      }
+      const validUntilMillis = getTimestampMillis(promoData.validUntil);
+      if (isValid && validUntilMillis) { 
+        const end = new Date(validUntilMillis); 
+        end.setHours(23,59,59,999); 
+        if (currentDate > end) isValid = false; 
+      }
       if (isValid && promoData.minBookingAmount && currentSumOfDisplayedPrices < promoData.minBookingAmount) isValid = false;
       if (isValid && promoData.maxUses && promoData.usesCount >= promoData.maxUses) isValid = false;
       return isValid;
@@ -353,8 +365,26 @@ export default function PaymentPage() {
       if (querySnapshot.empty) { toast({ title: "Invalid Code", description: "This promo code does not exist.", variant: "destructive" }); setIsApplyingPromo(false); return; }
       const promoDoc = querySnapshot.docs[0]; const promoData = { id: promoDoc.id, ...promoDoc.data() } as FirestorePromoCode; const currentDate = new Date();
       if (!promoData.isActive) { toast({ title: "Inactive Code", description: "This promo code is currently not active.", variant: "destructive" }); setIsApplyingPromo(false); return; }
-      const validFrom = promoData.validFrom?.toDate(); if (validFrom) { const start = new Date(validFrom); start.setHours(0,0,0,0); if (currentDate < start) { toast({ title: "Not Yet Valid", description: "This promo code is not active yet.", variant: "destructive" }); setIsApplyingPromo(false); return; } }
-      const validUntil = promoData.validUntil?.toDate(); if (validUntil) { const end = new Date(validUntil); end.setHours(23,59,59,999); if (currentDate > end) { toast({ title: "Expired Code", description: "This promo code has expired.", variant: "destructive" }); setIsApplyingPromo(false); return; } }
+      const validFromMillis = getTimestampMillis(promoData.validFrom);
+      if (validFromMillis) { 
+        const start = new Date(validFromMillis); 
+        start.setHours(0,0,0,0); 
+        if (currentDate < start) { 
+          toast({ title: "Not Yet Valid", description: "This promo code is not active yet.", variant: "destructive" }); 
+          setIsApplyingPromo(false); 
+          return; 
+        } 
+      }
+      const validUntilMillis = getTimestampMillis(promoData.validUntil);
+      if (validUntilMillis) { 
+        const end = new Date(validUntilMillis); 
+        end.setHours(23,59,59,999); 
+        if (currentDate > end) { 
+          toast({ title: "Expired Code", description: "This promo code has expired.", variant: "destructive" }); 
+          setIsApplyingPromo(false); 
+          return; 
+        } 
+      }
       if (promoData.minBookingAmount && sumOfDisplayedItemPrices < promoData.minBookingAmount) { toast({ title: "Minimum Amount Not Met", description: `Minimum booking amount of ₹${promoData.minBookingAmount} required. Your items total is ₹${sumOfDisplayedItemPrices.toFixed(2)}.`, variant: "destructive" }); setIsApplyingPromo(false); return; }
       if (promoData.maxUses && promoData.usesCount >= promoData.maxUses) { toast({ title: "Limit Reached", description: "This promo code has reached its usage limit.", variant: "destructive" }); setIsApplyingPromo(false); return; }
       if (promoData.maxUsesPerUser && promoData.maxUsesPerUser > 0 && currentUser?.uid) {

@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { formatDistanceToNow } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getTimestampMillis } from '@/lib/utils';
 
 const formatReviewTimestamp = (timestamp?: any): string => {
   if (!timestamp) return 'N/A';
@@ -82,7 +83,7 @@ export default function ProviderMyReviewsPage() {
           snapshot.docs.forEach(doc => fetchedReviews.push({ ...doc.data(), id: doc.id } as FirestoreReview));
         });
         // Additional client-side sort if multiple chunks were fetched, though orderBy in query helps.
-        fetchedReviews.sort((a, b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0));
+        fetchedReviews.sort((a, b) => getTimestampMillis(b.createdAt) - getTimestampMillis(a.createdAt));
         setReviews(fetchedReviews);
       } catch (error) {
          console.error("Error fetching provider reviews:", error);

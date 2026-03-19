@@ -9,21 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { MapPin, ExternalLink, Tag, HandCoins } from 'lucide-react'; 
 import AppImage from '@/components/ui/AppImage'; // Import the Next.js Image component
+import { getTimestampMillis } from '@/lib/utils';
 
 interface BookingDetailsModalContentProps {
   booking: FirestoreBooking;
 }
 
 const formatDetailTimestamp = (timestamp?: any): string => {
-  if (!timestamp) return 'N/A';
-  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-    return timestamp.toDate().toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  }
-  try {
-    return new Date(timestamp).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-  } catch (e) {
-    return String(timestamp); 
-  }
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const getBasePriceForInvoice = (displayedPrice: number, isTaxInclusive?: boolean, taxPercent?: number): number => {

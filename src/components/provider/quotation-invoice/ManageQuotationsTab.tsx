@@ -18,6 +18,7 @@ import { generateQuotationPdf } from '@/lib/quotationGenerator';
 import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useAuth } from '@/hooks/useAuth';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface ManageQuotationsTabProps {
   onEditQuotation: (quotation: FirestoreQuotation) => void;
@@ -45,7 +46,7 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     const q = query(quotationsCollectionRef, where("providerId", "==", providerUser.uid));
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       const fetchedQuotations = querySnapshot.docs.map(docSnap => ({ ...docSnap.data(), id: docSnap.id } as FirestoreQuotation));
-      fetchedQuotations.sort((a, b) => (b.quotationDate?.toMillis() || 0) - (a.quotationDate?.toMillis() || 0));
+      fetchedQuotations.sort((a, b) => getTimestampMillis(b.quotationDate) - getTimestampMillis(a.quotationDate));
       setQuotations(fetchedQuotations);
       setIsLoading(false);
     }, (error) => {
@@ -97,7 +98,10 @@ export default function ManageQuotationsTab({ onEditQuotation }: ManageQuotation
     finally { if (actionType === 'send') setIsSending(null); else setIsDownloading(null); }
   };
 
-  const formatDate = (timestamp?: Timestamp) => timestamp ? timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+  const formatDate = (timestamp?: any) => {
+    const millis = getTimestampMillis(timestamp);
+    return millis ? new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : 'N/A';
+  };
   const getStatusBadgeVariant = (status: QuotationStatus) => ({'Draft': 'secondary', 'Sent': 'outline', 'Accepted': 'default', 'Rejected': 'destructive', 'ConvertedToInvoice': 'default'})[status] || 'outline';
 
   const renderMobileCard = (quotation: FirestoreQuotation) => (

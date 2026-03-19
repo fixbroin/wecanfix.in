@@ -23,13 +23,15 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { sendProviderApplicationStatusEmail } from '@/ai/flows/sendProviderApplicationStatusUpdateFlow'; 
 import { getBaseUrl } from '@/lib/config'; 
 import { Separator } from "@/components/ui/separator";
+import { getTimestampMillis } from '@/lib/utils';
 
 const PROVIDER_APPLICATION_COLLECTION = "providerApplications";
 const applicationStatusOptions: ProviderApplicationStatus[] = ['pending_review', 'pending_step_1', 'pending_step_2', 'pending_step_3', 'pending_step_4', 'approved', 'rejected', 'needs_update'];
 
-const formatApplicationTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+const formatApplicationTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
 export default function AdminProviderApplicationsPage() {

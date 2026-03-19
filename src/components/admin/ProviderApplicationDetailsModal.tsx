@@ -18,7 +18,7 @@ import { generateProviderApplicationPdf } from '@/lib/generateProviderPDF';
 import { triggerPdfDownload } from '@/lib/pdfUtils';
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { Separator } from "@/components/ui/separator";
-import { cn } from "@/lib/utils";
+import { cn, getTimestampMillis } from "@/lib/utils";
 import { db } from '@/lib/firebase';
 import { doc, updateDoc, Timestamp } from 'firebase/firestore';
 
@@ -33,15 +33,9 @@ interface ProviderApplicationDetailsModalProps {
 }
 
 const formatTimestampToReadable = (timestamp?: any): string => {
-  if (!timestamp) return "N/A";
-  if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-    return timestamp.toDate().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-  }
-  try {
-    return new Date(timestamp).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
-  } catch {
-    return String(timestamp); 
-  }
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return "N/A";
+  return new Date(millis).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 };
 
 

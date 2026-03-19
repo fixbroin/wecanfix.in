@@ -26,6 +26,7 @@ import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdf
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/hooks/useAuth';
+import { getTimestampMillis } from '@/lib/utils';
 
 const quotationItemSchema = z.object({
   id: z.string().optional(),
@@ -189,7 +190,7 @@ export default function CreateQuotationForm({ initialData, onSaveSuccess }: Crea
         customerEmail: initialData.customerEmail || "",
         customerMobile: initialData.customerMobile || "",
         quotationNumber: initialData.quotationNumber,
-        quotationDate: initialData.quotationDate.toDate(),
+        quotationDate: new Date(getTimestampMillis(initialData.quotationDate)),
         serviceTitle: initialData.serviceTitle || "",
         serviceDescription: initialData.serviceDescription || "",
         items: initialData.items.map(item => ({ ...item, id: item.id || nanoid() })) || [{ id: nanoid(), itemName: "", quantity: 1, ratePerUnit: 0 }],

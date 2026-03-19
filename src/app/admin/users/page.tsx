@@ -25,10 +25,12 @@ import { cn } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getArchivedUsers } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+import { getTimestampMillis } from '@/lib/utils';
 
-const formatUserTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+const formatUserTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' });
 };
 
 const StatusBadge = ({ isActive, isLoading }: { isActive: boolean, isLoading: boolean }) => (
@@ -87,24 +89,35 @@ export default function AdminUsersPage() {
         try {
           const usersRef = collection(db, "users");
           const term = searchTerm.trim();
+          const lowerTerm = term.toLowerCase();
+          const capitalizedTerm = term.charAt(0).toUpperCase() + term.slice(1);
           
-          // 1. Exact email match
-          const emailQuery = query(usersRef, where("email", "==", term));
-          // 2. Exact mobile match
-          const mobileQuery = query(usersRef, where("mobileNumber", "==", term));
-          // 3. Name prefix match
-          const nameQuery = query(usersRef, where("displayName", ">=", term), where("displayName", "<=", term + '\uf8ff'));
-          
-          const [emailSnap, mobileSnap, nameSnap] = await Promise.all([
-            getDocs(emailQuery),
-            getDocs(mobileQuery),
-            getDocs(nameQuery)
-          ]);
+          const queries = [
+            query(usersRef, where("email", ">=", term), where("email", "<=", term + '\uf8ff')),
+            query(usersRef, where("email", ">=", lowerTerm), where("email", "<=", lowerTerm + '\uf8ff')),
+            query(usersRef, where("mobileNumber", ">=", term), where("mobileNumber", "<=", term + '\uf8ff')),
+            query(usersRef, where("displayName", ">=", term), where("displayName", "<=", term + '\uf8ff')),
+            query(usersRef, where("displayName", ">=", capitalizedTerm), where("displayName", "<=", capitalizedTerm + '\uf8ff')),
+          ];
 
-          let results = [...emailSnap.docs, ...mobileSnap.docs, ...nameSnap.docs].map(docSnap => ({
-            ...docSnap.data(),
-            id: docSnap.id
-          } as FirestoreUser));
+          // Add phone variations with 91 prefix matching
+          if (/^\d+$/.test(term)) {
+            queries.push(query(usersRef, where("mobileNumber", ">=", `91${term}`), where("mobileNumber", "<=", `91${term}` + '\uf8ff')));
+            queries.push(query(usersRef, where("mobileNumber", ">=", `+91${term}`), where("mobileNumber", "<=", `+91${term}` + '\uf8ff')));
+            
+            if (term.startsWith('91') && term.length > 2) {
+              const without91 = term.substring(2);
+              queries.push(query(usersRef, where("mobileNumber", ">=", without91), where("mobileNumber", "<=", without91 + '\uf8ff')));
+            }
+          }
+          
+          const snapShots = await Promise.all(queries.map(q => getDocs(q)));
+          let results: FirestoreUser[] = [];
+          snapShots.forEach(snap => {
+            snap.docs.forEach(docSnap => {
+              results.push({ ...docSnap.data(), id: docSnap.id } as FirestoreUser);
+            });
+          });
 
           const uniqueResults = Array.from(new Map(results.map(u => [u.id, u])).values());
           setUsers(uniqueResults);
@@ -159,12 +172,21 @@ export default function AdminUsersPage() {
 
   const filteredUsers = useMemo(() => {
     if (!searchTerm) return users;
-    const lowercasedTerm = searchTerm.toLowerCase();
-    return users.filter(user =>
-      user.displayName?.toLowerCase().includes(lowercasedTerm) ||
-      user.email?.toLowerCase().includes(lowercasedTerm) ||
-      user.mobileNumber?.includes(searchTerm)
-    );
+    
+    const lowerSearch = searchTerm.toLowerCase().trim();
+    // Normalize search term for phone: remove non-digits and leading 91
+    const normalizedSearchPhone = lowerSearch.replace(/\D/g, '').replace(/^91/, '');
+
+    return users.filter(user => {
+      const nameMatch = (user.displayName || '').toLowerCase().includes(lowerSearch);
+      const emailMatch = (user.email || '').toLowerCase().includes(lowerSearch);
+      
+      // Normalize user phone for comparison
+      const userPhone = (user.mobileNumber || '').replace(/\D/g, '').replace(/^91/, '');
+      const phoneMatch = normalizedSearchPhone ? userPhone.includes(normalizedSearchPhone) : false;
+      
+      return nameMatch || emailMatch || phoneMatch;
+    });
   }, [users, searchTerm]);
 
   const handleToggleUserStatus = async (userId: string, currentStatus: boolean) => {
@@ -239,7 +261,7 @@ export default function AdminUsersPage() {
         }
         if (key === 'createdAt' || key === 'lastLoginAt') {
           const timestamp = user[key];
-          return timestamp ? formatUserTimestamp(timestamp as Timestamp) : "N/A";
+          return timestamp ? formatUserTimestamp(timestamp) : "N/A";
         }
         if (key === 'isActive') return user.isActive ? "Active" : "Disabled";
         return user[key as keyof FirestoreUser] ?? 'N/A';

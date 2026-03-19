@@ -6,6 +6,25 @@ import { sendMarketingEmail } from '@/ai/flows/sendMarketingEmailFlow';
 import type { MarketingAutomationSettings, AppSettings, GlobalWebSettings, FirestoreUser, FirestoreService, UserCart, FirestoreCategory, FirestoreSubCategory } from '@/types/firestore';
 import { getBaseUrl } from '@/lib/config';
 
+/**
+ * Server-side helper to safely get milliseconds from various timestamp formats.
+ * Important for Server Components/API Routes handling both Admin SDK and serialized data.
+ */
+function getTimestampMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'object') {
+    if (ts.seconds !== undefined) return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+    if (ts._seconds !== undefined) return ts._seconds * 1000 + (ts._nanoseconds || 0) / 1000000;
+    if (ts instanceof Date) return ts.getTime();
+  }
+  if (typeof ts === 'string') {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return typeof ts === 'number' ? ts : 0;
+}
+
 // Helper to convert delay settings to milliseconds
 const toMs = (delay?: MarketingAutomationSettings['noBookingReminderDelay']): number => {
     if (!delay) return 0;
@@ -33,7 +52,10 @@ const replaceMergeTags = (
     body = body.replace(/\{\{name\}\}/g, user.displayName || 'Valued Customer');
     body = body.replace(/\{\{email\}\}/g, user.email || '');
     body = body.replace(/\{\{mobile\}\}/g, user.mobileNumber || '');
-    body = body.replace(/\{\{signupDate\}\}/g, user.createdAt?.toDate().toLocaleDateString('en-IN') || '');
+    body = body.replace(/\{\{signupDate\}\}/g, (() => {
+        const millis = getTimestampMillis(user.createdAt);
+        return millis ? new Date(millis).toLocaleDateString('en-IN') : '';
+    })());
     
     // Correctly sourced settings
     body = body.replace(/\{\{websiteName\}\}/g, globalSettings.websiteName || 'Wecanfix');
@@ -151,8 +173,8 @@ export async function GET(req: NextRequest) {
             // A) No Booking Reminder
             if (marketingConfig.noBookingReminderEnabled && marketingConfig.noBookingReminderDelay) {
                 const noBookingDelayMs = toMs(marketingConfig.noBookingReminderDelay);
-                if (user.createdAt && user.createdAt.toMillis) {
-                    const signupMs = user.createdAt.toMillis();
+                const signupMs = getTimestampMillis(user.createdAt);
+                if (signupMs) {
                     const hasBooking = user.hasBooking || false;
                     const reminderSent = user.marketingStatus?.bookingReminderSent || false;
 
@@ -169,8 +191,8 @@ export async function GET(req: NextRequest) {
             // B) Abandoned Cart Reminder
             if (marketingConfig.abandonedCartEnabled && marketingConfig.abandonedCartDelay && userCart) {
                 const abandonedCartDelayMs = toMs(marketingConfig.abandonedCartDelay);
-                if (userCart.updatedAt && userCart.updatedAt.toMillis) {
-                    const cartUpdatedAtMs = userCart.updatedAt.toMillis();
+                const cartUpdatedAtMs = getTimestampMillis(userCart.updatedAt);
+                if (cartUpdatedAtMs) {
                     const reminderSent = user.marketingStatus?.cartReminderSent || false;
 
                     if (abandonedCartDelayMs > 0 && !reminderSent && (now - cartUpdatedAtMs) > abandonedCartDelayMs) {
@@ -186,10 +208,10 @@ export async function GET(req: NextRequest) {
             // C) Recurring Engagement Email
             if (marketingConfig.recurringEngagementEnabled && marketingConfig.recurringEngagementDelay) {
                 const repeatMs = toMs(marketingConfig.recurringEngagementDelay);
-                const lastSentMs = user.marketingStatus?.lastRecurringSent?.toMillis() || 0;
+                const lastSentMs = getTimestampMillis(user.marketingStatus?.lastRecurringSent) || 0;
                 
-                if (user.createdAt && user.createdAt.toMillis) {
-                    const signupMs = user.createdAt.toMillis();
+                const signupMs = getTimestampMillis(user.createdAt);
+                if (signupMs) {
                     const eligibleForFirstSend = (now - signupMs) > repeatMs;
 
                     if (repeatMs > 0 && eligibleForFirstSend && (now - lastSentMs) > repeatMs) {

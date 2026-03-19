@@ -10,6 +10,7 @@ import { db } from '@/lib/firebase';
 import { collection, query, orderBy, onSnapshot, where, getDocs, doc, getDoc, collectionGroup, limit } from "firebase/firestore";
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface EnrichedReferral extends Referral {
     referrerName?: string;
@@ -21,10 +22,9 @@ interface EnrichedReferral extends Referral {
 }
 
 const formatDate = (timestamp?: any): string => {
-    if (!timestamp) return 'N/A';
-    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
-    if (isNaN(date.getTime())) return 'Invalid Date';
-    return date.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 export default function ReferralSignupsTab() {

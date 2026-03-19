@@ -12,11 +12,19 @@ import type { FirestoreReview, ReviewStatus, FirestoreService, FirestoreSubCateg
 import ReviewForm, { type ReviewFormData } from '@/components/admin/ReviewForm';
 import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDialog';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { getTimestampMillis } from '@/lib/utils';
+import { formatDistanceToNow } from 'date-fns';
 
 const reviewStatusOptions: ReviewStatus[] = ["Pending", "Approved", "Rejected", "Flagged"];
+
+const formatReviewTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return formatDistanceToNow(new Date(millis), { addSuffix: true });
+};
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<FirestoreReview[]>([]);
@@ -63,25 +71,23 @@ export default function AdminReviewsPage() {
         }
     };
 
-    const fetchReviews = async () => {
-        try {
-            const reviewsCollectionRef = collection(db, "adminReviews");
-            const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"));
-            const querySnapshot = await getDocs(qReviews);
-            const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
-            setReviews(fetchedReviews);
-        } catch (error) {
-            console.error("Error fetching reviews: ", error);
-            toast({ title: "Error", description: "Could not fetch reviews.", variant: "destructive" });
-        } finally {
-            initialReviewsLoaded = true;
-            tryStopLoading();
-        }
-    };
+    const reviewsCollectionRef = collection(db, "adminReviews");
+    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"), limit(100));
+    
+    const unsubscribe = onSnapshot(qReviews, (querySnapshot) => {
+        const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
+        setReviews(fetchedReviews);
+        initialReviewsLoaded = true;
+        tryStopLoading();
+    }, (error) => {
+        console.error("Error fetching reviews: ", error);
+        toast({ title: "Error", description: "Could not fetch reviews.", variant: "destructive" });
+        setIsLoading(false);
+    });
 
     fetchPrerequisites();
-    fetchReviews();
 
+    return () => unsubscribe();
   }, [toast]);
 
   const filteredReviews = useMemo(() => {
@@ -201,6 +207,7 @@ export default function AdminReviewsPage() {
                   <TableHead>User</TableHead>
                   <TableHead className="text-center">Rating</TableHead>
                   <TableHead>Comment</TableHead>
+                  <TableHead>Created At</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                 </TableRow>
@@ -208,7 +215,7 @@ export default function AdminReviewsPage() {
               <TableBody>
                 {filteredReviews.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground py-10">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
                       {filterStatus === "All" ? "No reviews found." : `No reviews found with status: ${filterStatus}.`}
                     </TableCell>
                   </TableRow>
@@ -224,6 +231,9 @@ export default function AdminReviewsPage() {
                       </TableCell>
                       <TableCell className="text-xs text-muted-foreground max-w-xs truncate" title={review.comment}>
                         {review.comment}
+                      </TableCell>
+                      <TableCell className="text-[10px] whitespace-nowrap text-muted-foreground">
+                        {formatReviewTimestamp(review.createdAt)}
                       </TableCell>
                       <TableCell>
                            <Select value={review.status} onValueChange={(newStatus) => handleChangeStatus(review.id, newStatus as ReviewStatus)}>

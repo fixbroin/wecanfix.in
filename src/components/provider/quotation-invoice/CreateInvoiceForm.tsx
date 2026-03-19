@@ -26,6 +26,7 @@ import { uploadPdfToStorage, triggerPdfDownload, dataUriToBlob } from '@/lib/pdf
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { useAuth } from '@/hooks/useAuth';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { getTimestampMillis } from '@/lib/utils';
 
 const invoiceItemSchema = z.object({
   id: z.string().optional(),
@@ -209,8 +210,8 @@ export default function CreateInvoiceForm({ initialData, onSaveSuccess }: Create
         customerEmail: initialData.customerEmail || "",
         customerMobile: initialData.customerMobile || "",
         invoiceNumber: initialData.invoiceNumber,
-        invoiceDate: initialData.invoiceDate.toDate(),
-        dueDate: initialData.dueDate?.toDate() || null,
+        invoiceDate: new Date(getTimestampMillis(initialData.invoiceDate)),
+        dueDate: initialData.dueDate ? new Date(getTimestampMillis(initialData.dueDate)) : null,
         serviceDescription: initialData.serviceDescription || "",
         items: initialData.items.map(item => ({ ...item, id: item.id || nanoid() })) || [{ id: nanoid(), itemName: "", quantity: 1, ratePerUnit: 0 }],
         taxPercent: initialData.taxPercent || 0,

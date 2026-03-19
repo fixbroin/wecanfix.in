@@ -20,6 +20,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
+import { getTimestampMillis } from '@/lib/utils';
 
 const withdrawalFormSchema = z.object({
   amount: z.coerce.number().positive("Withdrawal amount must be positive.").nullable(),
@@ -36,9 +37,10 @@ const withdrawalFormSchema = z.object({
 });
 type WithdrawalFormData = z.infer<typeof withdrawalFormSchema>;
 
-const formatDate = (timestamp?: Timestamp) => {
-    if (!timestamp) return 'N/A';
-    return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const formatDate = (timestamp?: any) => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 export default function WithdrawalTab({ settings }: WithdrawalTabProps) {

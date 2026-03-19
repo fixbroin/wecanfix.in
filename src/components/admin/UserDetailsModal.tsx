@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { UserCircle, Mail, Phone, CalendarDays, CheckCircle, XCircle, Loader2, Edit3, Save, MapPin } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import AppImage from '@/components/ui/AppImage';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface UserDetailsModalProps {
   user: FirestoreUser;
@@ -69,19 +70,9 @@ export default function UserDetailsModal({ user, onClose, onUpdateUser }: UserDe
   };
 
   const formatTimestampForIndia = (timestamp?: any): string => {
-    if (!timestamp) return 'N/A';
-    let date: Date;
-    if (timestamp.toDate && typeof timestamp.toDate === 'function') {
-      date = timestamp.toDate();
-    } else {
-      try {
-        date = new Date(timestamp);
-        if (isNaN(date.getTime())) throw new Error("Invalid date from timestamp string");
-      } catch (e) {
-        return String(timestamp);
-      }
-    }
-    return date.toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return new Date(millis).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
   };
   
   const handleWhatsAppClick = (e: React.MouseEvent, mobileNumber?: string | null) => {

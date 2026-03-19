@@ -25,6 +25,7 @@ import { Separator } from "@/components/ui/separator";
 import AppImage from "@/components/ui/AppImage";
 import { triggerPushNotification } from "@/lib/fcmUtils";
 import { ADMIN_EMAIL } from "@/contexts/AuthContext";
+import { getTimestampMillis } from "@/lib/utils";
 
 
 // Enriched booking type to include provider details
@@ -32,9 +33,10 @@ interface EnrichedBooking extends FirestoreBooking {
     providerDetails?: ProviderApplication;
 }
 
-const formatBookingTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
+const formatBookingTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true });
 };
 
 const formatDateForDisplay = (dateString: string | undefined): string => {

@@ -5,9 +5,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import type { FirestoreContactUsInquiry, FirestorePopupInquiry } from '@/types/firestore';
-import { Timestamp } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Copy } from 'lucide-react';
+import { getTimestampMillis } from '@/lib/utils';
 
 type Inquiry = FirestoreContactUsInquiry | FirestorePopupInquiry;
 type InquiryType = 'contact' | 'popup';
@@ -19,9 +19,10 @@ interface InquiryDetailsModalProps {
   inquiryType: InquiryType | null;
 }
 
-const formatDate = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+const formatDate = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' });
 };
 
 const DetailItem = ({ label, value, isPre = false, copyable = false }: { label: string; value?: string | number | null; isPre?: boolean; copyable?: boolean }) => {

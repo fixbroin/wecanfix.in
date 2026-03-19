@@ -13,6 +13,21 @@ import { Timestamp } from 'firebase-admin/firestore';
 import { unstable_cache } from 'next/cache';
 import { cache } from 'react';
 
+function getTimestampMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'object') {
+    if (ts.seconds !== undefined) return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+    if (ts._seconds !== undefined) return ts._seconds * 1000 + (ts._nanoseconds || 0) / 1000000;
+    if (ts instanceof Date) return ts.getTime();
+  }
+  if (typeof ts === 'string') {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return typeof ts === 'number' ? ts : 0;
+}
+
 export const revalidate = 3600; // Revalidate every hour
 
 const PAGE_SLUG = "careers";
@@ -162,7 +177,10 @@ export default async function CareersPage() {
                 {pageData.updatedAt && (
                     <div className="mt-12 pt-6 border-t border-border/50 text-right">
                         <p className="text-xs text-muted-foreground">
-                            Last updated: {pageData.updatedAt instanceof Timestamp ? pageData.updatedAt.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : new Date(pageData.updatedAt as any).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' })}
+                            Last updated: {(() => {
+                                const millis = getTimestampMillis(pageData.updatedAt);
+                                return millis ? new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'long', year: 'numeric' }) : 'N/A';
+                            })()}
                         </p>
                     </div>
                 )}

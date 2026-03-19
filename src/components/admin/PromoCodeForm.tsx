@@ -17,6 +17,7 @@ import { useEffect, useState } from "react";
 import { Loader2, CalendarIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
+import { getTimestampMillis } from "@/lib/utils";
 
 const promoCodeFormSchemaBase = z.object({
   code: z.string()
@@ -89,8 +90,8 @@ export default function PromoCodeForm({
         minBookingAmount: initialData.minBookingAmount === undefined ? null : initialData.minBookingAmount,
         maxUses: initialData.maxUses === undefined ? null : initialData.maxUses,
         maxUsesPerUser: initialData.maxUsesPerUser === undefined ? null : initialData.maxUsesPerUser,
-        validFrom: initialData.validFrom ? initialData.validFrom.toDate() : null,
-        validUntil: initialData.validUntil ? initialData.validUntil.toDate() : null,
+        validFrom: initialData.validFrom ? new Date(getTimestampMillis(initialData.validFrom)) : null,
+        validUntil: initialData.validUntil ? new Date(getTimestampMillis(initialData.validUntil)) : null,
         isActive: initialData.isActive === undefined ? true : initialData.isActive,
         isHidden: initialData.isHidden || false,
       }
@@ -110,8 +111,8 @@ export default function PromoCodeForm({
         minBookingAmount: initialData.minBookingAmount === undefined ? null : initialData.minBookingAmount,
         maxUses: initialData.maxUses === undefined ? null : initialData.maxUses,
         maxUsesPerUser: initialData.maxUsesPerUser === undefined ? null : initialData.maxUsesPerUser,
-        validFrom: initialData.validFrom ? initialData.validFrom.toDate() : null,
-        validUntil: initialData.validUntil ? initialData.validUntil.toDate() : null,
+        validFrom: initialData.validFrom ? new Date(getTimestampMillis(initialData.validFrom)) : null,
+        validUntil: initialData.validUntil ? new Date(getTimestampMillis(initialData.validUntil)) : null,
         isActive: initialData.isActive === undefined ? true : initialData.isActive,
         isHidden: initialData.isHidden || false,
       });

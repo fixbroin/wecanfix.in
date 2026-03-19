@@ -30,7 +30,7 @@ import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cart
 import { useToast } from '@/hooks/use-toast';
 import { getGuestId } from '@/lib/guestIdManager';
 import { logUserActivity } from '@/lib/activityLogger';
-import { Badge } from '@/components/badge';
+import { Badge } from '@/components/ui/badge';
 import type { HomepageData } from '@/lib/homepageUtils';
 import { LazySection } from '@/components/shared/LazySection';
 import CategoryCard from './CategoryCard';

@@ -48,7 +48,7 @@ export default async function FAQPage() {
   const faqSchema = faqs.length > 0 ? {
     "@context": "https://schema.org",
     "@type": "FAQPage",
-    "mainEntity": faqs.map((faq) => ({
+    "mainEntity": faqs.map((faq: any) => ({
       "@type": "Question",
       "name": faq.question,
       "acceptedAnswer": {
@@ -86,7 +86,7 @@ export default async function FAQPage() {
         ) : (
           <div className="bg-card rounded-3xl border border-border/50 shadow-sm overflow-hidden">
             <Accordion type="single" collapsible className="w-full divide-y divide-border/50">
-              {faqs.map((faq) => (
+              {faqs.map((faq: any) => (
                 <AccordionItem key={faq.id} value={`item-${faq.id}`} className="border-none px-6 md:px-8 py-2">
                   <AccordionTrigger className="text-left hover:no-underline text-lg font-bold py-6 hover:text-primary transition-colors">
                     {faq.question}

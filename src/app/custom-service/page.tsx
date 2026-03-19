@@ -15,10 +15,12 @@ import { collection, query, where, onSnapshot, orderBy, getDocs, Timestamp } fro
 import type { FirestoreCategory, CustomServiceRequest } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
+import { getTimestampMillis } from '@/lib/utils';
 
-const formatDate = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const formatDate = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const getStatusBadgeVariant = (status: CustomServiceRequest['status']) => {

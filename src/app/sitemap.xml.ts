@@ -6,25 +6,29 @@ import { getBaseUrl } from '@/lib/config';
 
 export const dynamic = 'force-static'; 
 
-const safeToISOString = (timestamp: Timestamp | undefined | string | Date, fallbackDate: string): string => {
+const safeToISOString = (timestamp: any, fallbackDate: string): string => {
+  if (!timestamp) return fallbackDate;
   try {
-      if (timestamp && typeof (timestamp as Timestamp).toDate === 'function') {
-            return (timestamp as Timestamp).toDate().toISOString();
-                }
-                    if (typeof timestamp === 'string') {
-                          const date = new Date(timestamp);
-                                if (!isNaN(date.getTime())) {
-                                        return date.toISOString();
-                                              }
-                                                  }
-                                                      if (timestamp instanceof Date) {
-                                                            return timestamp.toISOString();
-                                                                }
-                                                                    return fallbackDate;
-                                                                      } catch (e) {
-                                                                          return fallbackDate;
-                                                                            }
-                                                                            };
+    // getTimestampMillis logic for Server-side
+    let millis = 0;
+    if (typeof timestamp.toMillis === 'function') millis = timestamp.toMillis();
+    else if (typeof timestamp === 'object') {
+      if (timestamp.seconds !== undefined) millis = timestamp.seconds * 1000 + (timestamp.nanoseconds || 0) / 1000000;
+      else if (timestamp._seconds !== undefined) millis = timestamp._seconds * 1000 + (timestamp._nanoseconds || 0) / 1000000;
+      else if (timestamp instanceof Date) millis = timestamp.getTime();
+    } else if (typeof timestamp === 'string') {
+      const d = new Date(timestamp);
+      millis = isNaN(d.getTime()) ? 0 : d.getTime();
+    } else if (typeof timestamp === 'number') {
+      millis = timestamp;
+    }
+
+    if (millis > 0) return new Date(millis).toISOString();
+    return fallbackDate;
+  } catch (e) {
+    return fallbackDate;
+  }
+};
 
 
                                                                             async function getSitemapEntries(): Promise<MetadataRoute.Sitemap> {

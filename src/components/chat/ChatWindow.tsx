@@ -15,7 +15,7 @@ import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { chatWithAgent, type ChatHistoryItem } from '@/ai/flows/chatWithAgentFlow';
 import { triggerPushNotification } from '@/lib/fcmUtils';
-import { cn } from '@/lib/utils';
+import { cn, getTimestampMillis } from '@/lib/utils';
 
 interface ChatWindowProps {
   onClose: () => void;
@@ -461,7 +461,10 @@ export default function ChatWindow({ onClose }: ChatWindowProps) {
                       
                       <div className={cn("flex items-center space-x-1 px-1", isUser ? "flex-row-reverse" : "flex-row")}>
                         <p className="text-[10px] font-medium text-muted-foreground/60">
-                          {msg.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                          const millis = getTimestampMillis(msg.timestamp);
+                          return millis ? new Date(millis).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                        })()}
                         </p>
                         {isUser && (
                           <div className="ml-1">

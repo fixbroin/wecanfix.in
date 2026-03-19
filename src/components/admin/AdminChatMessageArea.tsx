@@ -28,7 +28,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { cn } from '@/lib/utils';
+import { cn, getTimestampMillis } from '@/lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface AdminChatMessageAreaProps {
@@ -418,7 +418,10 @@ export default function AdminChatMessageArea({ selectedUser }: AdminChatMessageA
                           "text-[9px] mt-1.5 block font-medium opacity-60",
                           isMe ? "text-right" : "text-left"
                         )}>
-                          {msg.timestamp?.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          {(() => {
+                              const millis = getTimestampMillis(msg.timestamp);
+                              return millis ? new Date(millis).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+                          })()}
                         </span>
                       </div>
                     </div>

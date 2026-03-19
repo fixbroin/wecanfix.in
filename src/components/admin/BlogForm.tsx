@@ -99,7 +99,7 @@ export default function BlogForm({ onSubmit: onSubmitProp, initialData, onCancel
         slug: initialData.slug,
         content: initialData.content || "",
         excerpt: initialData.excerpt || "",
-        tags: (initialData.tags || []).join(', '),
+        tags: Array.isArray(initialData.tags) ? initialData.tags.join(', ') : (initialData.tags || ""),
         readingTime: initialData.readingTime || "",
         coverImageUrl: initialData.coverImageUrl || "",
         imageHint: initialData.imageHint || "",

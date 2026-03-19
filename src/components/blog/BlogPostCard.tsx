@@ -5,9 +5,9 @@ import AppImage from '@/components/ui/AppImage';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { ArrowRight, Calendar, Clock } from 'lucide-react';
 import type { FirestoreBlogPost, ClientBlogPost } from '@/types/firestore';
-import type { Timestamp } from 'firebase/firestore';
 import { useLoading } from '@/contexts/LoadingContext';
 import { useRouter } from 'next/navigation';
+import { getTimestampMillis } from '@/lib/utils';
 
 interface BlogPostCardProps {
   post: FirestoreBlogPost | ClientBlogPost;
@@ -27,17 +27,9 @@ export default function BlogPostCard({ post, priority = false }: BlogPostCardPro
   const excerpt = post.excerpt || post.content.replace(/<[^>]*>?/gm, '').substring(0, 100) + '...';
 
   const getDisplayDate = (date: any): string => {
-    if (!date) return '';
-    if (typeof date === 'string') {
-      return new Date(date).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    if (date && typeof date.toDate === 'function') {
-      return date.toDate().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    if (date && date.seconds) {
-      return new Date(date.seconds * 1000).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-    }
-    return '';
+    const millis = getTimestampMillis(date);
+    if (!millis) return '';
+    return new Date(millis).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
   return (

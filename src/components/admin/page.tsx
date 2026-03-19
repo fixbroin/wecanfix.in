@@ -15,6 +15,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import AppImage from '@/components/ui/AppImage';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import { getTimestampMillis } from '@/lib/utils';
 
 interface DashboardStats {
   completedRevenue: number;
@@ -118,8 +119,11 @@ export default function AdminDashboardPage() {
         if (user.isActive) {
           currentActiveUsers++;
         }
-        if (user.createdAt && user.createdAt.toDate() >= thirtyDaysAgo) {
-          currentNewSignups++;
+        if (user.createdAt) {
+          const millis = getTimestampMillis(user.createdAt);
+          if (millis && millis >= thirtyDaysAgo.getTime()) {
+            currentNewSignups++;
+          }
         }
       });
       setStats(prevStats => ({
@@ -146,7 +150,7 @@ export default function AdminDashboardPage() {
 
     const combineAndSetActivities = () => {
         const combined = [...fetchedBookingsActivities, ...fetchedUsersActivities];
-        combined.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+        combined.sort((a, b) => getTimestampMillis(b.timestamp) - getTimestampMillis(a.timestamp));
         setRecentActivities(combined.slice(0, 7)); // Show top 7 overall recent activities
         setIsActivitiesLoading(false);
     };
@@ -385,7 +389,10 @@ export default function AdminDashboardPage() {
                       <div className="flex justify-between items-center">
                           <p className="text-sm font-medium">{activity.title}</p>
                           <p className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(activity.timestamp.toDate(), { addSuffix: true })}
+                            {(() => {
+                                const millis = getTimestampMillis(activity.timestamp);
+                                return millis ? formatDistanceToNow(new Date(millis), { addSuffix: true }) : 'N/A';
+                            })()}
                           </p>
                       </div>
                       <p className="text-sm text-muted-foreground">{activity.description}</p>

@@ -32,6 +32,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { getArchivedActivities } from '@/lib/adminDashboardUtils';
 import { triggerRefresh } from '@/lib/revalidateUtils';
 
+import { getTimestampMillis } from '@/lib/utils';
+
 interface GroupedUserActivity extends UserActivity {
   _isGrouped?: boolean;
   _totalQuantity?: number;
@@ -64,10 +66,10 @@ const EventBadge = ({ eventType }: { eventType: UserActivity['eventType'] }) => 
   );
 };
 
-const formatTimestamp = (timestamp?: Timestamp): string => {
-  if (!timestamp) return 'N/A';
-  const date = timestamp instanceof Timestamp ? timestamp.toDate() : new Date(timestamp);
-  return formatDistanceToNow(date, { addSuffix: true });
+const formatTimestamp = (timestamp?: any): string => {
+  const millis = getTimestampMillis(timestamp);
+  if (!millis) return 'N/A';
+  return formatDistanceToNow(new Date(millis), { addSuffix: true });
 };
 
 import { onSnapshot } from "firebase/firestore";
@@ -115,9 +117,7 @@ export default function AdminActivityFeedPage() {
     // Use a Map to ensure unique IDs (live data takes priority)
     const uniqueMap = new Map(combined.map(a => [a.id, a]));
     return Array.from(uniqueMap.values()).sort((a, b) => {
-        const timeA = a.timestamp instanceof Timestamp ? a.timestamp.toMillis() : new Date(a.timestamp).getTime();
-        const timeB = b.timestamp instanceof Timestamp ? b.timestamp.toMillis() : new Date(b.timestamp).getTime();
-        return timeB - timeA;
+        return getTimestampMillis(b.timestamp) - getTimestampMillis(a.timestamp);
     });
   }, [liveActivities, cachedActivities]);
 

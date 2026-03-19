@@ -13,6 +13,21 @@ import Breadcrumbs from '@/components/shared/Breadcrumbs';
 import { unstable_cache } from 'next/cache';
 import { cache } from 'react';
 
+function getTimestampMillis(ts: any): number {
+  if (!ts) return 0;
+  if (typeof ts.toMillis === 'function') return ts.toMillis();
+  if (typeof ts === 'object') {
+    if (ts.seconds !== undefined) return ts.seconds * 1000 + (ts.nanoseconds || 0) / 1000000;
+    if (ts._seconds !== undefined) return ts._seconds * 1000 + (ts._nanoseconds || 0) / 1000000;
+    if (ts instanceof Date) return ts.getTime();
+  }
+  if (typeof ts === 'string') {
+    const date = new Date(ts);
+    return isNaN(date.getTime()) ? 0 : date.getTime();
+  }
+  return typeof ts === 'number' ? ts : 0;
+}
+
 export const revalidate = 3600; // Revalidate every hour
 
 const PAGE_SLUG = "cancellation-policy";
@@ -161,7 +176,10 @@ export default async function CancellationPolicyPage() {
           <div className="mb-4 text-center">
             {pageData.updatedAt && (
               <p className="text-sm text-muted-foreground">
-                Last updated: {pageData.updatedAt.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                Last updated: {(() => {
+                    const millis = getTimestampMillis(pageData.updatedAt);
+                    return millis ? new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }) : 'N/A';
+                })()}
               </p>
             )}
           </div>

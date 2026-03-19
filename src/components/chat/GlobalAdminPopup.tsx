@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { AlertTriangle, Info } from 'lucide-react'; // Use appropriate icons
 import { useGlobalSettings } from '@/hooks/useGlobalSettings';
 import type { GlobalAdminPopup as GlobalAdminPopupType } from '@/types/firestore';
+import { getTimestampMillis } from '@/lib/utils';
 
 export default function GlobalAdminPopup() {
   const { settings: globalSettings, isLoading: isLoadingSettings } = useGlobalSettings();
@@ -22,7 +23,7 @@ export default function GlobalAdminPopup() {
     const { globalAdminPopup } = globalSettings;
 
     if (globalAdminPopup.isActive && globalAdminPopup.message) {
-      const popupSentTime = globalAdminPopup.sentAt?.toMillis();
+      const popupSentTime = getTimestampMillis(globalAdminPopup.sentAt);
       
       // Only show if it's a new message or if it's configured to always show (not yet a feature)
       if (popupSentTime && popupSentTime !== lastDisplayedPopupSentAtRef.current) {

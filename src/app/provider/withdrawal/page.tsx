@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import { getTimestampMillis } from '@/lib/utils';
 import { nanoid } from 'nanoid';
 
 const withdrawalFormSchema = z.object({
@@ -72,9 +73,10 @@ const withdrawalFormSchema = z.object({
 
 type WithdrawalFormData = z.infer<typeof withdrawalFormSchema>;
 
-const formatDate = (timestamp?: Timestamp) => {
-    if (!timestamp) return 'N/A';
-    return timestamp.toDate().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+const formatDate = (timestamp?: any) => {
+    const millis = getTimestampMillis(timestamp);
+    if (!millis) return 'N/A';
+    return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
 const calculateProviderFee = (bookingAmount: number, feeType?: ProviderFeeType, feeValue?: number): number => {
