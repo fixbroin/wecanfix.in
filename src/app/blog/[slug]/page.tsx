@@ -138,6 +138,58 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     { label: post.title },
   ];
 
+  const getDisplayDate = (date: any): string => {
+    if (!date) return 'N/A';
+    try {
+      if (date instanceof Timestamp) {
+        return format(date.toDate(), 'MMMM dd, yyyy');
+      }
+      // Handle serialized Firestore timestamp
+      if (date && typeof date.toDate === 'function') {
+        return format(date.toDate(), 'MMMM dd, yyyy');
+      }
+      if (date && (date.seconds || date._seconds)) {
+        const s = date.seconds || date._seconds;
+        return format(new Date(s * 1000), 'MMMM dd, yyyy');
+      }
+      if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
+        const parsedDate = new Date(date);
+        return isNaN(parsedDate.getTime()) ? 'N/A' : format(parsedDate, 'MMMM dd, yyyy');
+      }
+    } catch (e) {
+      console.error("Error formatting date:", e);
+    }
+    return 'N/A';
+  };
+
+  const getIsoDate = (date: any): string => {
+    if (!date) return new Date().toISOString();
+    try {
+      if (date instanceof Timestamp) return date.toDate().toISOString();
+      if (date && (date.seconds || date._seconds)) {
+        const s = date.seconds || date._seconds;
+        return new Date(s * 1000).toISOString();
+      }
+      if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
+        const parsedDate = new Date(date);
+        return isNaN(parsedDate.getTime()) ? new Date().toISOString() : parsedDate.toISOString();
+      }
+    } catch (e) {
+      console.error("Error formatting ISO date:", e);
+    }
+    return new Date().toISOString();
+  };
+
+  const calculateReadingTime = (content: string) => {
+    if (!content) return null;
+    const words = content.replace(/<[^>]*>?/gm, '').trim().split(/\s+/).length;
+    if (words < 10) return null;
+    const minutes = Math.ceil(words / 225); // Average reading speed
+    return `${minutes} min`;
+  };
+
+  const displayReadingTime = post.readingTime || calculateReadingTime(post.content);
+
   const appBaseUrl = getBaseUrl();
   const blogSchema = {
     "@context": "https://schema.org",
@@ -145,8 +197,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     "headline": post.title,
     "description": post.excerpt || post.metaDescription,
     "image": post.coverImageUrl || `${appBaseUrl}/default-image.png`,
-    "datePublished": post.createdAt instanceof Timestamp ? post.createdAt.toDate().toISOString() : String(post.createdAt),
-    "dateModified": post.updatedAt instanceof Timestamp ? post.updatedAt.toDate().toISOString() : (post.createdAt instanceof Timestamp ? post.createdAt.toDate().toISOString() : String(post.createdAt)),
+    "datePublished": getIsoDate(post.createdAt),
+    "dateModified": getIsoDate(post.updatedAt || post.createdAt),
     "author": {
       "@type": "Person",
       "name": post.authorName || "Wecanfix Expert"
@@ -197,12 +249,12 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="h-5 w-5 text-primary" />
-                <span>{post.createdAt instanceof Timestamp ? format(post.createdAt.toDate(), 'MMMM dd, yyyy') : 'N/A'}</span>
+                <span>{getDisplayDate(post.createdAt)}</span>
               </div>
-              {post.readingTime && (
+              {displayReadingTime && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-5 w-5 text-primary" />
-                  <span>{post.readingTime} read</span>
+                  <span>{displayReadingTime} read</span>
                 </div>
               )}
             </div>
@@ -235,18 +287,31 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
                 dangerouslySetInnerHTML={{ __html: post.content }}
               />
               
-              <div className="mt-16 pt-8 border-t border-border/50 flex flex-col md:flex-row md:items-center justify-between gap-8">
-                <div className="flex flex-wrap gap-2">
-                  {post.tags?.split(',').map(tag => (
-                    <span key={tag} className="px-4 py-1.5 bg-muted text-muted-foreground text-xs font-bold rounded-full">
-                      #{tag.trim()}
-                    </span>
-                  ))}
+              <div className="mt-16 pt-8 border-t border-border/50 flex flex-col gap-10">
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60">Related Tags</h4>
+                  <div className="flex flex-wrap gap-2">
+                    {(() => {
+                      const tagsArray = Array.isArray(post.tags) 
+                        ? post.tags 
+                        : (typeof post.tags === 'string' ? post.tags.split(',') : []);
+                      
+                      return tagsArray.map(tag => (
+                        <span key={tag} className="px-4 py-1.5 bg-muted text-muted-foreground text-xs font-bold rounded-full">
+                          #{tag.trim()}
+                        </span>
+                      ));
+                    })()}
+                  </div>
                 </div>
-                <ShareButtons 
-                  title={post.title} 
-                  url={`${getBaseUrl()}/blog/${post.slug}`} 
-                />
+
+                <div className="space-y-4">
+                  <h4 className="text-sm font-bold uppercase tracking-wider text-muted-foreground/60">Share this Article</h4>
+                  <ShareButtons 
+                    title={post.title} 
+                    url={`${getBaseUrl()}/blog/${post.slug}`} 
+                  />
+                </div>
               </div>
             </div>
           </div>

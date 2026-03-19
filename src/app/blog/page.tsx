@@ -9,6 +9,8 @@ import Link from 'next/link';
 import { Calendar, Clock, ArrowRight } from 'lucide-react';
 import { unstable_cache } from 'next/cache';
 import { serializeFirestoreData } from '@/lib/serializeUtils';
+import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
+import JsonLdScript from '@/components/shared/JsonLdScript';
 
 import type { BreadcrumbItem } from '@/types/ui';
 
@@ -44,7 +46,29 @@ const getPublishedPosts = unstable_cache(
   { revalidate: 3600, tags: ['blog'] }
 );
 
+export async function generateMetadata(): Promise<Metadata> {
+  const seoSettings = await getGlobalSEOSettings();
+  const appBaseUrl = getBaseUrl();
+  
+  const title = `Expert Home Maintenance Tips & Guides | Blog${seoSettings.defaultMetaTitleSuffix }`;
+  const description = "Discover professional tips, DIY guides, and home maintenance advice from Wecanfix experts. Learn how to keep your home in top shape.";
 
+  return {
+    title,
+    description,
+    alternates: {
+      canonical: `${appBaseUrl}/blog`,
+    },
+    openGraph: {
+      title,
+      description,
+      url: `${appBaseUrl}/blog`,
+      siteName: seoSettings.siteName || 'Wecanfix',
+      type: 'website',
+      images: [{ url: `${appBaseUrl}/android-chrome-512x512.png` }],
+    },
+  };
+}
 
 export default async function BlogListPage() {
   const posts = await getPublishedPosts();
@@ -56,8 +80,37 @@ export default async function BlogListPage() {
   const featuredPost = posts[0];
   const otherPosts = posts.slice(1);
 
+  const appBaseUrl = getBaseUrl();
+  const blogListingSchema = {
+    "@context": "https://schema.org",
+    "@type": "Blog",
+    "name": "Wecanfix Blog",
+    "description": "Expert home maintenance tips, guides, and updates from Wecanfix.",
+    "url": `${appBaseUrl}/blog`,
+    "publisher": {
+      "@type": "Organization",
+      "name": "Wecanfix",
+      "logo": {
+        "@type": "ImageObject",
+        "url": `${appBaseUrl}/android-chrome-512x512.png`
+      }
+    },
+    "blogPost": posts.slice(0, 10).map(post => ({
+      "@type": "BlogPosting",
+      "headline": post.title,
+      "url": `${appBaseUrl}/blog/${post.slug}`,
+      "datePublished": post.createdAt,
+      "image": post.coverImageUrl || `${appBaseUrl}/default-image.png`,
+      "author": {
+        "@type": "Person",
+        "name": post.authorName || "Wecanfix Expert"
+      }
+    }))
+  };
+
   return (
     <div className="min-h-screen bg-background pb-20">
+      <JsonLdScript data={blogListingSchema} idSuffix="blog-list" />
       {/* Header Section */}
       <div className="bg-primary/5 py-16 md:py-24">
         <div className="container mx-auto px-4">
