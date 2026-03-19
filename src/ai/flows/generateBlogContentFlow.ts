@@ -64,15 +64,17 @@ Generate highly aggressive, intent-driven content based on the following:
 
 3. **tags**: 3-5 tags including "Bangalore, Home Services".
 
-4. **h1_title**: Format: "Best Professional {{title}} in Bangalore | Wecanfix".
+4. **readingTime**: An estimate of how long it takes to read (e.g., "5 min").
 
-5. **meta_title**: Format: "Best {{title}} Near Me in Bangalore | Top-Rated {{categoryName}}".
+5. **h1_title**: Format: "Best Professional {{title}} in Bangalore | Wecanfix".
 
-6. **meta_description**: A compelling meta description (under 160 chars) starting with "Hire the best professional experts for {{title}} in Bangalore...".
+6. **meta_title**: Format: "Best {{title}} Near Me in Bangalore | Top-Rated {{categoryName}}".
+
+7. **meta_description**: A compelling meta description (under 160 chars) starting with "Hire the best professional experts for {{title}} in Bangalore...".
 
 7. **meta_keywords**: Comma-separated: "{{title}}, Bangalore, Koramangala, Whitefield, best {{categoryName}} near me".
 
-8. **imageHint**: Provide "{{title}} Bangalore professional service" Max 50 characters.
+9. **imageHint**: Provide "{{title}} Bangalore professional service" Max 50 characters.
 
 Return the entire response as a single, valid JSON object.
 `,

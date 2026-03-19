@@ -23,40 +23,11 @@ if (typeof firebaseConfig !== 'undefined') {
         const notificationTitle = payload.notification.title;
         const notificationOptions = {
             body: payload.notification.body,
-            icon: payload.notification.icon || '/android-chrome-192x192.png', // A default icon
-            data: {
-                url: payload.data?.click_action || payload.data?.url || '/'
-            }
+            icon: payload.notification.icon || '/android-chrome-192x192.png' // A default icon
         };
 
         // The self.registration.showNotification() method displays the notification
-        return self.registration.showNotification(notificationTitle, notificationOptions);
-    });
-
-    // Handle notification click event
-    self.addEventListener('notificationclick', (event) => {
-        console.log('[firebase-messaging-sw.js] Notification clicked', event.notification.data);
-        
-        event.notification.close(); // Close the notification
-
-        const urlToOpen = event.notification.data.url || '/';
-
-        // Open the window or focus an existing one
-        event.waitUntil(
-            clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
-                // Check if there is already a window open with this URL
-                for (let i = 0; i < windowClients.length; i++) {
-                    const client = windowClients[i];
-                    if (client.url === urlToOpen && 'focus' in client) {
-                        return client.focus();
-                    }
-                }
-                // If no window is open, open a new one
-                if (clients.openWindow) {
-                    return clients.openWindow(urlToOpen);
-                }
-            })
-        );
+        self.registration.showNotification(notificationTitle, notificationOptions);
     });
 } else {
     console.error("firebase-messaging-sw.js: firebaseConfig is not defined. Firebase could not be initialized. Was /api/firebase-config fetched correctly?");

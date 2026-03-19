@@ -188,7 +188,8 @@ export default function AdminActivityFeedPage() {
       // SmartSync: Clear the server-side cache
       await triggerRefresh('users');
       
-      setActivities([]);
+      setLiveActivities([]);
+      setCachedActivities([]);
       toast({ title: "Activities Cleared", description: "All user activities have been cleared." });
     } catch (error) {
       console.error("Error clearing activities: ", error);
