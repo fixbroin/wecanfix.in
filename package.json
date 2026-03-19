@@ -9,7 +9,7 @@
     "build": "npx next build",
     "export": "npx next build && npx next export",
     "start": "next start -p 3003",
-    "lint": "npx next lint",
+    "lint": "npx eslint .",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

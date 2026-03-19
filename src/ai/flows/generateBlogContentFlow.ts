@@ -72,7 +72,7 @@ Generate highly aggressive, intent-driven content based on the following:
 
 7. **meta_description**: A compelling meta description (under 160 chars) starting with "Hire the best professional experts for {{title}} in Bangalore...".
 
-7. **meta_keywords**: Comma-separated: "{{title}}, Bangalore, Koramangala, Whitefield, best {{categoryName}} near me".
+8. **meta_keywords**: Comma-separated: "{{title}}, Bangalore, Koramangala, Whitefield, best {{categoryName}} near me".
 
 9. **imageHint**: Provide "{{title}} Bangalore professional service" Max 50 characters.
 

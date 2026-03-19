@@ -50,7 +50,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const seoSettings = await getGlobalSEOSettings();
   const appBaseUrl = getBaseUrl();
   
-  const title = `Expert Home Maintenance Tips & Guides | Blog${seoSettings.defaultMetaTitleSuffix }`;
+  const title = `Expert Home Maintenance Tips & Guides | Blog${seoSettings.defaultMetaTitleSuffix || ' | Wecanfix'}`;
   const description = "Discover professional tips, DIY guides, and home maintenance advice from Wecanfix experts. Learn how to keep your home in top shape.";
 
   return {
@@ -199,7 +199,7 @@ export default async function BlogListPage() {
               <Calendar className="h-10 w-10 text-primary opacity-50" />
             </div>
             <h2 className="text-2xl font-headline font-bold mb-2">No posts found</h2>
-            <p className="text-muted-foreground">We're working on some great content for you. Check back soon!</p>
+            <p className="text-muted-foreground">We&apos;re working on some great content for you. Check back soon!</p>
           </div>
         )}
       </div>

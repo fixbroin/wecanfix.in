@@ -2,13 +2,13 @@ import { adminDb } from '@/lib/firebaseAdmin';
 import { notFound } from 'next/navigation';
 import type { FirestoreBlogPost, ClientBlogPost } from '@/types/firestore';
 import AppImage from '@/components/ui/AppImage';
-import { ArrowLeft, ArrowRight, Calendar, User, Clock } from 'lucide-react';
+import { ArrowRight, Calendar, User, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { Timestamp } from 'firebase-admin/firestore';
 import JsonLdScript from '@/components/shared/JsonLdScript';
 import { getBaseUrl } from '@/lib/config';
-import type { Metadata, ResolvingMetadata } from 'next';
+import type { Metadata } from 'next';
 import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import ShareButtons from '@/components/blog/ShareButtons';
 import BlogPostCard from '@/components/blog/BlogPostCard';
@@ -63,10 +63,10 @@ const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): 
               ...data,
               id: doc.id,
               createdAt: data.createdAt && typeof data.createdAt.toDate === 'function' 
-                ? data.createdAt.toDate().toISOString() 
+                ? (data.createdAt as any).toDate().toISOString() 
                 : new Date().toISOString(),
               updatedAt: data.updatedAt && typeof data.updatedAt.toDate === 'function' 
-                ? data.updatedAt.toDate().toISOString() 
+                ? (data.updatedAt as any).toDate().toISOString() 
                 : undefined,
             } as ClientBlogPost;
           })
@@ -83,8 +83,7 @@ const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): 
 });
 
 export async function generateMetadata(
-  { params }: BlogPostPageProps,
-  parent: ResolvingMetadata
+  { params }: BlogPostPageProps
 ): Promise<Metadata> {
   const { slug } = await params;
   const post = await getBlogPost(slug);
@@ -148,8 +147,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
       if (date && typeof date.toDate === 'function') {
         return format(date.toDate(), 'MMMM dd, yyyy');
       }
-      if (date && (date.seconds || date._seconds)) {
-        const s = date.seconds || date._seconds;
+      if (date && (date.seconds || (date as any)._seconds)) {
+        const s = date.seconds || (date as any)._seconds;
         return format(new Date(s * 1000), 'MMMM dd, yyyy');
       }
       if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
@@ -166,8 +165,8 @@ export default async function BlogPostPage({ params }: BlogPostPageProps) {
     if (!date) return new Date().toISOString();
     try {
       if (date instanceof Timestamp) return date.toDate().toISOString();
-      if (date && (date.seconds || date._seconds)) {
-        const s = date.seconds || date._seconds;
+      if (date && (date.seconds || (date as any)._seconds)) {
+        const s = date.seconds || (date as any)._seconds;
         return new Date(s * 1000).toISOString();
       }
       if (typeof date === 'string' || typeof date === 'number' || date instanceof Date) {
