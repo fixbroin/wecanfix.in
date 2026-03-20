@@ -64,11 +64,24 @@ export async function POST(request: Request) {
       messaging.send({
         ...messagePayload,
         token,
-      }).catch(err => {
+      }).catch(async (err: any) => {
         console.error(`Failed to send push to token ${token}:`, err);
-        // If token is invalid, we should ideally remove it from Firestore
-        if (err.code === 'messaging/registration-token-not-registered') {
-            // Remove invalid token logic could go here
+        
+        // Handle dead or invalid tokens
+        const isDeadToken = 
+            err.code === 'messaging/registration-token-not-registered' || 
+            err.code === 'messaging/invalid-argument';
+
+        if (isDeadToken) {
+            console.log(`Token ${token} is no longer valid. Deleting from Firestore for user ${userId}...`);
+            try {
+                await adminDb.collection('users').doc(userId).update({
+                    [`fcmTokens.${token}`]: admin.firestore.FieldValue.delete()
+                });
+                console.log(`Successfully removed dead token ${token} for user ${userId}`);
+            } catch (deleteErr) {
+                console.error(`Failed to delete dead token ${token} from Firestore:`, deleteErr);
+            }
         }
         return null;
       })

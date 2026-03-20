@@ -140,49 +140,9 @@ export default function AdminCategoriesPage() {
   const handleFormSubmit = async (data: Omit<FirestoreCategory, 'id' | 'createdAt'> & { id?: string, slug?: string }) => {
     setIsSubmitting(true);
 
-    let finalSlugForSave = "";
-    const baseNameSlug = generateSlug(data.name);
-
-    if (editingCategory && data.id) { // Editing existing category
-      finalSlugForSave = editingCategory.slug; // Slug is non-editable for existing items
-    } else { // Creating a new category
-      const wasSlugManuallyEntered = !!data.slug && data.slug.trim() !== "";
-      let slugToCheck = wasSlugManuallyEntered ? data.slug!.trim() : baseNameSlug;
-
-      if (!slugToCheck && !baseNameSlug) { // Handle cases where name might produce empty slug
-        toast({ title: "Invalid Name", description: "Category name must be valid to generate a slug.", variant: "destructive" });
-        setIsSubmitting(false);
-        return;
-      }
-      if (!slugToCheck) slugToCheck = baseNameSlug;
-
-
-      let isUnique = false;
-      let attempt = 0;
-      const originalSlugToIterate = wasSlugManuallyEntered ? slugToCheck : baseNameSlug; // Use manually entered slug for first check, then base name slug for iterations
-
-      while (!isUnique) {
-        const q = query(categoriesCollectionRef, where("slug", "==", slugToCheck));
-        const snapshot = await getDocs(q);
-        
-        if (snapshot.empty) {
-          isUnique = true;
-          finalSlugForSave = slugToCheck;
-        } else {
-          if (wasSlugManuallyEntered && attempt === 0) { 
-            toast({ title: "Slug Exists", description: `The slug "${slugToCheck}" is already in use. Please choose another.`, variant: "destructive" });
-            setIsSubmitting(false);
-            return; 
-          }
-          attempt++;
-          slugToCheck = `${baseNameSlug}-${attempt + 1}`; // Always iterate from the base name slug + counter
-        }
-      }
-    }
-
     const payloadForFirestore: Partial<Omit<FirestoreCategory, 'id' | 'createdAt'>> = {
       name: data.name,
-      slug: finalSlugForSave,
+      slug: data.slug || generateSlug(data.name),
       order: Number(data.order),
       isActive: data.isActive,
       imageUrl: data.imageUrl || "",

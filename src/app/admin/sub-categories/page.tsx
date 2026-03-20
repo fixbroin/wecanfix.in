@@ -17,7 +17,8 @@ import { ref as storageRef, deleteObject } from "firebase/storage";
 import { useToast } from "@/hooks/use-toast";
 import { getIconComponent } from '@/lib/iconMap';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Skeleton } from '@/components/ui/skeleton'; // Added Skeleton
+import { Skeleton } from '@/components/ui/skeleton';
+import { Switch } from '@/components/ui/switch';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -105,6 +106,22 @@ export default function AdminSubCategoriesPage() {
     setIsFormOpen(true);
   };
 
+  const handleToggleActive = async (subCategory: FirestoreSubCategory) => {
+    setIsSubmitting(true);
+    try {
+        await updateDoc(doc(db, "adminSubCategories", subCategory.id), { 
+          isActive: !subCategory.isActive, 
+          updatedAt: Timestamp.now() 
+        });
+        setSubCategories(prev => prev.map(s => s.id === subCategory.id ? { ...s, isActive: !s.isActive } : s));
+        toast({ title: "Status Updated", description: `Sub-category "${subCategory.name}" ${!subCategory.isActive ? "enabled" : "disabled"}.` });
+    } catch (error) {
+        toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteSubCategory = async (subCategoryId: string) => {
     setIsSubmitting(true);
     try {
@@ -133,34 +150,10 @@ export default function AdminSubCategoriesPage() {
 
   const handleFormSubmit = async (data: Omit<FirestoreSubCategory, 'id' | 'createdAt'> & { id?: string, slug?: string }) => {
     setIsSubmitting(true);
-    let finalSlugForSave = "";
-    const baseNameSlug = generateSlug(data.name);
-
-    if (editingSubCategory && data.id) { 
-      finalSlugForSave = editingSubCategory.slug;
-    } else { 
-      const wasSlugManuallyEntered = !!data.slug && data.slug.trim() !== "";
-      let slugToCheck = wasSlugManuallyEntered ? data.slug!.trim() : baseNameSlug;
-      if (!slugToCheck && !baseNameSlug) {
-        toast({ title: "Invalid Name", description: "Sub-category name must be valid to generate a slug.", variant: "destructive" });
-        setIsSubmitting(false); return;
-      }
-      if (!slugToCheck) slugToCheck = baseNameSlug;
-      let isUnique = false; let attempt = 0;
-      const originalSlugToIterate = wasSlugManuallyEntered ? slugToCheck : baseNameSlug;
-      while (!isUnique) {
-        const q = query(subCategoriesCollectionRef, where("slug", "==", slugToCheck), where("parentId", "==", data.parentId));
-        const snapshot = await getDocs(q);
-        if (snapshot.empty) { isUnique = true; finalSlugForSave = slugToCheck; } 
-        else {
-          if (wasSlugManuallyEntered && attempt === 0) { toast({ title: "Slug Exists", description: `The slug "${slugToCheck}" is already in use for this parent category. Please choose another.`, variant: "destructive" }); setIsSubmitting(false); return; }
-          attempt++; slugToCheck = `${baseNameSlug}-${attempt + 1}`;
-        }
-      }
-    }
+    
     const payloadForFirestore: Omit<FirestoreSubCategory, 'id' | 'createdAt' | 'updatedAt'> = {
       name: data.name, 
-      slug: finalSlugForSave, 
+      slug: data.slug || generateSlug(data.name), 
       parentId: data.parentId, 
       order: Number(data.order),
       isActive: data.isActive === undefined ? true : data.isActive,
@@ -246,8 +239,8 @@ export default function AdminSubCategoriesPage() {
                       <TableHead className="w-[60px]">Image</TableHead>
                       <TableHead>Name</TableHead>
                       <TableHead>Slug</TableHead>
-                      <TableHead>H1 Title</TableHead>
                       <TableHead className="text-center">Order</TableHead>
+                      <TableHead className="text-center">Active</TableHead>
                       <TableHead className="text-right min-w-[120px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -265,8 +258,14 @@ export default function AdminSubCategoriesPage() {
                           </TableCell>
                           <TableCell className="font-medium">{subCategory.name}</TableCell>
                           <TableCell className="text-xs text-muted-foreground">{subCategory.slug}</TableCell>
-                          <TableCell className="text-xs max-w-xs truncate" title={subCategory.h1_title}>{subCategory.h1_title || "Not set"}</TableCell>
                           <TableCell className="text-center">{subCategory.order}</TableCell>
+                          <TableCell className="text-center">
+                            <Switch 
+                                checked={subCategory.isActive === undefined ? true : subCategory.isActive}
+                                onCheckedChange={() => handleToggleActive(subCategory)}
+                                disabled={isSubmitting}
+                            />
+                          </TableCell>
                           <TableCell>
                             <div className="flex flex-col items-end gap-2 sm:flex-row sm:items-center sm:gap-2 sm:justify-end">
                               <Button variant="outline" size="icon" onClick={() => handleEditSubCategory(subCategory)} disabled={isSubmitting}><Edit className="h-4 w-4" /></Button>

@@ -61,6 +61,7 @@ export default function AppImage({
           fill={fill}
           width={!fill ? width : undefined}
           height={!fill ? height : undefined}
+          sizes={sizes || (fill ? "100vw" : undefined)}
           className="object-contain animate-pulse bg-muted"
         />
       )}
@@ -71,7 +72,7 @@ export default function AppImage({
         fill={fill}
         width={!fill ? width : undefined}
         height={!fill ? height : undefined}
-        sizes={sizes}
+        sizes={sizes || (fill ? "100vw" : undefined)}
         priority={priority}
         loading={loading}
         onLoad={() => setLoaded(true)}

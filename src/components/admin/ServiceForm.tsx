@@ -12,12 +12,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Card } from "@/components/ui/card";
 import type { FirestoreService, FirestoreSubCategory, FirestoreTax, FirestoreCategory, ServiceFaqItem, PriceVariant } from '@/types/firestore';
-import { useEffect, useState, useRef } from "react";
-import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Sparkles, Wand2, Users, ShoppingBag, ListOrdered } from "lucide-react";
+import { useEffect, useState, useRef, useCallback } from "react";
+import { Loader2, Image as ImageIcon, Trash2, PlusCircle, Percent, Clock, HelpCircle, Sparkles, Wand2, Users, ShoppingBag, ListOrdered, Edit2, Lock } from "lucide-react";
 import NextImage from 'next/image';
 import { useToast } from "@/hooks/use-toast";
-import { storage } from '@/lib/firebase';
+import { storage, db } from '@/lib/firebase';
 import { ref as storageRef, uploadBytesResumable, getDownloadURL, deleteObject } from "firebase/storage";
+import { collection, query, where, getDocs, limit } from "firebase/firestore";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { nanoid } from 'nanoid';
@@ -135,6 +136,7 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const [isGeneratingAiContent, setIsGeneratingAiContent] = useState(false);
   const [statusMessage, setStatusMessage] = useState("");
   const [filteredSubCategories, setFilteredSubCategories] = useState<FirestoreSubCategory[]>([]);
+  const [isSlugEditable, setIsSlugEditable] = useState(false);
 
   const form = useForm<ServiceFormDataInternal>({
     resolver: zodResolver(serviceFormSchema),
@@ -161,7 +163,36 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
   const watchedParentCategoryId = form.watch("parentCategoryId");
   const watchedTaxId = form.watch("taxId");
   const watchedHasPriceVariants = form.watch("hasPriceVariants");
+  const watchedSlug = form.watch("slug");
   const taxSelected = watchedTaxId !== null && watchedTaxId !== NO_TAX_VALUE;
+
+  const checkSlugUniqueness = useCallback(async (baseSlug: string, currentId?: string) => {
+    let uniqueSlug = baseSlug;
+    let counter = 1;
+    let isUnique = false;
+
+    while (!isUnique) {
+      const q = query(
+        collection(db, "adminServices"),
+        where("slug", "==", uniqueSlug),
+        limit(1)
+      );
+      const querySnapshot = await getDocs(q);
+      
+      if (querySnapshot.empty) {
+        isUnique = true;
+      } else {
+        const doc = querySnapshot.docs[0];
+        if (currentId && doc.id === currentId) {
+          isUnique = true;
+        } else {
+          uniqueSlug = `${baseSlug}-${counter}`;
+          counter++;
+        }
+      }
+    }
+    return uniqueSlug;
+  }, []);
 
   useEffect(() => {
     if (initialData) {
@@ -226,29 +257,39 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
     setUploadProgress(null);
     setIsFormBusyForImage(false);
     setStatusMessage("");
+    setIsSlugEditable(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
   }, [initialData, form, subCategories]);
 
-  const onSubmit = async (data: ServiceFormDataInternal) => {
-    const { serviceHighlights, includedItems, excludedItems, isTaxInclusive, discountedPrice, ...rest } = data;
-    const formattedData = {
-      ...rest,
-      isTaxInclusive: isTaxInclusive === "true",
-      serviceHighlights: serviceHighlights?.map(h => h.value).filter(v => v.trim() !== "") || [],
-      includedItems: includedItems?.map(i => i.value).filter(v => v.trim() !== "") || [],
-      excludedItems: excludedItems?.map(e => e.value).filter(v => v.trim() !== "") || [],
-      discountedPrice: discountedPrice === null ? undefined : discountedPrice,
-    };
-    await onSubmitProp(formattedData as any);
-  };
-
   useEffect(() => {
-    if (watchedName && !initialData && !form.getFieldState('slug').isDirty) {
-      form.setValue('slug', generateSlug(watchedName), { shouldValidate: true });
+    if (watchedName && !isSlugEditable) {
+      const delayDebounceFn = setTimeout(async () => {
+        const baseSlug = generateSlug(watchedName);
+        const uniqueSlug = await checkSlugUniqueness(baseSlug, initialData?.id);
+        form.setValue('slug', uniqueSlug, { shouldValidate: true });
+      }, 500);
+      return () => clearTimeout(delayDebounceFn);
     }
-  }, [watchedName, initialData, form]);
+  }, [watchedName, isSlugEditable, initialData, form, checkSlugUniqueness]);
+
+  // Handle manual slug changes to ensure uniqueness if needed
+  useEffect(() => {
+    if (isSlugEditable && watchedSlug && form.getFieldState('slug').isDirty) {
+        const delayDebounceFn = setTimeout(async () => {
+            const baseSlug = generateSlug(watchedSlug);
+            if (baseSlug !== watchedSlug) {
+                form.setValue('slug', baseSlug, { shouldValidate: true });
+            }
+            const uniqueSlug = await checkSlugUniqueness(baseSlug, initialData?.id);
+            if (uniqueSlug !== baseSlug) {
+                form.setValue('slug', uniqueSlug, { shouldValidate: true });
+            }
+        }, 500);
+        return () => clearTimeout(delayDebounceFn);
+    }
+  }, [watchedSlug, isSlugEditable, initialData, form, checkSlugUniqueness]);
 
   useEffect(() => {
     const currentParentId = form.getValues('parentCategoryId');
@@ -470,7 +511,46 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
               Generate AI Content
             </Button>
         </div>
-        <FormField control={form.control} name="slug" render={({ field }) => (<FormItem><FormLabel>Service Slug {initialData ? "(Non-editable)" : "(Optional - auto-generated if blank)"}</FormLabel><FormControl><Input placeholder="e.g., premium-ac-servicing" {...field} onChange={(e) => field.onChange(generateSlug(e.target.value))} disabled={effectiveIsSubmitting || !!initialData}/></FormControl><FormDescription>{initialData ? "Slug cannot be changed for existing services." : "Lowercase, dash-separated. Auto-generated from name if left blank."}</FormDescription><FormMessage /></FormItem>)}/>
+        <FormField
+          control={form.control}
+          name="slug"
+          render={({ field }) => (
+            <FormItem>
+              <div className="flex items-center justify-between">
+                <FormLabel>Service Slug {initialData ? "(Editing might affect SEO)" : "(Auto-generated or custom)"}</FormLabel>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsSlugEditable(!isSlugEditable)}
+                  className="h-8 px-2 text-xs"
+                  disabled={effectiveIsSubmitting}
+                >
+                  {isSlugEditable ? (
+                    <><Lock className="mr-1 h-3 w-3" /> Lock</>
+                  ) : (
+                    <><Edit2 className="mr-1 h-3 w-3" /> Edit Manually</>
+                  )}
+                </Button>
+              </div>
+              <FormControl>
+                <Input
+                  placeholder="e.g., premium-ac-servicing"
+                  {...field}
+                  onChange={(e) => field.onChange(generateSlug(e.target.value))}
+                  disabled={effectiveIsSubmitting || !isSlugEditable}
+                  className={!isSlugEditable ? "bg-muted/50 font-mono text-xs" : "font-mono text-xs"}
+                />
+              </FormControl>
+              <FormDescription>
+                {isSlugEditable 
+                  ? "Lowercase, dash-separated. Uniqueness is automatically checked." 
+                  : "Automatically generated and unique. Click 'Edit Manually' to customize."}
+              </FormDescription>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField control={form.control} name="parentCategoryId" render={({ field }) => ( <FormItem> <FormLabel>Parent Category</FormLabel> <Select key={`parent-cat-select-${initialData?.id || 'new-service'}-${parentCategories.length}-${field.value}`} onValueChange={(value) => { field.onChange(value); }} value={field.value} disabled={effectiveIsSubmitting || parentCategories.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={parentCategories.length > 0 ? "Select a parent category" : "No parent categories"} /></SelectTrigger></FormControl> <SelectContent>{parentCategories.map(cat => (<SelectItem key={cat.id} value={cat.id}>{cat.name}</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
           <FormField control={form.control} name="subCategoryId" render={({ field }) => ( <FormItem> <FormLabel>Sub-Category</FormLabel> <Select key={`subcat-select-${initialData?.id || 'new-service'}-${watchedParentCategoryId}-${filteredSubCategories.length}-${field.value}`} onValueChange={field.onChange} value={field.value} disabled={effectiveIsSubmitting || !watchedParentCategoryId || filteredSubCategories.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={!watchedParentCategoryId ? "Select parent category first" : (filteredSubCategories.length > 0 ? "Select a sub-category" : "No sub-categories for selected parent")} /></SelectTrigger></FormControl> <SelectContent>{filteredSubCategories.map(subCat => (<SelectItem key={subCat.id} value={subCat.id}>{subCat.name}</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>

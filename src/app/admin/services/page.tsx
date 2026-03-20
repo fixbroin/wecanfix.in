@@ -18,6 +18,7 @@ import { getIconComponent } from '@/lib/iconMap';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
 import { triggerRefresh } from '@/lib/revalidateUtils';
+import { Switch } from '@/components/ui/switch';
 
 const generateSlug = (name: string) => {
   if (!name) return "";
@@ -106,6 +107,40 @@ export default function AdminServicesPage() {
     setIsFormOpen(true);
   };
 
+  const handleToggleActive = async (service: FirestoreService) => {
+    setIsSubmitting(true);
+    try {
+        await updateDoc(doc(db, "adminServices", service.id), { 
+          isActive: !service.isActive, 
+          updatedAt: Timestamp.now() 
+        });
+        setServices(prev => prev.map(s => s.id === service.id ? { ...s, isActive: !s.isActive } : s));
+        toast({ title: "Status Updated", description: `Service "${service.name}" ${!service.isActive ? "enabled" : "disabled"}.` });
+        await triggerRefresh('services');
+    } catch (error) {
+        toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
+  const handleTogglePayLater = async (service: FirestoreService) => {
+    setIsSubmitting(true);
+    try {
+        await updateDoc(doc(db, "adminServices", service.id), { 
+          allowPayLater: !service.allowPayLater, 
+          updatedAt: Timestamp.now() 
+        });
+        setServices(prev => prev.map(s => s.id === service.id ? { ...s, allowPayLater: !service.allowPayLater } : s));
+        toast({ title: "Pay Later Updated", description: `Pay later for "${service.name}" ${!service.allowPayLater ? "enabled" : "disabled"}.` });
+        await triggerRefresh('services');
+    } catch (error) {
+        toast({ title: "Error", description: "Could not update pay later status.", variant: "destructive" });
+    } finally {
+        setIsSubmitting(false);
+    }
+  };
+
   const handleDeleteService = async (serviceId: string) => {
     setIsSubmitting(true);
     try {
@@ -133,27 +168,11 @@ export default function AdminServicesPage() {
 
   const handleFormSubmit = async (data: Omit<FirestoreService, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
     setIsSubmitting(true);
-    let finalSlugForSave = data.slug || generateSlug(data.name);
     const selectedTax = taxes.find(t => t.id === data.taxId);
 
-    if (!editingService?.id) {
-        let slugToCheck = finalSlugForSave;
-        if (!slugToCheck) { toast({ title: "Invalid Name/Slug", variant: "destructive" }); setIsSubmitting(false); return; }
-        const wasSlugManuallyEntered = !!data.slug; let attempt = 0; const baseSlugFromName = generateSlug(data.name); 
-        while (true) {
-            const q = query(servicesCollectionRef, where("slug", "==", slugToCheck), where("subCategoryId", "==", data.subCategoryId));
-            const snapshot = await getDocs(q);
-            if (snapshot.empty) { finalSlugForSave = slugToCheck; break; } 
-            else {
-                if (wasSlugManuallyEntered && attempt === 0) { toast({ title: "Slug Exists", description: `Slug "${slugToCheck}" already in use for this sub-category.`, variant: "destructive" }); setIsSubmitting(false); return; }
-                attempt++; slugToCheck = `${baseSlugFromName}-${attempt + 1}`; 
-            }
-        }
-    } else { finalSlugForSave = editingService!.slug; }
-    
     const payloadForFirestore: Partial<FirestoreService> = {
       name: data.name, 
-      slug: finalSlugForSave, 
+      slug: data.slug || generateSlug(data.name), 
       subCategoryId: data.subCategoryId, 
       description: data.description,
       price: data.price,
@@ -286,6 +305,7 @@ export default function AdminServicesPage() {
                             <TableHead className="p-2">Slug</TableHead>
                             <TableHead className="text-right p-2">Price (₹)</TableHead>
                             <TableHead className="text-right p-2">Tax</TableHead>
+                            <TableHead className="text-center p-2">Pay Later</TableHead>
                             <TableHead className="text-center p-2">Active</TableHead>
                             <TableHead className="text-right min-w-[100px] p-2">Actions</TableHead>
                           </TableRow>
@@ -294,33 +314,56 @@ export default function AdminServicesPage() {
                           {subCatGroup.services.map((service) => {
                             const IconComponent = getIconComponent(undefined);
                             return (
-                              <TableRow key={service.id}
-                                ><TableCell className="p-2"
-                                  >{service.imageUrl ? (<div className="w-8 h-8 relative rounded-sm overflow-hidden"><AppImage src={service.imageUrl} alt={service.name} fill sizes="32px" className="object-cover" aiHint={service.imageHint || "service"}/></div>) 
-                                  : ( <IconComponent className="h-5 w-5 text-muted-foreground" /> )}</TableCell
-                                ><TableCell className="font-medium p-2 text-xs"
-                                  >{service.name}</TableCell
-                                ><TableCell className="p-2 text-xs text-muted-foreground"
-                                  >{service.slug}</TableCell
-                                ><TableCell className="text-right p-2 text-xs"
-                                  >{service.price.toLocaleString()}</TableCell
-                                ><TableCell className="text-right p-2 text-xs"
-                                  >{service.taxName ? `${service.taxName} (${service.taxPercent}%)` : 'N/A'}</TableCell
-                                ><TableCell className="text-center p-2"
-                                  >{service.isActive ? <CheckCircle className="h-4 w-4 text-green-500 mx-auto" /> : <XCircle className="h-4 w-4 text-red-500 mx-auto" />}</TableCell
-                                ><TableCell className="p-2"
-                                  ><div className="flex items-center justify-end gap-1"
-                                    ><Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditService(service)} disabled={isSubmitting}><Edit className="h-3.5 w-3.5" /></Button
-                                    ><AlertDialog
-                                      ><AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-7 w-7" disabled={isSubmitting}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger
-                                      ><AlertDialogContent
-                                        ><AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{service.name}".</AlertDialogDescription></AlertDialogHeader
-                                        ><AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteService(service.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter
-                                      ></AlertDialogContent
-                                    ></AlertDialog
-                                  ></div
-                                ></TableCell
-                              ></TableRow>
+                              <TableRow key={service.id}>
+                                <TableCell className="p-2">
+                                  {service.imageUrl ? (
+                                    <div className="w-8 h-8 relative rounded-sm overflow-hidden">
+                                      <AppImage src={service.imageUrl} alt={service.name} fill sizes="32px" className="object-cover" aiHint={service.imageHint || "service"}/>
+                                    </div>
+                                  ) : ( <IconComponent className="h-5 w-5 text-muted-foreground" /> )}
+                                </TableCell>
+                                <TableCell className="font-medium p-2 text-xs">{service.name}</TableCell>
+                                <TableCell className="p-2 text-xs text-muted-foreground">{service.slug}</TableCell>
+                                <TableCell className="text-right p-2 text-xs">
+                                  <div>₹{service.price.toLocaleString()}</div>
+                                  {service.discountedPrice && (
+                                    <div className="text-[10px] text-green-600 font-semibold">
+                                      Disc: ₹{service.discountedPrice.toLocaleString()}
+                                    </div>
+                                  )}
+                                </TableCell>
+                                <TableCell className="text-right p-2 text-xs">
+                                  {service.taxName ? `${service.taxName} (${service.taxPercent}%)` : 'N/A'}
+                                </TableCell>
+                                <TableCell className="text-center p-2">
+                                  <Switch 
+                                    checked={service.allowPayLater === undefined ? true : service.allowPayLater}
+                                    onCheckedChange={() => handleTogglePayLater(service)}
+                                    disabled={isSubmitting}
+                                    className="scale-75"
+                                  />
+                                </TableCell>
+                                <TableCell className="text-center p-2">
+                                  <Switch 
+                                    checked={service.isActive === undefined ? true : service.isActive}
+                                    onCheckedChange={() => handleToggleActive(service)}
+                                    disabled={isSubmitting}
+                                    className="scale-75"
+                                  />
+                                </TableCell>
+                                <TableCell className="p-2">
+                                  <div className="flex items-center justify-end gap-1">
+                                    <Button variant="outline" size="icon" className="h-7 w-7" onClick={() => handleEditService(service)} disabled={isSubmitting}><Edit className="h-3.5 w-3.5" /></Button>
+                                    <AlertDialog>
+                                      <AlertDialogTrigger asChild><Button variant="destructive" size="icon" className="h-7 w-7" disabled={isSubmitting}><Trash2 className="h-3.5 w-3.5" /></Button></AlertDialogTrigger>
+                                      <AlertDialogContent>
+                                        <AlertDialogHeader><AlertDialogTitle>Are you sure?</AlertDialogTitle><AlertDialogDescription>This will permanently delete "{service.name}".</AlertDialogDescription></AlertDialogHeader>
+                                        <AlertDialogFooter><AlertDialogCancel disabled={isSubmitting}>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleDeleteService(service.id)} disabled={isSubmitting} className="bg-destructive hover:bg-destructive/90">{isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null} Delete</AlertDialogAction></AlertDialogFooter>
+                                      </AlertDialogContent>
+                                    </AlertDialog>
+                                  </div>
+                                </TableCell>
+                              </TableRow>
                             );
                           })}
                         </TableBody>

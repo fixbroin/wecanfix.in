@@ -387,6 +387,7 @@ export interface ContentPage {
   imageHint?: string; // AI search hint
   coverImageUrl?: string;
   updatedAt: Timestamp;
+  createdAt?: Timestamp;
 }
 
 export interface FirestoreFAQ {
