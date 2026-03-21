@@ -10,18 +10,17 @@ import type { BreadcrumbItem } from '@/types/ui';
 import ReferralInfoTab from '@/components/referral/ReferralInfoTab';
 import WalletTab from '@/components/referral/WalletTab';
 import WithdrawalTab from '@/components/referral/WithdrawalTab';
+import ReferralBalanceHeader from '@/components/referral/ReferralBalanceHeader';
 import type { ReferralSettings, WithdrawalSettings } from '@/types/firestore';
 import { unstable_cache } from 'next/cache';
 
 const REFERRAL_CONFIG_DOC_ID = "referral";
-const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal";
+const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal_referral";
 const CONFIG_COLLECTION = "appConfiguration";
 
 export const revalidate = 3600; // Revalidate every hour
 
 import { serializeFirestoreData } from '@/lib/serializeUtils';
-
-// ... (keep middle code)
 
 const getReferralSettings = unstable_cache(
   async () => {
@@ -35,7 +34,7 @@ const getReferralSettings = unstable_cache(
     }
   },
   ['referral-settings'],
-  { revalidate: 3600, tags: ['config'] }
+  { revalidate: 3600, tags: ['config', 'referral-config'] }
 );
 
 const getWithdrawalSettings = unstable_cache(
@@ -43,15 +42,28 @@ const getWithdrawalSettings = unstable_cache(
     try {
       const withdrawalRef = adminDb.collection(CONFIG_COLLECTION).doc(WITHDRAWAL_CONFIG_DOC_ID);
       const withdrawalSnap = await withdrawalRef.get();
-      return withdrawalSnap.exists ? serializeFirestoreData<WithdrawalSettings>(withdrawalSnap.data()) : null;
+      if (withdrawalSnap.exists) {
+        return serializeFirestoreData<WithdrawalSettings>(withdrawalSnap.data());
+      }
+      // Return default settings if document doesn't exist
+      return {
+        isWithdrawalEnabled: false,
+        minWithdrawalAmount: 200,
+        enabledMethods: {
+          amazon_gift_card: false,
+          bank_transfer: true,
+          upi: true,
+        }
+      } as WithdrawalSettings;
     } catch (error) {
       console.error("Error fetching withdrawal settings:", error);
       return null;
     }
   },
-  ['withdrawal-settings'],
-  { revalidate: 3600, tags: ['config'] }
+  ['withdrawal-referral-settings'],
+  { revalidate: 3600, tags: ['config', 'withdrawal-referral-config'] }
 );
+
 
 export default async function ReferralPage() {
   const [referralSettings, withdrawalSettings] = await Promise.all([
@@ -92,14 +104,19 @@ export default async function ReferralPage() {
       <div className="container mx-auto px-4 py-12">
         <Breadcrumbs items={breadcrumbItems} />
         
-        <div className="mt-8 mb-12">
-            <h1 className="text-4xl md:text-5xl font-headline font-bold text-foreground mb-4 flex items-center gap-4">
-                <Handshake className="h-10 w-10 text-primary" />
-                Refer & Earn
-            </h1>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-                Share the Wecanfix experience with your friends and earn rewards. Track your earnings and manage your wallet here.
-            </p>
+        <div className="mt-8 mb-12 flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+            <div>
+                <h1 className="text-4xl md:text-5xl font-headline font-bold text-foreground mb-4 flex items-center gap-4">
+                    <Handshake className="h-10 w-10 text-primary" />
+                    Refer & Earn
+                </h1>
+                <p className="text-lg text-muted-foreground max-w-2xl">
+                    Share the Wecanfix experience with your friends and earn rewards. Track your earnings and manage your wallet here.
+                </p>
+            </div>
+            <div className="shrink-0">
+                <ReferralBalanceHeader />
+            </div>
         </div>
 
         <Tabs defaultValue="info" className="w-full">

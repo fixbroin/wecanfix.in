@@ -6,7 +6,7 @@ import AppImage from '@/components/ui/AppImage';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Star, ShoppingCart, Clock, Users, Ban, Percent, ChevronRight } from 'lucide-react';
+import { Star, ShoppingCart, Clock, Users, Ban, Percent, ChevronRight, Info } from 'lucide-react';
 import type { FirestoreService } from '@/types/firestore';
 import QuantitySelector from '@/components/shared/QuantitySelector';
 import { getCartEntries, saveCartEntries, syncCartToFirestore } from '@/lib/cartManager';
@@ -174,7 +174,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
       triggerAuthRedirect(currentPathname);
       return;
     }
-    const newQuantity = 1;
+    const newQuantity = service.hasMinQuantity && service.minQuantity ? service.minQuantity : 1;
     setQuantity(newQuantity);
     updateCartAndShowToast(newQuantity, 'added');
   };
@@ -243,6 +243,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                                 )} {promoText}
                          </Badge>
                 )}
+                {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                  <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold mt-1 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 w-fit">
+                    <Info className="h-3 w-3" /> Min. {service.minQuantity} units required
+                  </div>
+                )}
             </div>
             <div className="text-sm text-primary font-medium mt-1 flex items-center">
                 View Details <ChevronRight className="h-3 w-3 ml-0.5 group-hover:translate-x-1 transition-transform" />
@@ -261,7 +266,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                         <ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Add
                     </Button>
                 ) : (
-                    <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} maxQuantity={service.maxQuantity}/>
+                    <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0} maxQuantity={service.maxQuantity}/>
                 )}
             </div>
           </div>
@@ -308,6 +313,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                                   )}{promoText}
                              </Badge>
                             )}
+                            {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                              <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold mt-1 bg-amber-50 px-2 py-1 rounded border border-amber-100 w-fit">
+                                <Info className="h-4 w-4" /> Min. {service.minQuantity} units required
+                              </div>
+                            )}
                         </div>
                         <div className="text-sm text-primary font-medium mt-1 flex items-center">
                             View Details <ChevronRight className="h-4 w-4 ml-0.5 group-hover:translate-x-1 transition-transform" />
@@ -324,7 +334,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                         <ShoppingCart className="mr-1.5 h-4 w-4" />Add
                     </Button>
                  ) : (
-                    <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} maxQuantity={service.maxQuantity}/>
+                    <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0} maxQuantity={service.maxQuantity}/>
                  )}
             </div>
         </div>

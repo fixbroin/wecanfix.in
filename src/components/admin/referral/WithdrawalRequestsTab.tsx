@@ -4,20 +4,16 @@
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, PackageSearch, Check, X, MoreHorizontal } from "lucide-react";
+import { Loader2, PackageSearch, Check, X, MoreHorizontal, Eye, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from '@/components/ui/button';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, Timestamp, runTransaction, getDoc, addDoc, where, deleteDoc } from "firebase/firestore";
 import type { WithdrawalRequest, WithdrawalStatus, FirestoreNotification } from '@/types/firestore';
 import { useToast } from '@/hooks/use-toast';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { Badge } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Separator } from '@/components/ui/separator';
 import { getTimestampMillis } from '@/lib/utils';
 
 const formatDate = (timestamp?: any) => {
@@ -26,16 +22,30 @@ const formatDate = (timestamp?: any) => {
     return new Date(millis).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
+const DetailItem = ({ label, value }: { label: string, value?: string | null }) => (
+    <div className="grid grid-cols-3 gap-2">
+        <p className="text-sm text-muted-foreground col-span-1">{label}</p>
+        <p className="text-sm font-semibold col-span-2">{value || 'N/A'}</p>
+    </div>
+);
+
 export default function WithdrawalRequestsTab() {
   const [requests, setRequests] = useState<WithdrawalRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const { toast } = useToast();
+  
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [selectedRequestForDetails, setSelectedRequestForDetails] = useState<WithdrawalRequest | null>(null);
 
   useEffect(() => {
     setIsLoading(true);
     const requestsRef = collection(db, "withdrawalRequests");
-    const q = query(requestsRef, orderBy("requestedAt", "desc"));
+    const q = query(
+        requestsRef, 
+        where("providerId", "==", "referral_system"),
+        orderBy("requestedAt", "desc")
+    );
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setRequests(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as WithdrawalRequest)));
@@ -48,6 +58,11 @@ export default function WithdrawalRequestsTab() {
     
     return () => unsubscribe();
   }, [toast]);
+
+  const handleViewDetails = (request: WithdrawalRequest) => {
+    setSelectedRequestForDetails(request);
+    setDetailsModalOpen(true);
+  };
 
   const handleUpdateStatus = async (request: WithdrawalRequest, newStatus: WithdrawalStatus) => {
     if (!request.id) return;
@@ -73,7 +88,11 @@ export default function WithdrawalRequestsTab() {
             notificationType = 'error';
             break;
           case 'completed':
-            userUpdatePayload = { withdrawalPending: false }; // Unlock for new requests
+            const currentTotalPaidOut = userDoc.data().totalReferralPaidOut || 0;
+            userUpdatePayload = { 
+              withdrawalPending: false,
+              totalReferralPaidOut: currentTotalPaidOut + request.amount 
+            }; 
             notificationMessage = `Your withdrawal of ₹${request.amount.toFixed(2)} has been successfully completed.`;
             notificationType = 'success';
             break;
@@ -113,6 +132,39 @@ export default function WithdrawalRequestsTab() {
     }
   };
 
+  const handleDeleteRequest = async (request: WithdrawalRequest) => {
+    if (!request.id) return;
+    setIsUpdating(request.id);
+    try {
+        await runTransaction(db, async (transaction) => {
+            const requestDocRef = doc(db, "withdrawalRequests", request.id!);
+            const userDocRef = doc(db, "users", request.userId || "unknown");
+            
+            const reqSnap = await transaction.get(requestDocRef);
+            if (!reqSnap.exists()) return;
+
+            const status = reqSnap.data().status;
+            // Refund only if money was deducted (request stage) but not paid out or already rejected (refunded)
+            if (['pending', 'approved', 'processing'].includes(status)) {
+                const userSnap = await transaction.get(userDocRef);
+                if (userSnap.exists()) {
+                    const currentBalance = userSnap.data().walletBalance || 0;
+                    transaction.update(userDocRef, { 
+                        walletBalance: currentBalance + request.amount,
+                        withdrawalPending: false 
+                    });
+                }
+            }
+            transaction.delete(requestDocRef);
+        });
+        toast({title: "Success", description: "Request deleted and balance adjusted."});
+    } catch (error) {
+        toast({title: "Error", description: "Could not delete request.", variant: "destructive"});
+    } finally {
+        setIsUpdating(null);
+    }
+  };
+
 
   const getStatusBadgeVariant = (status: WithdrawalStatus) => {
     switch(status) {
@@ -141,6 +193,7 @@ export default function WithdrawalRequestsTab() {
   }
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Withdrawal Requests</CardTitle>
@@ -161,35 +214,62 @@ export default function WithdrawalRequestsTab() {
                     <TableCell><div className="font-medium">{req.userName}</div><div className="text-xs text-muted-foreground">{req.userEmail}</div></TableCell>
                     <TableCell>₹{req.amount.toFixed(2)}</TableCell>
                     <TableCell className="capitalize">{req.method.replace('_', ' ')}</TableCell>
-                    <TableCell className="text-xs">{Object.values(req.details).join(', ')}</TableCell>
+                    <TableCell>
+                        <Button variant="outline" size="sm" onClick={() => handleViewDetails(req)}>
+                            <Eye className="mr-1 h-4 w-4" /> View
+                        </Button>
+                    </TableCell>
                     <TableCell className="text-xs">{formatDate(req.requestedAt)}</TableCell>
                     <TableCell><Badge variant={getStatusBadgeVariant(req.status)} className={`capitalize ${getStatusBadgeClass(req.status)}`}>{req.status}</Badge></TableCell>
                     <TableCell className="text-right">
-                        <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" disabled={isUpdating === req.id || req.status === 'completed' || req.status === 'rejected'}>
-                                    {isUpdating === req.id ? <Loader2 className="h-4 w-4 animate-spin"/> : <MoreHorizontal className="h-4 w-4"/>}
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent>
-                                {req.status === 'pending' && (
+                        <div className="flex justify-end gap-2">
+                            {req.status === 'pending' && (
                                 <>
-                                  <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'approved')}><Check className="mr-2 h-4 w-4"/>Approve</DropdownMenuItem>
-                                  <AlertDialog>
-                                    <AlertDialogTrigger asChild>
-                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-destructive focus:text-destructive focus:bg-destructive/10"><X className="mr-2 h-4 w-4"/>Reject</DropdownMenuItem>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader><AlertDialogTitle>Confirm Rejection</AlertDialogTitle><AlertDialogDescription>This will reject the request and refund ₹{req.amount.toFixed(2)} to the user's wallet. Are you sure?</AlertDialogDescription></AlertDialogHeader>
-                                        <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus(req, 'rejected')} className="bg-destructive hover:bg-destructive/90">Yes, Reject & Refund</AlertDialogAction></AlertDialogFooter>
-                                    </AlertDialogContent>
-                                  </AlertDialog>
+                                    <Button variant="outline" size="sm" className="text-green-600 hover:text-green-700 hover:bg-green-50" onClick={() => handleUpdateStatus(req, 'approved')} disabled={isUpdating === req.id}>
+                                        <Check className="h-4 w-4" />
+                                    </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" disabled={isUpdating === req.id}>
+                                                <X className="h-4 w-4" />
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader><AlertDialogTitle>Confirm Rejection</AlertDialogTitle><AlertDialogDescription>This will reject the request and refund ₹{req.amount.toFixed(2)} to the user's wallet. Are you sure?</AlertDialogDescription></AlertDialogHeader>
+                                            <AlertDialogFooter><AlertDialogCancel>Cancel</AlertDialogCancel><AlertDialogAction onClick={() => handleUpdateStatus(req, 'rejected')} className="bg-destructive hover:bg-destructive/90">Yes, Reject & Refund</AlertDialogAction></AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </>
-                                )}
-                                {req.status === 'approved' && <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'processing')}><Loader2 className="mr-2 h-4 w-4"/>Mark as Processing</DropdownMenuItem>}
-                                {req.status === 'processing' && <DropdownMenuItem onClick={() => handleUpdateStatus(req, 'completed')}><Check className="mr-2 h-4 w-4"/>Mark as Completed</DropdownMenuItem>}
-                            </DropdownMenuContent>
-                        </DropdownMenu>
+                            )}
+                            {req.status === 'approved' && (
+                                <Button variant="outline" size="sm" onClick={() => handleUpdateStatus(req, 'processing')} disabled={isUpdating === req.id}>
+                                    Process
+                                </Button>
+                            )}
+                            {req.status === 'processing' && (
+                                <Button variant="outline" size="sm" className="text-green-600" onClick={() => handleUpdateStatus(req, 'completed')} disabled={isUpdating === req.id}>
+                                    Complete
+                                </Button>
+                            )}
+
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-destructive" disabled={isUpdating === req.id}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle>Delete Request?</AlertDialogTitle>
+                                        <AlertDialogDescription>Permanently remove this request record. This will NOT refund money if it was pending.</AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                        <AlertDialogAction onClick={() => handleDeleteRequest(req)} className="bg-destructive hover:bg-destructive/90">Delete</AlertDialogAction>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
+                        </div>
                     </TableCell>
                  </TableRow>
               ))}
@@ -198,5 +278,43 @@ export default function WithdrawalRequestsTab() {
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={detailsModalOpen} onOpenChange={setDetailsModalOpen}>
+        <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+                <DialogTitle>Withdrawal Request Details</DialogTitle>
+                <DialogDescription>
+                    User: <span className="font-semibold">{selectedRequestForDetails?.userName}</span>
+                </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-2">
+                <DetailItem label="Amount" value={`₹${selectedRequestForDetails?.amount.toFixed(2)}`} />
+                <DetailItem label="Method" value={selectedRequestForDetails?.method.replace('_', ' ').split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')} />
+                <Separator />
+                <h4 className="font-semibold text-sm">Transfer Details</h4>
+                {selectedRequestForDetails?.method === 'bank_transfer' ? (
+                    <>
+                        <DetailItem label="Account Holder" value={selectedRequestForDetails.details.accountHolderName} />
+                        <DetailItem label="Bank Name" value={selectedRequestForDetails.details.bankName} />
+                        <DetailItem label="Account Number" value={selectedRequestForDetails.details.accountNumber} />
+                        <DetailItem label="IFSC Code" value={selectedRequestForDetails.details.ifscCode} />
+                    </>
+                ) : selectedRequestForDetails?.method === 'upi' ? (
+                    <DetailItem label="UPI ID" value={selectedRequestForDetails.details.upiId} />
+                ) : (
+                    <>
+                        <DetailItem label="Email" value={selectedRequestForDetails?.details.email} />
+                        <DetailItem label="Mobile" value={selectedRequestForDetails?.details.mobileNumber} />
+                    </>
+                )}
+            </div>
+            <DialogFooter>
+                <DialogClose asChild>
+                    <Button type="button" variant="secondary">Close</Button>
+                </DialogClose>
+            </DialogFooter>
+        </DialogContent>
+    </Dialog>
+    </>
   );
 }

@@ -19,7 +19,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import AppImage from '@/components/ui/AppImage';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { Star, Clock, ListChecks, Loader2, FileText, ShoppingCart, Users, Ban, Percent } from 'lucide-react';
+import { Star, Clock, ListChecks, Loader2, FileText, ShoppingCart, Users, Ban, Percent, Info } from 'lucide-react';
 import AdBannerCard from '@/components/shared/AdBannerCard';
 import { Carousel, CarouselContent, CarouselItem, type CarouselApi, CarouselPrevious, CarouselNext } from "@/components/ui/carousel";
 import { getCache, setCache } from '@/lib/client-cache';
@@ -207,7 +207,8 @@ const HomepageServiceCard: React.FC<{ service: FirestoreService }> = ({ service 
         toast({ title: "Unavailable", description: `This service is currently not available.`});
         return;
     }
-    handleQuantityChange(1);
+    const newQuantity = service.hasMinQuantity && service.minQuantity ? service.minQuantity : 1;
+    handleQuantityChange(newQuantity);
   };
 
   const formatTaskTime = (value?: number, unit?: 'hours' | 'minutes'): string | null => {
@@ -310,6 +311,11 @@ const isAvailable = service.maxQuantity === undefined || service.maxQuantity > 0
                     </p>
                    )}
                 </div>
+                {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                  <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 px-1 py-0.5 rounded border border-amber-100 w-fit">
+                    Min. {service.minQuantity} units
+                  </div>
+                )}
               </div>
 
                 {!isAvailable ? (
@@ -324,6 +330,7 @@ const isAvailable = service.maxQuantity === undefined || service.maxQuantity > 0
                         initialQuantity={quantity} 
                         onQuantityChange={handleQuantityChange}
                         minQuantity={0}
+                        enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0}
                         maxQuantity={service.maxQuantity}
                     /> 
                   </div>

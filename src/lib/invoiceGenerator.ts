@@ -1,6 +1,4 @@
 
-"use client";
-
 import jsPDF from 'jspdf';
 import 'jspdf-autotable'; 
 import type { UserOptions, CellWidthType } from 'jspdf-autotable';
@@ -121,6 +119,21 @@ export const generateInvoicePdf = async (booking: FirestoreBooking, companyDetai
         fee.taxRatePercentOnFee.toFixed(1) + "%",
         fee.taxAmountOnFee.toFixed(2),
         (fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2),
+      ]);
+    });
+  }
+
+  if (booking.additionalCharges && booking.additionalCharges.length > 0) {
+    const feeStartIdx = booking.services.length + (booking.appliedPlatformFees?.length || 0);
+    booking.additionalCharges.forEach((charge, index) => {
+      body.push([
+        feeStartIdx + index + 1,
+        charge.name + " (Extra Service/Part)",
+        1,
+        charge.amount.toFixed(2),
+        "0.0%",
+        "0.00",
+        charge.amount.toFixed(2),
       ]);
     });
   }

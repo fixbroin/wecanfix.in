@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, MapPin, CheckCircle, XCircle, Packag
 import type { FirestoreArea, FirestoreCity } from '@/types/firestore';
 import AreaForm from '@/components/admin/AreaForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, getDoc, orderBy, query, Timestamp, where, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -35,12 +35,12 @@ export default function AdminAreasPage() {
   const fetchCitiesAndAreas = async () => {
     setIsLoading(true);
     try {
-      const citiesQuery = query(citiesCollectionRef, orderBy("name", "asc"));
+      const citiesQuery = query(citiesCollectionRef, orderBy("name", "asc"), limit(100));
       const citiesSnapshot = await getDocs(citiesQuery);
       const fetchedCities = citiesSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCity));
       setCities(fetchedCities);
 
-      const areasQuery = query(areasCollectionRef, orderBy("name", "asc"));
+      const areasQuery = query(areasCollectionRef, orderBy("name", "asc"), limit(500));
       const areasSnapshot = await getDocs(areasQuery);
       const fetchedAreas = areasSnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreArea));
       setAreas(fetchedAreas);

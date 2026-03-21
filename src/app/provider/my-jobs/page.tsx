@@ -10,9 +10,10 @@ import { db } from '@/lib/firebase';
 import { collectionGroup, query, where, onSnapshot, orderBy, doc, updateDoc, Timestamp, getDoc, getDocs, limit, addDoc, collection } from "firebase/firestore";
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import ProviderJobCard from '@/components/provider/ProviderJobCard'; // Re-use ProviderJobCard
+import ProviderJobCard from '@/components/provider/ProviderJobCard'; 
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
+import CompleteBookingDialog from '@/components/shared/CompleteBookingDialog';
 
 export default function ProviderMyJobsPage() {
   const { user: providerUser, isLoading: authIsLoading } = useAuth();
@@ -21,6 +22,10 @@ export default function ProviderMyJobsPage() {
   const [isLoadingBookings, setIsLoadingBookings] = useState(true);
   const [processingBookingAction, setProcessingBookingAction] = useState<string | null>(null);
 
+  // Completion Dialog State
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [bookingToComplete, setBookingToComplete] = useState<FirestoreBooking | null>(null);
+
   useEffect(() => {
     if (!providerUser || authIsLoading) {
       if (!authIsLoading && !providerUser) setIsLoadingBookings(false);
@@ -28,7 +33,12 @@ export default function ProviderMyJobsPage() {
     }
     setIsLoadingBookings(true);
     const bookingsColGroupRef = collectionGroup(db, "bookings");
-    const q = query(bookingsColGroupRef, where("providerId", "==", providerUser.uid), orderBy("createdAt", "desc"));
+    const q = query(
+      bookingsColGroupRef, 
+      where("providerId", "==", providerUser.uid), 
+      orderBy("createdAt", "desc"),
+      limit(50)
+    );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setBookings(snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreBooking)));
@@ -41,96 +51,43 @@ export default function ProviderMyJobsPage() {
     return () => unsubscribe();
   }, [providerUser, authIsLoading, toast]);
 
-  const updateBookingStatus = async (bookingId: string, newStatus: BookingStatus) => {
+  const updateBookingStatus = async (bookingId: string, newStatus: BookingStatus, additionalCharges?: {name: string, amount: number}[], finalizedPaymentMethod?: string) => {
+    // SINGLE COMPLETION POPUP
+    if (newStatus === 'Completed' && !finalizedPaymentMethod) {
+        const job = bookings.find(b => b.id === bookingId);
+        if (job) {
+            setBookingToComplete(job);
+            setIsCompleteDialogOpen(true);
+        }
+        return;
+    }
+
     setProcessingBookingAction(bookingId);
     try {
       const bookingDocRef = doc(db, "bookings", bookingId);
-      const bookingSnap = await getDoc(bookingDocRef);
-      if (!bookingSnap.exists()) throw new Error("Booking not found");
-      const bookingData = bookingSnap.data() as FirestoreBooking;
-
-      await updateDoc(bookingDocRef, { status: newStatus, updatedAt: Timestamp.now() });
-      toast({ title: "Success", description: `Job status updated to ${newStatus.replace(/([A-Z])/g, ' $1')}.` });
-
-      // --- SEND NOTIFICATIONS ---
-      try {
-        const providerName = providerUser?.displayName || "A provider";
-        
-        // 1. Notify Admin for most changes
-        if (newStatus === "ProviderAccepted" || newStatus === "ProviderRejected" || newStatus === "InProgressByProvider" || newStatus === "Completed") {
-            const adminQuery = query(collection(db, "users"), where("email", "==", ADMIN_EMAIL), limit(1));
-            const adminSnapshot = await getDocs(adminQuery);
-            if (!adminSnapshot.empty) {
-                const adminId = adminSnapshot.docs[0].id;
-                let adminMsg = "";
-                if (newStatus === "ProviderAccepted") adminMsg = `${providerName} accepted Booking ${bookingData.bookingId}.`;
-                if (newStatus === "ProviderRejected") adminMsg = `${providerName} rejected Booking ${bookingData.bookingId}.`;
-                if (newStatus === "InProgressByProvider") adminMsg = `${providerName} started work on Booking ${bookingData.bookingId}.`;
-                if (newStatus === "Completed") adminMsg = `${providerName} completed Booking ${bookingData.bookingId}.`;
-
-                const adminNotification: Omit<FirestoreNotification, 'id'> = {
-                    userId: adminId,
-                    title: `Provider Status: ${newStatus.replace(/([A-Z])/g, ' $1')}`,
-                    message: adminMsg,
-                    type: newStatus === "ProviderRejected" ? 'warning' : 'info',
-                    href: `/admin/bookings`,
-                    read: false,
-                    createdAt: Timestamp.now(),
-                };
-                await addDoc(collection(db, "userNotifications"), adminNotification);
-                triggerPushNotification({
-                    userId: adminId,
-                    title: adminNotification.title,
-                    body: adminNotification.message,
-                    href: adminNotification.href
-                }).catch(err => console.error("Error sending admin provider-action push:", err));
-            }
+      const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
+      
+      if (newStatus === "Completed") {
+        if (additionalCharges && additionalCharges.length > 0) {
+            updateData.additionalCharges = additionalCharges;
+            const job = bookings.find(b => b.id === bookingId);
+            updateData.totalAmount = (job?.totalAmount || 0) + additionalCharges.reduce((sum, c) => sum + c.amount, 0);
         }
-
-        // 2. Notify User for acceptance, start, and completion
-        if (bookingData.userId && (newStatus === "ProviderAccepted" || newStatus === "InProgressByProvider" || newStatus === "Completed" || newStatus === "ProviderRejected")) {
-            let userTitle = "";
-            let userMsg = "";
-            let userType: FirestoreNotification['type'] = 'info';
-
-            if (newStatus === "ProviderAccepted") {
-                userTitle = "Provider Accepted!";
-                userMsg = `${providerName} has accepted your booking ${bookingData.bookingId} and will arrive as scheduled.`;
-            } else if (newStatus === "InProgressByProvider") {
-                userTitle = "Work Started!";
-                userMsg = `Your provider ${providerName} has started working on booking ${bookingData.bookingId}.`;
-            } else if (newStatus === "Completed") {
-                userTitle = "Job Completed!";
-                userMsg = `Service for booking ${bookingData.bookingId} has been completed. Hope you are satisfied with our service!`;
-                userType = 'success';
-            } else if (newStatus === "ProviderRejected") {
-                userTitle = "Technician Re-assignment";
-                userMsg = `We are currently assigning a new professional technician to your booking ${bookingData.bookingId}. We'll notify you shortly!`;
-                userType = 'warning';
-            }
-
-            const userNotification: Omit<FirestoreNotification, 'id'> = {
-                userId: bookingData.userId,
-                title: userTitle,
-                message: userMsg,
-                type: userType,
-                href: '/my-bookings',
-                read: false,
-                createdAt: Timestamp.now(),
-            };
-            await addDoc(collection(db, "userNotifications"), userNotification);
-            triggerPushNotification({
-                userId: bookingData.userId,
-                title: userNotification.title,
-                body: userNotification.message,
-                href: userNotification.href
-            }).catch(err => console.error("Error sending user provider-action push:", err));
-        }
-      } catch (notifyErr) {
-        console.error("Error in provider status update notifications:", notifyErr);
+        if (finalizedPaymentMethod) updateData.paymentMethod = finalizedPaymentMethod;
       }
-      // --- END NOTIFICATIONS ---
 
+      await updateDoc(bookingDocRef, updateData);
+      
+      // TRIGGER POST-PROCESS
+      fetch('/api/bookings/post-process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingDocId: bookingId }),
+      }).catch(err => console.error("Notification trigger error:", err));
+
+      toast({ title: "Success", description: `Job status updated to ${newStatus.replace(/([A-Z])/g, ' $1')}.` });
+      setIsCompleteDialogOpen(false);
+      setBookingToComplete(null);
     } catch (error) {
       console.error("Error updating job status:", error);
       toast({ title: "Error", description: "Could not update job status.", variant: "destructive" });
@@ -142,7 +99,7 @@ export default function ProviderMyJobsPage() {
   const newJobRequests = useMemo(() => bookings.filter(b => b.status === 'AssignedToProvider'), [bookings]);
   const ongoingJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderAccepted' || b.status === 'InProgressByProvider'), [bookings]);
   const completedJobs = useMemo(() => bookings.filter(b => b.status === 'Completed'), [bookings]);
-  const otherJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderRejected' || b.status === 'Cancelled' || b.status === 'Rescheduled' || b.status === 'Pending Payment' || b.status === 'Processing' /* Add any other admin-managed statuses */), [bookings]);
+  const otherJobs = useMemo(() => bookings.filter(b => b.status === 'ProviderRejected' || b.status === 'Cancelled' || b.status === 'Rescheduled' || b.status === 'Pending Payment' || b.status === 'Processing'), [bookings]);
 
 
   if (authIsLoading || isLoadingBookings) {
@@ -205,12 +162,22 @@ export default function ProviderMyJobsPage() {
         <TabsContent value="other">
           {otherJobs.length > 0 ? (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3 mt-4">
-              {otherJobs.map(job => <ProviderJobCard key={job.id} job={job} type="completed" /> /* Using completed type as actions are mostly disabled */)}
+              {otherJobs.map(job => <ProviderJobCard key={job.id} job={job} type="completed" />)}
             </div>
           ) : <p className="text-muted-foreground text-center py-6">No jobs with other statuses.</p>}
         </TabsContent>
-
       </Tabs>
+
+      {bookingToComplete && (
+        <CompleteBookingDialog 
+          isOpen={isCompleteDialogOpen}
+          onClose={() => { setIsCompleteDialogOpen(false); setBookingToComplete(null); }}
+          onConfirm={(charges, pMethod) => updateBookingStatus(bookingToComplete.id!, 'Completed', charges, pMethod)}
+          originalAmount={bookingToComplete.totalAmount}
+          currentPaymentMethod={bookingToComplete.paymentMethod || "Cash"}
+          isProcessing={processingBookingAction === bookingToComplete.id}
+        />
+      )}
     </div>
   );
 }

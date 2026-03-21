@@ -62,6 +62,8 @@ const serviceFormSchema = z.object({
   imageHint: z.string().max(50, { message: "Image hint should be max 50 characters."}).optional().or(z.literal('')),
   rating: z.coerce.number().min(0).max(5).default(0),
   reviewCount: z.coerce.number().min(0).default(0),
+  hasMinQuantity: z.boolean().default(false),
+  minQuantity: z.coerce.number().min(1, "Min quantity must be at least 1.").optional().nullable(),
   maxQuantity: z.coerce.number().min(0, "Max quantity must be non-negative.").optional().nullable(),
   isActive: z.boolean().default(true),
   taxId: z.string().nullable().optional(),
@@ -144,7 +146,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
       name: "", slug: "", parentCategoryId: undefined, subCategoryId: undefined, price: 0, discountedPrice: undefined,
       hasPriceVariants: false, priceVariants: [],
       description: "", shortDescription: "", fullDescription: "", serviceHighlights: [],
-      imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, maxQuantity: null, isActive: true,
+      imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, 
+      hasMinQuantity: false, minQuantity: 2, maxQuantity: null, isActive: true,
       taxId: null, isTaxInclusive: "false",
       h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
       taskTimeValue: null, taskTimeUnit: null, includedItems: [], excludedItems: [], allowPayLater: true, serviceFaqs: [],
@@ -219,6 +222,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         imageHint: initialData.imageHint || "",
         rating: initialData.rating || 0,
         reviewCount: initialData.reviewCount || 0,
+        hasMinQuantity: initialData.hasMinQuantity || false,
+        minQuantity: initialData.minQuantity === undefined ? 2 : initialData.minQuantity,
         maxQuantity: initialData.maxQuantity === undefined ? null : initialData.maxQuantity,
         isActive: initialData.isActive === undefined ? true : initialData.isActive,
         taxId: initialData.taxId || null,
@@ -243,7 +248,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         name: "", slug: "", parentCategoryId: undefined, subCategoryId: undefined, price: 0, discountedPrice: null,
         hasPriceVariants: false, priceVariants: [],
         description: "", shortDescription: "", fullDescription: "", serviceHighlights: [],
-        imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, maxQuantity: null, isActive: true,
+        imageUrl: "", imageHint: "", rating: 0, reviewCount: 0, 
+        hasMinQuantity: false, minQuantity: 2, maxQuantity: null, isActive: true,
         taxId: null, isTaxInclusive: "false",
         h1_title: "", seo_title: "", seo_description: "", seo_keywords: "",
         taskTimeValue: null, taskTimeUnit: null, includedItems: [], excludedItems: [], allowPayLater: true, serviceFaqs: [],
@@ -471,6 +477,8 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         imageHint: formData.imageHint,
         rating: formData.rating,
         reviewCount: formData.reviewCount,
+        hasMinQuantity: formData.hasMinQuantity,
+        minQuantity: (formData.hasMinQuantity && formData.minQuantity !== null) ? formData.minQuantity : undefined,
         maxQuantity: formData.maxQuantity === null ? undefined : formData.maxQuantity,
         isActive: formData.isActive,
         taxId: finalTaxIdValue,
@@ -597,6 +605,38 @@ export default function ServiceForm({ onSubmit: onSubmitProp, initialData, onCan
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField control={form.control} name="taxId" render={({ field }) => ( <FormItem><FormLabel className="flex items-center"><Percent className="mr-2 h-4 w-4 text-muted-foreground" />Applicable Tax (Optional)</FormLabel> <Select key={`tax-id-select-${initialData?.id || 'new-service'}-${taxes.length}-${field.value}`} onValueChange={(value) => { const newTaxId = value === NO_TAX_VALUE ? null : value; field.onChange(newTaxId); if (newTaxId === null) { form.setValue('isTaxInclusive', "false", { shouldValidate: true });}}} value={field.value ?? NO_TAX_VALUE} disabled={effectiveIsSubmitting || taxes.length === 0}> <FormControl><SelectTrigger><SelectValue placeholder={taxes.length > 0 ? "Select a tax configuration" : "No active taxes"} /></SelectTrigger></FormControl> <SelectContent><SelectItem value={NO_TAX_VALUE}>No Tax</SelectItem>{taxes.map(tax => (<SelectItem key={tax.id} value={tax.id}>{tax.taxName} ({tax.taxPercent}%)</SelectItem>))}</SelectContent> </Select><FormMessage /> </FormItem> )}/>
           <FormField control={form.control} name="isTaxInclusive" render={({ field }) => { return ( <FormItem><FormLabel className={!taxSelected ? "text-muted-foreground" : ""}>Price Tax Type</FormLabel> <Select key={`is-tax-inclusive-select-${initialData?.id || 'new-service'}-${taxes.length}-${String(field.value)}`} onValueChange={field.onChange} value={field.value} disabled={!taxSelected || effectiveIsSubmitting}> <FormControl><SelectTrigger><SelectValue placeholder="Select tax type" /></SelectTrigger></FormControl> <SelectContent><SelectItem value={"false"}>Tax Exclusive (Price + Tax)</SelectItem><SelectItem value={"true"}>Tax Inclusive (Price includes Tax)</SelectItem></SelectContent> </Select>{!taxSelected && <FormDescription className="text-xs">Select a tax first to enable this option.</FormDescription>}<FormMessage /> </FormItem> ); }}/>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="hasMinQuantity"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm bg-background/50">
+                <div className="space-y-0.5">
+                  <FormLabel className="text-base flex items-center">
+                    <ListOrdered className="mr-2 h-4 w-4 text-muted-foreground"/>
+                    Enforce Min Quantity
+                  </FormLabel>
+                  <FormDescription>Set a minimum number of units for booking.</FormDescription>
+                </div>
+                <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={effectiveIsSubmitting} /></FormControl>
+              </FormItem>
+            )}
+          />
+          {form.watch("hasMinQuantity") && (
+            <FormField
+              control={form.control}
+              name="minQuantity"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel className="flex items-center">Min Quantity Value</FormLabel>
+                  <FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl>
+                  <FormDescription className="text-xs">Automatically added to cart.</FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <FormField control={form.control} name="membersRequired" render={({ field }) => (<FormItem><FormLabel className="flex items-center"><Users className="mr-2 h-4 w-4 text-muted-foreground"/>Members Required</FormLabel><FormControl><Input type="number" placeholder="e.g., 2" {...field} value={field.value ?? ""} disabled={effectiveIsSubmitting} /></FormControl><FormDescription className="text-xs">Technicians for this task.</FormDescription><FormMessage /></FormItem>)}/>

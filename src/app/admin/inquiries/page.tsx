@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Badge } from '@/components/ui/badge';
 import { Mail, MessageCircle, Phone, User, Edit, Trash2, CheckCircle, PackageSearch, Loader2, Send, AlertTriangle, Eye, MoreHorizontal, CheckCircle2 } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc, Timestamp, addDoc, limit } from 'firebase/firestore';
 import type { FirestoreContactUsInquiry, FirestorePopupInquiry, InquiryStatus, AppSettings, FirestoreNotification } from '@/types/firestore';
 import { useToast } from "@/hooks/use-toast";
 import { triggerPushNotification } from '@/lib/fcmUtils';
@@ -54,14 +54,14 @@ export default function AdminInquiriesPage() {
 
   useEffect(() => {
     const contactRef = collection(db, "contactUsSubmissions");
-    const qContact = query(contactRef, orderBy("submittedAt", "desc"));
+    const qContact = query(contactRef, orderBy("submittedAt", "desc"), limit(50));
     const unsubContact = onSnapshot(qContact, (snapshot) => {
       setContactInquiries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestoreContactUsInquiry)));
       setIsLoadingContact(false);
     }, (error) => { console.error("Error fetching contact inquiries:", error); setIsLoadingContact(false); });
 
     const popupRef = collection(db, "popupSubmissions");
-    const qPopup = query(popupRef, orderBy("submittedAt", "desc"));
+    const qPopup = query(popupRef, orderBy("submittedAt", "desc"), limit(50));
     const unsubPopup = onSnapshot(qPopup, (snapshot) => {
       setPopupInquiries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as FirestorePopupInquiry)));
       setIsLoadingPopup(false);

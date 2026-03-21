@@ -17,9 +17,10 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { WithdrawalSettings } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const WITHDRAWAL_CONFIG_COLLECTION = "appConfiguration";
-const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal";
+const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal_referral";
 
 const withdrawalSettingsSchema = z.object({
   isWithdrawalEnabled: z.boolean().default(false),
@@ -64,7 +65,7 @@ export default function WithdrawalSettingsTab() {
         form.reset(defaultWithdrawalSettings);
       }
     } catch (error) {
-      toast({ title: "Error", description: "Could not load withdrawal settings.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not load referral withdrawal settings.", variant: "destructive" });
     } finally {
       setIsLoading(false);
     }
@@ -79,9 +80,10 @@ export default function WithdrawalSettingsTab() {
     try {
       const settingsDocRef = doc(db, WITHDRAWAL_CONFIG_COLLECTION, WITHDRAWAL_CONFIG_DOC_ID);
       await setDoc(settingsDocRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
-      toast({ title: "Success", description: "Withdrawal settings saved." });
+      await triggerRefresh('withdrawal-referral-config');
+      toast({ title: "Success", description: "Referral withdrawal settings saved." });
     } catch (error) {
-      toast({ title: "Error", description: "Could not save withdrawal settings.", variant: "destructive" });
+      toast({ title: "Error", description: "Could not save referral withdrawal settings.", variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -91,7 +93,7 @@ export default function WithdrawalSettingsTab() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Withdrawal Settings</CardTitle>
+          <CardTitle>Referral Withdrawal Settings</CardTitle>
           <CardDescription>Configure how users can withdraw their earnings.</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center py-8">
@@ -106,7 +108,7 @@ export default function WithdrawalSettingsTab() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
-            <CardTitle>Withdrawal Settings</CardTitle>
+            <CardTitle>Referral Withdrawal Settings</CardTitle>
             <CardDescription>Configure how users can withdraw their referral earnings.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">

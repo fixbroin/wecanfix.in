@@ -72,6 +72,8 @@ export interface FirestoreService {
 
   rating: number; // Default rating, can be an aggregate
   reviewCount?: number;
+  minQuantity?: number; // New field for minimum booking quantity
+  hasMinQuantity?: boolean; // New field to enable/disable min quantity
   maxQuantity?: number; // Maximum quantity a user can book
   imageUrl?: string; // Main image for the service detail page
   imageHint?: string; // AI hint for the main image
@@ -142,6 +144,9 @@ export interface BookingServiceItem {
   serviceId: string;
   name: string;
   imageUrl?: string; // Added imageUrl property
+  shortDescription?: string; // Added shortDescription
+  taskTimeValue?: number; // Added taskTimeValue
+  taskTimeUnit?: 'hours' | 'minutes'; // Added taskTimeUnit
   quantity: number;
   pricePerUnit: number; // DISPLAYED pricePerUnit at the time of booking
   discountedPricePerUnit?: number; // DISPLAYED discountedPricePerUnit
@@ -184,6 +189,7 @@ export interface FirestoreBooking {
   discountCode?: string;
   discountAmount?: number; // Discount applied to the sum of BASE prices + BASE visiting charge
   appliedPlatformFees?: AppliedPlatformFeeItem[]; // Store applied platform fees
+  additionalCharges?: { name: string; amount: number }[]; // Extra costs added during service
   paymentMethod: string;
   paymentId?: string; // If online payment
   razorpayPaymentId?: string;
@@ -243,10 +249,21 @@ export interface FirestoreUser {
   referralCode?: string; // Unique code for this user
   referredBy?: string; // UID of the user who referred them
   walletBalance?: number; // Current available balance
+  totalReferralPaidOut?: number; // Lifetime referral payouts
   pendingWalletBalance?: number; // Balance from referrals on "Booked" status
   
   // New/updated for provider settlement
   withdrawableBalance?: number; // Total net earnings ready for withdrawal
+  totalPaidOut?: number; // Lifetime provider payouts
+  monthlyStats?: {
+    monthKey: string; // e.g. "2024-03"
+    gross: number;
+    commission: number;
+    cashCollected: number;
+    withdrawals: number;
+    onlineNet: number;
+    cashCommission: number;
+  };
   totalEarnings?: number; // Lifetime gross earnings
   totalCommissionPaid?: number; // Lifetime commission paid to admin
   withdrawalPending?: boolean; // True if a withdrawal request is active
@@ -387,7 +404,7 @@ export interface ContentPage {
   imageHint?: string; // AI search hint
   coverImageUrl?: string;
   updatedAt: Timestamp;
-  createdAt?: Timestamp;
+   createdAt?: Timestamp;
 }
 
 export interface FirestoreFAQ {
@@ -1378,6 +1395,16 @@ export interface EnrichedReferral extends Referral {
 // Withdrawal Types (NEW)
 export type WithdrawalMethodType = 'bank_transfer' | 'upi' | 'amazon_gift_card' | 'other';
 export type WithdrawalStatus = 'pending' | 'approved' | 'rejected' | 'processing' | 'completed' | 're_submit';
+
+export interface SystemStats {
+  totalBookings: number;
+  completedBookings: number;
+  totalRevenue: number;
+  earnedCommission: number;
+  totalUsers: number;
+  newSignups30d: number;
+  updatedAt: Timestamp;
+}
 
 export interface WithdrawalSettings {
   id?: string; // Should be "withdrawal"

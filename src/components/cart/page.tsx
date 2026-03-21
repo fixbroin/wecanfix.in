@@ -138,6 +138,8 @@ function CartPageContent() {
             taxPercent: serviceData.taxPercent,
             hasPriceVariants: serviceData.hasPriceVariants === true,
             priceVariants: serviceData.priceVariants || [],
+            hasMinQuantity: serviceData.hasMinQuantity === true,
+            minQuantity: serviceData.minQuantity ?? 0,
           } as CartItem;
         }
         console.warn(`Service with ID ${entry.serviceId} not found. Removing from cart.`);
@@ -457,12 +459,18 @@ function CartPageContent() {
                           <span className="text-xs text-muted-foreground">(+{item.taxPercent}% tax)</span>
                       ) : null}
                     </div>
+                    {item.hasMinQuantity && item.minQuantity && item.minQuantity > 1 && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold mt-1 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 w-fit">
+                        <Info className="h-3.5 w-3.5" /> Min. {item.minQuantity} units required
+                      </div>
+                    )}
                   </div>
                   <div className="flex flex-col items-stretch sm:items-end mt-3 sm:mt-0 space-y-2 sm:space-y-0 sm:ml-4 w-full sm:w-auto">
                     <QuantitySelector
                       initialQuantity={item.quantity}
                       onQuantityChange={(newQuantity) => handleQuantityChange(item.id, newQuantity)}
                       minQuantity={0} 
+                      enforcedMinQuantity={item.hasMinQuantity ? item.minQuantity : 0}
                       maxQuantity={item.maxQuantity}
                       className="mb-2 sm:mb-0"
                     />

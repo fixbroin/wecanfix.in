@@ -130,7 +130,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="flex items-center gap-3">
           <PwaInstallButton />
-          <Link href="/admin/bookings" passHref>
+          <Link href="/admin/bookings/create" passHref>
             <Button className="rounded-2xl h-12 px-6 shadow-lg shadow-primary/20 bg-primary hover:bg-primary/90">
               <Plus className="mr-2 h-4 w-4" /> Create Booking
             </Button>

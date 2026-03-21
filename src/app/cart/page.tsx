@@ -176,6 +176,8 @@ function CartPageContent() {
             taxPercent: serviceData.taxPercent,
             hasPriceVariants: serviceData.hasPriceVariants === true,
             priceVariants: serviceData.priceVariants || [],
+            hasMinQuantity: serviceData.hasMinQuantity === true,
+            minQuantity: serviceData.minQuantity ?? 0,
           } as CartItem;
         }
         console.warn(`Service with ID ${entry.serviceId} not found. Removing from cart.`);
@@ -519,6 +521,12 @@ function CartPageContent() {
             )} {promoText}
         </Badge>
       )}
+
+      {item.hasMinQuantity && item.minQuantity && item.minQuantity > 1 && (
+        <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold mt-1 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 w-fit">
+            Min. {item.minQuantity} units required
+        </div>
+      )}
     </div>
 
     {/* RIGHT IMAGE */}
@@ -549,6 +557,7 @@ function CartPageContent() {
     initialQuantity={item.quantity}
     onQuantityChange={(newQuantity) => handleQuantityChange(item.id, newQuantity)}
     minQuantity={0}
+    enforcedMinQuantity={item.hasMinQuantity ? item.minQuantity : 0}
     maxQuantity={item.maxQuantity}
   />
 
@@ -599,6 +608,12 @@ function CartPageContent() {
             )} {promoText}
           </Badge>
         )}
+
+        {item.hasMinQuantity && item.minQuantity && item.minQuantity > 1 && (
+          <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold mt-1 bg-amber-50 px-2 py-1 rounded border border-amber-100 w-fit">
+            <Info className="h-4 w-4" /> Min. {item.minQuantity} units required
+          </div>
+        )}
       </div>
     </div>
 
@@ -610,6 +625,7 @@ function CartPageContent() {
           handleQuantityChange(item.id, newQuantity)
         }
         minQuantity={0}
+        enforcedMinQuantity={item.hasMinQuantity ? item.minQuantity : 0}
         maxQuantity={item.maxQuantity}
       />
 

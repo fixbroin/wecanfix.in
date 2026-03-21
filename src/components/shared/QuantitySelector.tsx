@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast'; // Import useToast
 interface QuantitySelectorProps {
   initialQuantity?: number;
   minQuantity?: number;
+  enforcedMinQuantity?: number; // New prop
   maxQuantity?: number;
   onQuantityChange: (quantity: number) => void;
   className?: string;
@@ -18,6 +19,7 @@ interface QuantitySelectorProps {
 const QuantitySelector: React.FC<QuantitySelectorProps> = ({
   initialQuantity = 1,
   minQuantity = 0,
+  enforcedMinQuantity = 0,
   maxQuantity = 99,
   onQuantityChange,
   className = '',
@@ -38,13 +40,26 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       });
       return;
     }
-    const newQuantity = quantity + 1;
+    
+    // If current is 0 and there's an enforced min, jump to it
+    let newQuantity = quantity + 1;
+    if (quantity === 0 && enforcedMinQuantity > 0) {
+      newQuantity = enforcedMinQuantity;
+    }
+    
     setQuantity(newQuantity);
     onQuantityChange(newQuantity);
   };
 
   const handleDecrement = () => {
-    const newQuantity = Math.max(quantity - 1, minQuantity);
+    let newQuantity = quantity - 1;
+    
+    // Logic: If current quantity is equal to enforcedMinQuantity, next step is 0
+    if (enforcedMinQuantity > 0 && quantity <= enforcedMinQuantity) {
+      newQuantity = 0;
+    }
+    
+    newQuantity = Math.max(newQuantity, minQuantity);
     setQuantity(newQuantity);
     onQuantityChange(newQuantity);
   };
@@ -64,6 +79,10 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
       });
     }
 
+    if (value > 0 && enforcedMinQuantity > 0 && value < enforcedMinQuantity) {
+        value = enforcedMinQuantity;
+    }
+
     value = Math.max(minQuantity, value);
     setQuantity(value);
     onQuantityChange(value);
@@ -76,7 +95,7 @@ const QuantitySelector: React.FC<QuantitySelectorProps> = ({
         size="icon"
         className="h-8 w-8"
         onClick={handleDecrement}
-        disabled={quantity <= minQuantity}
+        disabled={quantity === 0}
         aria-label="Decrease quantity"
       >
         <Minus className="h-4 w-4" />

@@ -2,23 +2,59 @@ import { type NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/firebase';
 import { collection, addDoc, Timestamp } from 'firebase/firestore';
 import type { FirestoreVisitorInfoLog } from '@/types/firestore';
+import { headers } from 'next/headers';
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { ipData, pathname, userAgent } = body;
+    const { pathname, userAgent } = body;
 
-    if (!ipData || !pathname || !userAgent) {
+    if (!pathname || !userAgent) {
       return NextResponse.json({ success: false, error: 'Missing required fields.' }, { status: 400 });
+    }
+
+    // 1. Get Real IP from headers
+    const headersList = await headers();
+    const forwardedFor = headersList.get('x-forwarded-for');
+    const realIp = headersList.get('x-real-ip');
+    let userIp = forwardedFor ? forwardedFor.split(',')[0].trim() : (realIp || 'unknown');
+
+    // 2. Fetch Geo-data from Server side (More reliable)
+    let geoData = {
+        city: 'Unknown City',
+        region: 'Unknown Region',
+        country: 'Unknown Country',
+        zip: 'Unknown Postal',
+        isp: 'Unknown ISP'
+    };
+
+    if (userIp !== 'unknown' && userIp !== '127.0.0.1' && userIp !== '::1') {
+        try {
+            const geoRes = await fetch(`http://ip-api.com/json/${userIp}`);
+            if (geoRes.ok) {
+                const data = await geoRes.json();
+                if (data.status === 'success') {
+                    geoData = {
+                        city: data.city || 'Unknown City',
+                        region: data.regionName || 'Unknown Region',
+                        country: data.country || 'Unknown Country',
+                        zip: data.zip || 'Unknown Postal',
+                        isp: data.isp || data.org || 'Unknown ISP'
+                    };
+                }
+            }
+        } catch (geoErr) {
+            console.error("Geo lookup error on server:", geoErr);
+        }
     }
     
     const visitorLog: Omit<FirestoreVisitorInfoLog, 'id' | 'timestamp'> = {
-      ipAddress: ipData.ip || 'Unknown IP',
-      city: ipData.city || 'Unknown City',
-      region: ipData.region || 'Unknown Region',
-      countryName: ipData.country_name || ipData.country || 'Unknown Country',
-      postalCode: ipData.postal || 'Unknown Postal',
-      ispOrganization: ipData.org || 'Unknown ISP',
+      ipAddress: userIp,
+      city: geoData.city,
+      region: geoData.region,
+      countryName: geoData.country,
+      postalCode: geoData.zip,
+      ispOrganization: geoData.isp,
       pathname: pathname,
       userAgent: userAgent,
     };

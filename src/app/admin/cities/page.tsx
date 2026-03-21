@@ -10,7 +10,7 @@ import { PlusCircle, Edit, Trash2, Loader2, MapPin, CheckCircle, XCircle, Packag
 import type { FirestoreCity } from '@/types/firestore';
 import CityForm from '@/components/admin/CityForm';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, where, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Skeleton } from '@/components/ui/skeleton';
@@ -33,7 +33,7 @@ export default function AdminCitiesPage() {
   const fetchCities = async () => {
     setIsLoading(true);
     try {
-      const q = query(citiesCollectionRef, orderBy("name", "asc"));
+      const q = query(citiesCollectionRef, orderBy("name", "asc"), limit(100));
       const data = await getDocs(q);
       const fetchedCities = data.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreCity));
       setCities(fetchedCities);

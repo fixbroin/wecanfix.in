@@ -6,7 +6,7 @@ import AppImage from '@/components/ui/AppImage';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Star, ShoppingCart, Clock, Users, Plus, Minus, Trash2 } from 'lucide-react';
+import { Star, ShoppingCart, Clock, Users, Plus, Minus, Trash2, Info } from 'lucide-react';
 import type { FirestoreService } from '@/types/firestore';
 import QuantitySelector from '@/components/shared/QuantitySelector';
 import { getCartEntries, saveCartEntries, type CartEntry } from '@/lib/cartManager';
@@ -91,7 +91,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
       triggerAuthRedirect(currentPathname);
       return;
     }
-    const newQuantity = 1;
+    const newQuantity = service.hasMinQuantity && service.minQuantity ? service.minQuantity : 1;
     setQuantity(newQuantity);
     updateCartAndShowToast(newQuantity, 'added');
   };
@@ -146,6 +146,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
             <div className="flex items-baseline gap-2 mt-2">
                 <p className="text-lg font-bold text-foreground">₹{service.discountedPrice ?? service.price}</p>
                 {service.discountedPrice && service.discountedPrice < service.price && (<p className="text-sm text-muted-foreground line-through">₹{service.price}</p>)}
+                {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                  <div className="flex items-center gap-1 text-[10px] text-amber-600 font-bold bg-amber-50 px-1.5 py-0.5 rounded border border-amber-100 w-fit ml-auto">
+                    Min. {service.minQuantity} units
+                  </div>
+                )}
             </div>
             <Link href={`/service/${service.slug}`} onClick={handleNavigation} className="text-sm text-primary hover:underline font-medium mt-1">View More</Link>
           </div>
@@ -155,7 +160,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                 <AppImage src={displayImageUrl} alt={service.name} fill sizes="112px" className="object-cover rounded-lg" data-ai-hint={aiHintValue} priority={priority} />
             </Link>
             <div className="w-full mt-2">
-                {quantity === 0 ? (<Button size="sm" className="h-9 rounded-md px-4 w-full" onClick={handleInitialAddToCart}><ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Add</Button>) : (<QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0}/>)}
+                {quantity === 0 ? (<Button size="sm" className="h-9 rounded-md px-4 w-full" onClick={handleInitialAddToCart}><ShoppingCart className="mr-1.5 h-3.5 w-3.5" /> Add</Button>) : (<QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0}/>)}
             </div>
           </div>
         </div>
@@ -193,6 +198,11 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                         <div className="flex items-baseline gap-2">
                             <p className="text-xl font-bold text-foreground">₹{service.discountedPrice ?? service.price}</p>
                             {service.discountedPrice && service.discountedPrice < service.price && (<p className="text-base text-muted-foreground line-through">₹{service.price}</p>)}
+                            {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                              <div className="flex items-center gap-1.5 text-xs text-amber-600 font-bold bg-amber-50 px-2 py-1 rounded border border-amber-100 w-fit">
+                                <Info className="h-4 w-4" /> Min. {service.minQuantity} units required
+                              </div>
+                            )}
                         </div>
                         <Link href={`/service/${service.slug}`} onClick={handleNavigation} className="text-sm text-primary hover:underline font-medium mt-1">View More</Link>
                      </div>
@@ -209,6 +219,7 @@ const ServiceCard: React.FC<ServiceCardProps> = ({ service, priority = false }) 
                       initialQuantity={quantity}
                       onQuantityChange={handleQuantityChange}
                       minQuantity={0}
+                      enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0}
                     />
                   )}
             </div>

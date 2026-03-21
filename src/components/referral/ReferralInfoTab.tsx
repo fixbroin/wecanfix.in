@@ -15,7 +15,9 @@ import { db } from '@/lib/firebase';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Separator } from '@/components/ui/separator';
 import { getTimestampMillis } from '@/lib/utils';
+import AppImage from '@/components/ui/AppImage';
 
 
 const formatDate = (timestamp?: any): string => {
@@ -95,6 +97,14 @@ export default function ReferralInfoTab({ settings }: ReferralInfoTabProps) {
     ? `${settings.referredUserBonus}%` 
     : `₹${settings.referredUserBonus || 0}`;
 
+  const shareMessage = `Hey! I've been using Wecanfix for my home services and they are excellent. You should try them too! Sign up using my link via Google or Mobile and you'll get a ${referredBonusDisplay} welcome reward in your wallet immediately! 🏠🛠️\n\nJoin here: ${referralLink}`;
+  const codeShareMessage = `Hey! Use my referral code: ${firestoreUser?.referralCode} on Wecanfix to get a ${referredBonusDisplay} welcome bonus in your wallet! 🏠🛠️\n\nJoin here: ${referralLink}`;
+
+  const shareOnWhatsApp = () => {
+    const encodedMessage = encodeURIComponent(shareMessage);
+    window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+  };
+
   return (
     <div className="space-y-6">
        <Card>
@@ -128,42 +138,43 @@ export default function ReferralInfoTab({ settings }: ReferralInfoTabProps) {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center"><Gift className="mr-2 h-5 w-5 text-primary" />Your Referral Details</CardTitle>
+          <CardDescription>Share your code or link with your friends. When they sign up via Google or Mobile Number, you both get rewarded.</CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
           <div>
             <label className="text-sm font-medium">Your Unique Referral Code</label>
             <div className="flex items-center gap-2 mt-1">
               <Input
                 readOnly
                 value={firestoreUser.referralCode || 'Generating...'}
-                className="font-mono text-lg bg-muted"
+                className="font-mono text-lg bg-muted h-11"
               />
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => copyToClipboard(firestoreUser.referralCode || '')}
+                className="h-11 w-11"
+                onClick={() => copyToClipboard(codeShareMessage)}
                 disabled={!firestoreUser.referralCode}
               >
                 <Copy className="h-4 w-4" />
               </Button>
             </div>
           </div>
-          <div>
-            <label className="text-sm font-medium">Your Referral Link</label>
-            <div className="flex items-center gap-2 mt-1">
-              <Input
-                readOnly
-                value={referralLink}
-                className="text-xs text-muted-foreground"
-              />
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => copyToClipboard(referralLink)}
-                disabled={!referralLink}
-              >
-                <Copy className="h-4 w-4" />
-              </Button>
+
+          <Separator />
+
+          <div className="space-y-3">
+            <label className="text-sm font-medium">Ready-to-Share Invite</label>
+            <div className="bg-muted p-4 rounded-lg text-sm italic text-muted-foreground border border-dashed border-primary/30 relative">
+                {shareMessage}
+            </div>
+            <div className="flex flex-wrap gap-3 mt-2">
+                <Button variant="outline" size="sm" className="flex-1" onClick={() => copyToClipboard(shareMessage)}>
+                    <Copy className="mr-2 h-4 w-4" /> Copy Message
+                </Button>
+                <Button variant="default" size="sm" className="flex-1 bg-[#25D366] hover:bg-[#128C7E] text-white border-none" onClick={shareOnWhatsApp}>
+                    <AppImage src="/whatsapp.png" alt="WA" width={18} height={18} className="mr-2" /> Share on WhatsApp
+                </Button>
             </div>
           </div>
         </CardContent>

@@ -41,55 +41,23 @@ const PageViewTracker = () => {
       guestId
     );
 
-    // Log visitor info with geolocation
-    const logVisitorWithGeoLocation = async () => {
+    // Log visitor info
+    const logVisitor = async () => {
       try {
-        const geoResponse = await fetch('https://ipapi.co/json/');
-        if (!geoResponse.ok) {
-          console.warn(`Failed to fetch geolocation: ${geoResponse.status}`);
-          // Attempt to log without geo if ipapi fails
-          await fetch('/api/log-visitor-info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ipData: { ip: 'GeoLookupFailed', city: 'Unknown', region: 'Unknown', country_name: 'Unknown', postal: 'Unknown', org: 'Unknown' },
-              pathname,
-              userAgent: navigator.userAgent,
-            }),
-          });
-          return;
-        }
-        const ipData = await geoResponse.json();
-        
         await fetch('/api/log-visitor-info', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            ipData,
             pathname,
             userAgent: navigator.userAgent,
           }),
         });
       } catch (error) {
-        console.error("Error in PageViewTracker fetching geo or logging visitor:", error);
-        // Fallback log without geo-IP if the geo service itself fails
-        try {
-           await fetch('/api/log-visitor-info', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              ipData: { ip: 'GeoLookupError', city: 'Unknown', region: 'Unknown', country_name: 'Unknown', postal: 'Unknown', org: 'Unknown' },
-              pathname,
-              userAgent: navigator.userAgent,
-            }),
-          });
-        } catch (fallbackError) {
-            console.error("Error in PageViewTracker fallback log:", fallbackError);
-        }
+        console.error("Error in PageViewTracker logging visitor:", error);
       }
     };
 
-    logVisitorWithGeoLocation();
+    logVisitor();
 
 
     // Google Tag Manager

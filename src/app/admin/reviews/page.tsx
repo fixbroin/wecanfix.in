@@ -12,7 +12,7 @@ import type { FirestoreReview, ReviewStatus, FirestoreService, FirestoreSubCateg
 import ReviewForm, { type ReviewFormData } from '@/components/admin/ReviewForm';
 import BulkReviewGeneratorDialog from '@/components/admin/BulkReviewGeneratorDialog';
 import { db } from '@/lib/firebase';
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit } from "firebase/firestore";
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, orderBy, query, Timestamp, onSnapshot, limit, startAfter, type DocumentSnapshot } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { getTimestampMillis } from '@/lib/utils';
@@ -28,6 +28,10 @@ const formatReviewTimestamp = (timestamp?: any): string => {
 
 export default function AdminReviewsPage() {
   const [reviews, setReviews] = useState<FirestoreReview[]>([]);
+  const [lastDoc, setLastDoc] = useState<DocumentSnapshot | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  
   const [services, setServices] = useState<Pick<FirestoreService, 'id' | 'name' | 'subCategoryId'>[]>([]);
   const [subCategories, setSubCategories] = useState<Pick<FirestoreSubCategory, 'id' | 'name' | 'parentId'>[]>([]);
   const [parentCategories, setParentCategories] = useState<Pick<FirestoreCategory, 'id' | 'name'>[]>([]);
@@ -39,56 +43,96 @@ export default function AdminReviewsPage() {
   const [filterStatus, setFilterStatus] = useState<ReviewStatus | "All">("All");
   const { toast } = useToast();
 
+  const [isPrerequisitesLoading, setIsPrerequisitesLoading] = useState(false);
+
+  const fetchPrerequisites = async () => {
+    if (services.length > 0) return; // Already loaded
+    setIsPrerequisitesLoading(true);
+    try {
+        const servicesQuery = query(collection(db, "adminServices"), orderBy("name"));
+        const subCatsQuery = query(collection(db, "adminSubCategories"), orderBy("name"));
+        const catsQuery = query(collection(db, "adminCategories"), orderBy("name"));
+        
+        const [servicesSnap, subCatsSnap, catsSnap] = await Promise.all([
+            getDocs(servicesQuery), getDocs(subCatsQuery), getDocs(catsQuery)
+        ]);
+
+        setServices(servicesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string, subCategoryId: doc.data().subCategoryId as string })));
+        setSubCategories(subCatsSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string, parentId: doc.data().parentId as string })));
+        setParentCategories(catsSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string })));
+    } catch (error) {
+        console.error("Error fetching prerequisites:", error);
+        toast({ title: "Error", description: "Could not load service data.", variant: "destructive" });
+    } finally {
+        setIsPrerequisitesLoading(false);
+    }
+  };
+
   useEffect(() => {
-    let servicesAndCatsLoaded = false;
-    let initialReviewsLoaded = false;
-    
-    const tryStopLoading = () => {
-      if (servicesAndCatsLoaded && initialReviewsLoaded) {
-        setIsLoading(false);
-      }
-    };
-    
-    const fetchPrerequisites = async () => {
-        try {
-            const servicesQuery = query(collection(db, "adminServices"), orderBy("name"));
-            const subCatsQuery = query(collection(db, "adminSubCategories"), orderBy("name"));
-            const catsQuery = query(collection(db, "adminCategories"), orderBy("name"));
-            
-            const [servicesSnap, subCatsSnap, catsSnap] = await Promise.all([
-                getDocs(servicesQuery), getDocs(subCatsQuery), getDocs(catsQuery)
-            ]);
-
-            setServices(servicesSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string, subCategoryId: doc.data().subCategoryId as string })));
-            setSubCategories(subCatsSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string, parentId: doc.data().parentId as string })));
-            setParentCategories(catsSnap.docs.map(doc => ({ id: doc.id, name: doc.data().name as string })));
-        } catch (error) {
-            console.error("Error fetching prerequisites for review generation:", error);
-            toast({ title: "Error", description: "Could not load data for AI features.", variant: "destructive" });
-        } finally {
-            servicesAndCatsLoaded = true;
-            tryStopLoading();
-        }
-    };
-
     const reviewsCollectionRef = collection(db, "adminReviews");
-    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"), limit(100));
+    const qReviews = query(reviewsCollectionRef, orderBy("createdAt", "desc"), limit(20));
     
     const unsubscribe = onSnapshot(qReviews, (querySnapshot) => {
         const fetchedReviews = querySnapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id } as FirestoreReview));
         setReviews(fetchedReviews);
-        initialReviewsLoaded = true;
-        tryStopLoading();
+        setLastDoc(querySnapshot.docs[querySnapshot.docs.length - 1] || null);
+        setHasMore(querySnapshot.docs.length === 20);
+        setIsLoading(false);
     }, (error) => {
         console.error("Error fetching reviews: ", error);
         toast({ title: "Error", description: "Could not fetch reviews.", variant: "destructive" });
         setIsLoading(false);
     });
 
-    fetchPrerequisites();
-
     return () => unsubscribe();
   }, [toast]);
+
+  const handleAddReview = async () => {
+    await fetchPrerequisites();
+    setEditingReview(null);
+    setIsFormOpen(true);
+  };
+
+  const handleEditReview = async (review: FirestoreReview) => {
+    await fetchPrerequisites();
+    setEditingReview(review);
+    setIsFormOpen(true);
+  };
+
+  const handleOpenBulkGenerate = async () => {
+    await fetchPrerequisites();
+    setIsBulkGenerateOpen(true);
+  };
+
+  const loadMoreReviews = async () => {
+    if (!lastDoc || isLoadingMore) return;
+    setIsLoadingMore(true);
+    try {
+        const q = query(
+            collection(db, "adminReviews"), 
+            orderBy("createdAt", "desc"), 
+            startAfter(lastDoc), 
+            limit(20)
+        );
+        const snapshot = await getDocs(q);
+        const newReviews = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as FirestoreReview));
+        
+        setReviews(prev => {
+            // Filter out any duplicates that might have been added by the listener
+            const existingIds = new Set(prev.map(r => r.id));
+            const uniqueNew = newReviews.filter(r => !existingIds.has(r.id));
+            return [...prev, ...uniqueNew];
+        });
+        
+        setLastDoc(snapshot.docs[snapshot.docs.length - 1] || null);
+        setHasMore(snapshot.docs.length === 20);
+    } catch (error) {
+        console.error("Error loading more reviews:", error);
+        toast({ title: "Error", description: "Could not load more reviews.", variant: "destructive" });
+    } finally {
+        setIsLoadingMore(false);
+    }
+  };
 
   const filteredReviews = useMemo(() => {
     if (filterStatus === "All") {
@@ -96,16 +140,6 @@ export default function AdminReviewsPage() {
     }
     return reviews.filter(review => review.status === filterStatus);
   }, [reviews, filterStatus]);
-
-  const handleAddReview = () => {
-    setEditingReview(null);
-    setIsFormOpen(true);
-  };
-
-  const handleEditReview = (review: FirestoreReview) => {
-    setEditingReview(review);
-    setIsFormOpen(true);
-  };
 
   const handleDeleteReview = async (reviewId: string) => {
     setIsSubmitting(true);
@@ -185,11 +219,11 @@ export default function AdminReviewsPage() {
                     </SelectContent>
                 </Select>
             </div>
-            <Button onClick={() => setIsBulkGenerateOpen(true)} variant="outline" className="w-full sm:w-auto h-9">
-                <Wand2 className="mr-2 h-4 w-4" /> AI Bulk Generate
+            <Button onClick={handleOpenBulkGenerate} variant="outline" className="w-full sm:w-auto h-9" disabled={isPrerequisitesLoading}>
+                {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />} AI Bulk Generate
             </Button>
-            <Button onClick={handleAddReview} disabled={isSubmitting || isLoading || services.length === 0} className="w-full sm:w-auto h-9">
-                <PlusCircle className="mr-2 h-4 w-4" /> Add New Review
+            <Button onClick={handleAddReview} disabled={isSubmitting || isLoading || isPrerequisitesLoading} className="w-full sm:w-auto h-9">
+                {isPrerequisitesLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />} Add New Review
             </Button>
           </div>
         </CardHeader>
@@ -281,6 +315,14 @@ export default function AdminReviewsPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+
+          {hasMore && reviews.length >= 20 && (
+            <div className="flex justify-center mt-6">
+                <Button variant="outline" size="sm" onClick={loadMoreReviews} disabled={isLoadingMore} className="min-w-[150px]">
+                    {isLoadingMore ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Load More Reviews"}
+                </Button>
+            </div>
           )}
         </CardContent>
       </Card>

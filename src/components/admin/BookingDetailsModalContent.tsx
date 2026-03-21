@@ -7,7 +7,7 @@ import { Separator } from '@/components/ui/separator';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { MapPin, ExternalLink, Tag, HandCoins } from 'lucide-react'; 
+import { MapPin, ExternalLink, Tag, HandCoins, Plus } from 'lucide-react'; 
 import AppImage from '@/components/ui/AppImage'; // Import the Next.js Image component
 import { getTimestampMillis } from '@/lib/utils';
 
@@ -126,7 +126,21 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
                 <strong>Estimated Completion:</strong> {new Date(booking.estimatedEndTime).toLocaleString('en-IN', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true })}
               </p>
             )}
-            <p><strong>Payment Method:</strong> {booking.paymentMethod}</p>
+            <div className="flex items-center gap-2">
+                <strong>Payment Method:</strong> 
+                <Badge variant="outline" className={
+                    booking.status === 'Completed' 
+                    ? "bg-green-50 text-green-700 border-green-200"
+                    : (booking.paymentMethod || 'Cash').toLowerCase().includes('after') || (booking.paymentMethod || 'Cash').toLowerCase().includes('cash')
+                        ? "bg-red-50 text-red-700 border-red-200"
+                        : "bg-green-50 text-green-700 border-green-200"
+                }>
+                    {booking.status === 'Completed' 
+                        ? ((booking.paymentMethod || 'Cash').toLowerCase().includes('after') || (booking.paymentMethod || 'Cash').toLowerCase().includes('cash') ? "Pay After Paid" : `Paid (${booking.paymentMethod})`)
+                        : (booking.paymentMethod || "Cash")
+                    }
+                </Badge>
+            </div>
             {booking.razorpayPaymentId && <p><strong>Razorpay Payment ID:</strong> <span className="text-xs">{booking.razorpayPaymentId}</span></p>}
             {booking.razorpayOrderId && <p><strong>Razorpay Order ID:</strong> <span className="text-xs">{booking.razorpayOrderId}</span></p>}
             {booking.createdAt && <p><strong>Booked On:</strong> {formatDetailTimestamp(booking.createdAt)}</p>}
@@ -200,6 +214,22 @@ export default function BookingDetailsModalContent({ booking }: BookingDetailsMo
               <span className="text-muted-foreground">Total Tax:</span> 
               <span>+ ₹{booking.taxAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
+
+          {booking.additionalCharges && booking.additionalCharges.length > 0 && (
+            <>
+              <Separator className="my-2 opacity-50" />
+              <div className="space-y-1">
+                <p className="text-[10px] font-black uppercase tracking-wider text-amber-600 mb-2">Additional Charges (On-Site):</p>
+                {booking.additionalCharges.map((charge, idx) => (
+                  <div key={idx} className="flex justify-between text-amber-900 font-medium">
+                    <span className="flex items-center gap-1.5"><Plus size={12}/> {charge.name}</span>
+                    <span>+ ₹{charge.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
           <Separator />
           <div className="flex justify-between font-bold text-md text-primary">
               <span>Total Amount:</span>

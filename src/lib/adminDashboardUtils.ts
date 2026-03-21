@@ -3,6 +3,7 @@
 
 import { adminDb } from './firebaseAdmin';
 import { unstable_cache } from 'next/cache';
+import { Timestamp } from 'firebase-admin/firestore';
 import type { FirestoreBooking, FirestoreUser, FirestoreService, UserActivity } from '@/types/firestore';
 import { serializeFirestoreData } from './serializeUtils';
 
@@ -24,44 +25,76 @@ export interface DashboardData {
 export const getDashboardData = unstable_cache(
   async (providerFeeType?: string, providerFeeValue?: number): Promise<DashboardData> => {
     try {
-      const [bookingsSnap, usersSnap, servicesSnap, searchActivitiesSnap, persistentSearchSnap] = await Promise.all([
-        adminDb.collection('bookings').get(),
-        adminDb.collection('users').get(),
+      // 1. Fetch Aggregate Stats (1 read)
+      const statsDoc = await adminDb.collection('appConfiguration').doc('stats').get();
+      const systemStats = statsDoc.exists ? statsDoc.data() : null;
+
+      let completedRevenue = systemStats?.totalRevenue || 0;
+      let totalBookings = systemStats?.totalBookings || 0;
+      let activeUsers = systemStats?.totalUsers || 0;
+      let newSignups = systemStats?.newSignups30d || 0;
+      let earnedCommission = systemStats?.earnedCommission || 0;
+
+      // 2. Fetch other small collections/limits
+      const [servicesSnap, searchActivitiesSnap, persistentSearchSnap] = await Promise.all([
         adminDb.collection('adminServices').get(),
-        adminDb.collection('userActivities').where('eventType', '==', 'search').limit(500).get(),
-        adminDb.collection('searchAnalytics').limit(1000).get()
+        adminDb.collection('userActivities').where('eventType', '==', 'search').limit(200).get(),
+        adminDb.collection('searchAnalytics').limit(500).get()
       ]);
 
-      // 1. Calculate Stats
-      let completedRevenue = 0;
-      let earnedCommission = 0;
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+      // If stats don't exist yet, we do a one-time scan to initialize them
+      if (!systemStats) {
+        console.log("Dashboard stats missing, performing full scan to initialize...");
+        const [bookingsSnap, usersSnap] = await Promise.all([
+          adminDb.collection('bookings').get(),
+          adminDb.collection('users').get()
+        ]);
 
-      bookingsSnap.forEach(doc => {
-        const data = doc.data() as FirestoreBooking;
-        if (data.status === 'Completed') {
-          completedRevenue += data.totalAmount || 0;
-          if (providerFeeType === 'fixed') {
-            earnedCommission += providerFeeValue || 0;
-          } else if (providerFeeType === 'percentage') {
-            earnedCommission += ((data.totalAmount || 0) * (providerFeeValue || 0)) / 100;
+        completedRevenue = 0;
+        earnedCommission = 0;
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        bookingsSnap.forEach(doc => {
+          const data = doc.data() as FirestoreBooking;
+          if (data.status === 'Completed') {
+            completedRevenue += data.totalAmount || 0;
+            if (providerFeeType === 'fixed') {
+              earnedCommission += providerFeeValue || 0;
+            } else if (providerFeeType === 'percentage') {
+              earnedCommission += ((data.totalAmount || 0) * (providerFeeValue || 0)) / 100;
+            }
           }
-        }
-      });
+        });
 
-      let activeUsers = 0;
-      let newSignups = 0;
-      usersSnap.forEach(doc => {
-        const data = doc.data() as FirestoreUser;
-        if (data.isActive) activeUsers++;
-        if (data.createdAt && data.createdAt.toDate() >= thirtyDaysAgo) newSignups++;
-      });
+        activeUsers = 0;
+        newSignups = 0;
+        usersSnap.forEach(doc => {
+          const data = doc.data() as FirestoreUser;
+          if (data.isActive) activeUsers++;
+          if (data.createdAt && data.createdAt.toDate() >= thirtyDaysAgo) newSignups++;
+        });
+        totalBookings = bookingsSnap.size;
 
-      // 2. Analytics: Trending Services
+        // Initialize the stats document for future fast reads
+        adminDb.collection('appConfiguration').doc('stats').set({
+          totalBookings,
+          completedBookings: bookingsSnap.docs.filter(d => d.data().status === 'Completed').length,
+          totalRevenue: completedRevenue,
+          earnedCommission,
+          totalUsers: usersSnap.size,
+          newSignups30d: newSignups,
+          updatedAt: Timestamp.now()
+        }).catch(e => console.error("Error initializing stats:", e));
+      }
+
+      // 3. Analytics: Trending Services (Top 10 bookings - still requires some reads, but we can limit)
+      // For now, keep the recent bookings check for trending services but maybe limit to last 100 bookings
+      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(200).get();
       const servicesDataMap = new Map(servicesSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
       const serviceCounts: { [key: string]: number } = {};
-      bookingsSnap.forEach(doc => {
+      
+      trendingBookings.forEach(doc => {
         const data = doc.data() as FirestoreBooking;
         data.services?.forEach(s => {
           serviceCounts[s.serviceId] = (serviceCounts[s.serviceId] || 0) + (s.quantity || 1);
@@ -77,7 +110,7 @@ export const getDashboardData = unstable_cache(
         .sort((a, b) => (b as any).count - (a as any).count)
         .slice(0, 10);
 
-      // 3. Analytics: Search Hotspots
+      // 4. Analytics: Search Hotspots
       const searchCounts: { [key: string]: number } = {};
       searchActivitiesSnap.forEach(doc => {
         const term = doc.data().eventData?.searchQuery?.toLowerCase().trim();
@@ -92,9 +125,11 @@ export const getDashboardData = unstable_cache(
         .map(([term, count]) => ({ term, count }))
         .slice(0, 20);
 
-      // 4. Recent Activities (Top 5 bookings + Top 5 users)
-      const recentBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(5).get();
-      const recentUsers = await adminDb.collection('users').orderBy('createdAt', 'desc').limit(5).get();
+      // 5. Recent Activities
+      const [recentBookings, recentUsers] = await Promise.all([
+        adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(5).get(),
+        adminDb.collection('users').orderBy('createdAt', 'desc').limit(5).get()
+      ]);
 
       const activities = [
         ...recentBookings.docs.map(doc => {
@@ -124,7 +159,7 @@ export const getDashboardData = unstable_cache(
       return serializeFirestoreData<DashboardData>({
         stats: {
           completedRevenue,
-          totalBookings: bookingsSnap.size,
+          totalBookings,
           activeUsers,
           newSignups,
           earnedCommission
@@ -141,7 +176,7 @@ export const getDashboardData = unstable_cache(
     }
   },
   ['admin-dashboard-stats'],
-  { revalidate: 900 } // 15 minutes
+  { revalidate: 900 }
 );
 
 export const getArchivedBookings = unstable_cache(

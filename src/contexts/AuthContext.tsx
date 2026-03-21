@@ -31,6 +31,7 @@ import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { nanoid } from 'nanoid';
 import { syncCartOnLogin } from '@/lib/cartManager';
 import { triggerPushNotification } from '@/lib/fcmUtils';
+import { incrementSystemStats } from '@/lib/systemStatsUtils';
 // Define and export ADMIN_EMAIL here
 export const ADMIN_EMAIL = "wecanfix.in@gmail.com";
 
@@ -59,7 +60,7 @@ interface AuthContextType {
   handleSuccessfulAuth: (userCredential: UserCredential) => Promise<void>;
   isCompletingProfile: boolean;
   userCredentialForProfileCompletion: UserCredential | null;
-  completeProfileSetup: (details: { fullName: string; email?: string; mobileNumber?: string }) => Promise<void>;
+  completeProfileSetup: (details: { fullName: string; email?: string; mobileNumber?: string; referralCode?: string }) => Promise<void>;
   cancelProfileCompletion: () => void;
   setUser: React.Dispatch<React.SetStateAction<User | null>>;
 }
@@ -215,7 +216,7 @@ if (
     setUser(null);
   }, []);
 
-  const completeProfileSetup = useCallback(async (details: { fullName: string; email?: string; mobileNumber?: string }) => {
+  const completeProfileSetup = useCallback(async (details: { fullName: string; email?: string; mobileNumber?: string; referralCode?: string }) => {
     if (!userCredentialForProfileCompletion) return;
     setIsLoading(true);
     const { user } = userCredentialForProfileCompletion;
@@ -232,7 +233,7 @@ if (
     toast({
       title: "Verification Email Sent",
       description: `A verification link has been sent to ${details.email}. Please check your inbox to link it to your account.`,
-      duration: 8000,
+      duration: 3000,
     });
 
   } catch (error: any) {
@@ -255,7 +256,7 @@ if (
 }
   
       await runTransaction(db, async (transaction) => {
-        const referralCodeParam = localStorage.getItem("referralCode");
+        const referralCodeParam = localStorage.getItem("referralCode") || details.referralCode;
         const referralSettingsDocRef = doc(db, "appConfiguration", "referral");
         const referralSettingsSnap = await transaction.get(referralSettingsDocRef);
         const referralSettings = referralSettingsSnap.exists() ? referralSettingsSnap.data() as ReferralSettings : null;
@@ -267,20 +268,21 @@ if (
         const newUsersEmail = details.email || user.email;
 
         try {
-            const geoResponse = await fetch('https://ipapi.co/json/');
-            if (geoResponse.ok) {
-                const ipData = await geoResponse.json();
+            const ipResponse = await fetch('/api/auth/get-client-ip');
+            if (ipResponse.ok) {
+                const ipData = await ipResponse.json();
                 ipAddress = ipData.ip || null;
             }
-        } catch (e) { console.warn("Could not fetch IP address during signup."); }
+        } catch (e) { console.warn("Could not fetch IP address via server API."); }
         if (typeof window !== 'undefined') deviceId = getSimpleDeviceId();
 
         const newUserDocRef = doc(db, "users", user.uid);
+        const authProvider = user.providerData[0]?.providerId; // e.g. 'google.com', 'phone', 'password'
   
-        if (referralCodeParam && referralSettings?.isReferralSystemEnabled) {
+        if (referralCodeParam && referralSettings?.isReferralSystemEnabled && (authProvider === 'google.com' || authProvider === 'phone')) {
           const orConditions = [];
           if (newUsersEmail) orConditions.push(where("referredUserEmail", "==", newUsersEmail));
-          if (ipAddress) orConditions.push(where("ipAddress", "==", ipAddress));
+          if (ipAddress && ipAddress !== 'unknown') orConditions.push(where("ipAddress", "==", ipAddress));
           if (deviceId) orConditions.push(where("deviceId", "==", deviceId));
 
           let existingReferralSnap = { empty: true };
@@ -296,36 +298,46 @@ if (
             if (!referrerSnapshot.empty) {
               const referrerDoc = referrerSnapshot.docs[0];
               referrerId = referrerDoc.id;
-              const referredBonus = referralSettings.referredUserBonus || 0;
-              if (referredBonus > 0) {
-                initialWalletBalance = referredBonus;
+
+              // Fraud Prevention: A user cannot refer themselves
+              if (referrerId === user.uid) {
+                console.warn("Self-referral attempt blocked.");
+                toast({ title: "Referral Notice", description: "Self-referrals are not eligible for bonuses.", variant: "warning" });
+              } else {
+                const referredBonus = referralSettings.referredUserBonus || 0;
+                if (referredBonus > 0) {
+                    initialWalletBalance = referredBonus;
+                }
+        
+                const referralDocRef = doc(collection(db, "referrals"));
+                const newReferral: Omit<Referral, 'id'> = {
+                    referrerId: referrerId,
+                    referredUserId: user.uid,
+                    referredUserEmail: newUsersEmail || "N/A",
+                    status: 'pending',
+                    referrerBonus: referralSettings.referrerBonus || 0,
+                    referredBonus: referredBonus,
+                    createdAt: Timestamp.now(),
+                    ipAddress: ipAddress,
+                    deviceId: deviceId,
+                };
+                transaction.set(referralDocRef, newReferral);
+        
+                const referrerNotification: Omit<FirestoreNotification, 'id'> = {
+                    userId: referrerId,
+                    title: "New Referral Signup!",
+                    message: `${details.fullName} has signed up using your link. You'll get your bonus when they complete their first booking.`,
+                    type: 'success',
+                    href: '/referral',
+                    read: false,
+                    createdAt: Timestamp.now(),
+                };
+                transaction.set(doc(collection(db, "userNotifications")), referrerNotification);
               }
-    
-              const referralDocRef = doc(collection(db, "referrals"));
-              const newReferral: Omit<Referral, 'id'> = {
-                referrerId: referrerId,
-                referredUserId: user.uid,
-                referredUserEmail: newUsersEmail || "N/A",
-                status: 'pending',
-                referrerBonus: referralSettings.referrerBonus || 0,
-                referredBonus: referredBonus,
-                createdAt: Timestamp.now(),
-                ipAddress: ipAddress,
-                deviceId: deviceId,
-              };
-              transaction.set(referralDocRef, newReferral);
-    
-              const referrerNotification: Omit<FirestoreNotification, 'id'> = {
-                userId: referrerId,
-                title: "New Referral Signup!",
-                message: `${details.fullName} has signed up using your code. You'll get your bonus when they complete their first booking.`,
-                type: 'success',
-                href: '/referral',
-                read: false,
-                createdAt: Timestamp.now(),
-              };
-              transaction.set(doc(collection(db, "userNotifications")), referrerNotification);
             }
+          } else {
+            console.warn("This device or network has already used a referral link.");
+            toast({ title: "Referral Notice", description: "This device or network has already used a referral link. Account created without bonus.", variant: "warning" });
           }
         }
   
@@ -344,6 +356,8 @@ if (
           ...(referrerId && { referredBy: referrerId }),
         };
         transaction.set(newUserDocRef, newUserFirestoreData);
+        // Track stats for new user
+        incrementSystemStats({ totalUsers: 1, newSignups30d: 1 }).catch(e => console.error("Stats increment error:", e));
       });
   
       const guestIdBeforeAuth = getGuestId();

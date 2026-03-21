@@ -101,20 +101,8 @@ function WithdrawalPageContent() {
   const [isLoadingSettings, setIsLoadingSettings] = useState(true);
 
   const withdrawableBalance = useMemo(() => {
-    let netFromOnlinePayments = 0;
-    completedBookings.forEach(booking => {
-        if (!isCashPayment(booking.paymentMethod)) {
-            const commission = calculateProviderFee(booking.totalAmount, appConfig.providerFeeType, appConfig.providerFeeValue);
-            netFromOnlinePayments += (booking.totalAmount - commission);
-        }
-    });
-
-    const totalWithdrawnOrProcessing = withdrawalHistory
-        .filter(req => ['completed', 'processing', 'approved', 'pending'].includes(req.status))
-        .reduce((sum, req) => sum + req.amount, 0);
-
-    return Math.max(0, netFromOnlinePayments - totalWithdrawnOrProcessing);
-  }, [completedBookings, withdrawalHistory, appConfig]);
+    return firestoreUser?.withdrawableBalance || 0;
+  }, [firestoreUser?.withdrawableBalance]);
 
 
   const form = useForm<WithdrawalFormData>({
@@ -159,7 +147,7 @@ function WithdrawalPageContent() {
   }, [editingRequest, form, firestoreUser]);
   
   useEffect(() => {
-    const settingsDocRef = doc(db, "appConfiguration", "withdrawal");
+    const settingsDocRef = doc(db, "appConfiguration", "withdrawal_provider");
     const unsubscribeSettings = onSnapshot(settingsDocRef, (docSnap) => {
         if (docSnap.exists()) {
             setWithdrawalSettings(docSnap.data() as WithdrawalSettings);
@@ -233,14 +221,38 @@ function WithdrawalPageContent() {
         const { confirmAccountNumber, ...detailsToSave } = data.details; 
 
         if (editingRequest) {
-            const requestDocRef = doc(db, "withdrawalRequests", editingRequest.id!);
-            await updateDoc(requestDocRef, {
-                amount: data.amount,
-                method: data.method as WithdrawalMethodType,
-                details: detailsToSave,
-                status: 'pending',
-                requestedAt: Timestamp.now(), 
-                adminNotes: null, 
+            await runTransaction(db, async (transaction) => {
+                const userDocRef = doc(db, "users", providerUser.uid);
+                const userDoc = await transaction.get(userDocRef);
+                if (!userDoc.exists()) throw new Error("Provider user document not found.");
+                
+                const currentBalance = userDoc.data().withdrawableBalance || 0;
+                // Add back the old amount, subtract the new amount
+                const newBalance = currentBalance + editingRequest.amount - data.amount!;
+                if (newBalance < 0) throw new Error("Insufficient balance for this update.");
+
+                // Update monthly stats withdrawals
+                const now = new Date();
+                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                let stats = userDoc.data().monthlyStats || { monthKey, gross: 0, commission: 0, cashCollected: 0, withdrawals: 0, onlineNet: 0, cashCommission: 0 };
+                if (stats.monthKey === monthKey) {
+                    stats.withdrawals = (stats.withdrawals || 0) - editingRequest.amount + data.amount!;
+                }
+
+                const requestDocRef = doc(db, "withdrawalRequests", editingRequest.id!);
+                transaction.update(requestDocRef, {
+                    amount: data.amount,
+                    method: data.method as WithdrawalMethodType,
+                    details: detailsToSave,
+                    status: 'pending',
+                    requestedAt: Timestamp.now(), 
+                    adminNotes: null, 
+                });
+                transaction.update(userDocRef, { 
+                    withdrawableBalance: newBalance, 
+                    withdrawalPending: true,
+                    monthlyStats: stats
+                });
             });
             toast({ title: "Request Re-submitted", description: "Your withdrawal request has been updated and sent for review."});
             setEditingRequest(null);
@@ -253,9 +265,25 @@ function WithdrawalPageContent() {
                 const userDocRef = doc(db, "users", providerUser.uid);
                 const userDoc = await transaction.get(userDocRef);
                 if (!userDoc.exists()) throw new Error("Provider user document not found.");
+                
+                const currentBalance = userDoc.data().withdrawableBalance || 0;
+                if (currentBalance < data.amount!) throw new Error("Insufficient balance.");
+
+                // Update monthly stats withdrawals
+                const now = new Date();
+                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+                let stats = userDoc.data().monthlyStats || { monthKey, gross: 0, commission: 0, cashCollected: 0, withdrawals: 0, onlineNet: 0, cashCommission: 0 };
+                if (stats.monthKey === monthKey) {
+                    stats.withdrawals = (stats.withdrawals || 0) + data.amount!;
+                }
+
                 const newRequestRef = doc(collection(db, "withdrawalRequests"));
                 transaction.set(newRequestRef, newRequestData);
-                transaction.update(userDocRef, { withdrawalPending: true });
+                transaction.update(userDocRef, { 
+                    withdrawableBalance: currentBalance - data.amount!,
+                    withdrawalPending: true,
+                    monthlyStats: stats
+                });
             });
             toast({ title: "Request Submitted", description: "Your withdrawal request is being processed."});
         }

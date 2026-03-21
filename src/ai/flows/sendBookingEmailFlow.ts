@@ -47,6 +47,7 @@ const BookingConfirmationEmailInputSchema = z.object({
   discountAmount: z.number().optional(),
   discountCode: z.string().optional(),
   appliedPlatformFees: z.array(EmailPlatformFeeItemSchema).optional(),
+  additionalCharges: z.array(z.object({ name: z.string(), amount: z.number() })).optional(),
   taxAmount: z.number(),
   totalAmount: z.number(),
   paymentMethod: z.string(),
@@ -176,11 +177,20 @@ const bookingEmailFlow = ai.defineFlow(
           <tr><td style="padding: 4px 0;">Items Total:</td><td align="right" style="padding: 4px 0;">Rs. ${bookingDetails.subTotal.toFixed(2)}</td></tr>
           ${bookingDetails.discountAmount && bookingDetails.discountAmount > 0 ? `<tr><td style="padding: 4px 0; color: #198754;">Discount (${bookingDetails.discountCode || 'Applied'}):</td><td align="right" style="padding: 4px 0; color: #198754;">- Rs. ${bookingDetails.discountAmount.toFixed(2)}</td></tr>` : ''}
           ${bookingDetails.visitingCharge && bookingDetails.visitingCharge > 0 ? `<tr><td style="padding: 4px 0;">Visiting Charge:</td><td align="right">+ Rs. ${bookingDetails.visitingCharge.toFixed(2)}</td></tr>` : ''}
+          
           ${bookingDetails.appliedPlatformFees && bookingDetails.appliedPlatformFees.length > 0 ? bookingDetails.appliedPlatformFees.map(fee => `<tr><td style="padding: 4px 0;">${fee.name}:</td><td align="right">+ Rs. ${fee.amount.toFixed(2)}</td></tr>`).join('') : ''}
+          
+          ${bookingDetails.additionalCharges && bookingDetails.additionalCharges.length > 0 ? `
+            <tr><td colspan="2" style="padding: 10px 0 5px 0; font-size: 12px; color: #888888; text-transform: uppercase; font-weight: bold;">Additional Service Charges:</td></tr>
+            ${bookingDetails.additionalCharges.map(charge => `
+              <tr><td style="padding: 2px 0;">${charge.name}:</td><td align="right">+ Rs. ${charge.amount.toFixed(2)}</td></tr>
+            `).join('')}
+          ` : ''}
+
           <tr><td style="padding: 4px 0;">Total Tax:</td><td align="right">+ Rs. ${bookingDetails.taxAmount.toFixed(2)}</td></tr>
           <tr><td colspan="2" style="border-top: 1px solid #eeeeee; padding-top: 10px; margin-top: 10px;"></td></tr>
           <tr style="font-size: 18px; font-weight: bold; color: #111111;">
-            <td style="padding: 5px 0;">Total Amount Due:</td>
+            <td style="padding: 5px 0;">Total Amount:</td>
             <td align="right" style="padding: 5px 0;">Rs. ${bookingDetails.totalAmount.toFixed(2)}</td>
           </tr>
         </table>
@@ -229,7 +239,9 @@ const bookingEmailFlow = ai.defineFlow(
             <div class="section-title" style="margin-top: 25px;">Final Payment Summary</div>
             ${paymentSummaryHtml}
           </div>
-          <p>Please find your invoice attached.</p>
+          <p style="text-align: center; margin-top: 30px;">
+            <a href="${getBaseUrl()}/my-bookings" class="button">Manage Your Booking</a>
+          </p>
           <p>Thank you for choosing ${siteName}!</p>
         `, siteName, logoUrl);
         adminEmailSubject = `Booking Completed (ID: ${bookingDetails.bookingId})`;

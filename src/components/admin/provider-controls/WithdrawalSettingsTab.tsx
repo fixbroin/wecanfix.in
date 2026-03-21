@@ -16,9 +16,10 @@ import { useToast } from '@/hooks/use-toast';
 import { db } from '@/lib/firebase';
 import { doc, getDoc, setDoc, Timestamp } from "firebase/firestore";
 import type { WithdrawalSettings } from '@/types/firestore';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 const WITHDRAWAL_CONFIG_COLLECTION = "appConfiguration";
-const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal";
+const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal_provider";
 
 const withdrawalSettingsSchema = z.object({
   isWithdrawalEnabled: z.boolean().default(false),
@@ -78,7 +79,8 @@ export default function WithdrawalSettingsTab() {
     try {
       const settingsDocRef = doc(db, WITHDRAWAL_CONFIG_COLLECTION, WITHDRAWAL_CONFIG_DOC_ID);
       await setDoc(settingsDocRef, { ...data, updatedAt: Timestamp.now() }, { merge: true });
-      toast({ title: "Success", description: "Withdrawal settings saved." });
+      await triggerRefresh('withdrawal-provider-config');
+      toast({ title: "Success", description: "Provider withdrawal settings saved." });
     } catch (error) {
       toast({ title: "Error", description: "Could not save withdrawal settings.", variant: "destructive" });
     } finally {
@@ -90,8 +92,8 @@ export default function WithdrawalSettingsTab() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Withdrawal Settings</CardTitle>
-          <CardDescription>Configure how users can withdraw their earnings.</CardDescription>
+          <CardTitle>Provider Withdrawal Settings</CardTitle>
+          <CardDescription>Configure how providers can withdraw their earnings.</CardDescription>
         </CardHeader>
         <CardContent className="flex justify-center items-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -105,8 +107,8 @@ export default function WithdrawalSettingsTab() {
       <form onSubmit={form.handleSubmit(onSubmit)}>
         <Card>
           <CardHeader>
-            <CardTitle>Withdrawal Settings</CardTitle>
-            <CardDescription>Configure how providers can withdraw their earnings.</CardDescription>
+            <CardTitle>Provider Withdrawal Settings</CardTitle>
+            <CardDescription>Configure how providers can withdraw their earnings independently from referral withdrawals.</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
             <FormField
@@ -115,7 +117,7 @@ export default function WithdrawalSettingsTab() {
               render={({ field }) => (
                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 shadow-sm">
                   <div className="space-y-0.5">
-                    <FormLabel className="text-base">Enable Withdrawals</FormLabel>
+                    <FormLabel className="text-base">Enable Provider Withdrawals</FormLabel>
                     <FormDescription>Allow providers to request withdrawal of their earnings.</FormDescription>
                   </div>
                   <FormControl><Switch checked={field.value} onCheckedChange={field.onChange} disabled={isSaving} /></FormControl>
@@ -128,8 +130,8 @@ export default function WithdrawalSettingsTab() {
               name="minWithdrawalAmount"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Minimum Withdrawal Amount (₹)</FormLabel>
-                  <FormControl><Input type="number" placeholder="e.g., 200" {...field} disabled={isSaving} /></FormControl>
+                  <FormLabel>Minimum Provider Withdrawal Amount (₹)</FormLabel>
+                  <FormControl><Input type="number" placeholder="e.g., 500" {...field} disabled={isSaving} /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

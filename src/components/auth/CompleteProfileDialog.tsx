@@ -10,14 +10,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { Loader2, User, Mail, Phone } from "lucide-react";
+import { Loader2, User, Mail, Phone, Gift } from "lucide-react";
 import { useToast } from '@/hooks/use-toast';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 
 interface CompleteProfileDialogProps {
   isOpen: boolean;
   userCredential: UserCredential;
-  onSubmit: (details: { fullName: string; email?: string; mobileNumber?: string }) => Promise<void>;
+  onSubmit: (details: { fullName: string; email?: string; mobileNumber?: string; referralCode?: string }) => Promise<void>;
   onClose: () => void; // For cancelling/logging out the partial user
 }
 
@@ -25,6 +25,7 @@ const profileSchema = z.object({
   fullName: z.string().min(2, "Full name must be at least 2 characters."),
   mobileNumber: z.string().optional(),
   email: z.string().optional(),
+  referralCode: z.string().optional(),
 }).superRefine((data, ctx) => {
   // Logic handled in handleSubmit for specific provider requirements
 });
@@ -51,6 +52,7 @@ export default function CompleteProfileDialog({
       fullName: userCredential.user.displayName || "",
       email: userCredential.user.email || "",
       mobileNumber: userCredential.user.phoneNumber ? userCredential.user.phoneNumber.replace(config.defaultOtpCountryCode || '+91', '') : "",
+      referralCode: "",
     },
   });
 
@@ -60,6 +62,7 @@ export default function CompleteProfileDialog({
       fullName: userCredential.user.displayName || "",
       email: userCredential.user.email || "",
       mobileNumber: userCredential.user.phoneNumber ? userCredential.user.phoneNumber.replace(config.defaultOtpCountryCode || '+91', '') : "",
+      referralCode: "",
     });
   }, [userCredential, config, form]);
 
@@ -85,13 +88,17 @@ export default function CompleteProfileDialog({
         fullName: data.fullName,
         email: data.email || userCredential.user.email || undefined,
         mobileNumber: mobileNumberForSubmit || userCredential.user.phoneNumber || undefined,
+        referralCode: data.referralCode,
       });
-    } catch (error) {
-      toast({ title: "Error", description: "Could not save profile. Please try again.", variant: "destructive" });
+    } catch (error: any) {
+      const errorMessage = error.message || "Could not save profile. Please try again.";
+      toast({ title: "Registration Update", description: errorMessage, variant: errorMessage.includes('referral') ? "warning" : "destructive" });
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  const hasAutoReferral = typeof window !== 'undefined' && !!localStorage.getItem('referralCode');
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => { if (!open) onClose(); }}>
@@ -162,6 +169,22 @@ export default function CompleteProfileDialog({
                     <FormLabel className="flex items-center"><Mail className="mr-2 h-4 w-4" />Email Address</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="Your email address" {...field} disabled={isSubmitting} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {!hasAutoReferral && (
+              <FormField
+                control={form.control}
+                name="referralCode"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center text-primary/80"><Gift className="mr-2 h-4 w-4" />Referral Code (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter referral code" {...field} disabled={isSubmitting} className="uppercase font-mono" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

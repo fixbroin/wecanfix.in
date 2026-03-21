@@ -18,6 +18,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
 import { getTimestampMillis } from '@/lib/utils';
+import CompleteBookingDialog from '@/components/shared/CompleteBookingDialog';
 
 const formatTimestampForDisplay = (timestamp?: any): string => {
   const millis = getTimestampMillis(timestamp);
@@ -49,6 +50,7 @@ export default function ProviderBookingDetailsPage() {
   const [isLoadingBooking, setIsLoadingBooking] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
 
   useEffect(() => {
     if (!bookingId || !providerUser) {
@@ -100,92 +102,35 @@ export default function ProviderBookingDetailsPage() {
     router.back();
   }
 
-  const updateBookingStatus = async (newStatus: BookingStatus) => {
+  const updateBookingStatus = async (newStatus: BookingStatus, additionalCharges?: {name: string, amount: number}[], finalizedPaymentMethod?: string) => {
     if (!booking?.id || !providerUser) return;
     setIsProcessingAction(true);
     try {
       const bookingDocRef = doc(db, "bookings", booking.id);
-      await updateDoc(bookingDocRef, { status: newStatus, updatedAt: Timestamp.now() });
-      toast({ title: "Success", description: `Job status updated to ${newStatus.replace(/([A-Z])/g, ' $1')}.` });
-
-      // --- SEND NOTIFICATIONS ---
-      try {
-        const providerName = providerUser?.displayName || "A provider";
-        
-        // 1. Notify Admin
-        if (newStatus === "ProviderAccepted" || newStatus === "ProviderRejected" || newStatus === "InProgressByProvider" || newStatus === "Completed") {
-            const adminQuery = query(collection(db, "users"), where("email", "==", ADMIN_EMAIL), limit(1));
-            const adminSnapshot = await getDocs(adminQuery);
-            if (!adminSnapshot.empty) {
-                const adminId = adminSnapshot.docs[0].id;
-                let adminMsg = "";
-                if (newStatus === "ProviderAccepted") adminMsg = `${providerName} accepted Booking ${booking.bookingId}.`;
-                if (newStatus === "ProviderRejected") adminMsg = `${providerName} rejected Booking ${booking.bookingId}.`;
-                if (newStatus === "InProgressByProvider") adminMsg = `${providerName} started work on Booking ${booking.bookingId}.`;
-                if (newStatus === "Completed") adminMsg = `${providerName} completed Booking ${booking.bookingId}.`;
-
-                const adminNotification: Omit<FirestoreNotification, 'id'> = {
-                    userId: adminId,
-                    title: `Provider Status: ${newStatus.replace(/([A-Z])/g, ' $1')}`,
-                    message: adminMsg,
-                    type: newStatus === "ProviderRejected" ? 'warning' : 'info',
-                    href: `/admin/bookings`,
-                    read: false,
-                    createdAt: Timestamp.now(),
-                };
-                await addDoc(collection(db, "userNotifications"), adminNotification);
-                triggerPushNotification({
-                    userId: adminId,
-                    title: adminNotification.title,
-                    body: adminNotification.message,
-                    href: adminNotification.href
-                }).catch(err => console.error("Error sending admin provider-action push:", err));
-            }
-        }
-
-        // 2. Notify User
-        if (booking.userId && (newStatus === "ProviderAccepted" || newStatus === "InProgressByProvider" || newStatus === "Completed" || newStatus === "ProviderRejected")) {
-            let userTitle = "";
-            let userMsg = "";
-            let userType: FirestoreNotification['type'] = 'info';
-
-            if (newStatus === "ProviderAccepted") {
-                userTitle = "Provider Accepted!";
-                userMsg = `${providerName} has accepted your booking ${booking.bookingId} and will arrive as scheduled.`;
-            } else if (newStatus === "InProgressByProvider") {
-                userTitle = "Work Started!";
-                userMsg = `Your provider ${providerName} has started working on booking ${booking.bookingId}.`;
-            } else if (newStatus === "Completed") {
-                userTitle = "Job Completed!";
-                userMsg = `Service for booking ${booking.bookingId} has been completed. Hope you are satisfied with our service!`;
-                userType = 'success';
-            } else if (newStatus === "ProviderRejected") {
-                userTitle = "Technician Re-assignment";
-                userMsg = `We are currently assigning a new professional technician to your booking ${booking.bookingId}. We'll notify you shortly!`;
-                userType = 'warning';
-            }
-
-            const userNotification: Omit<FirestoreNotification, 'id'> = {
-                userId: booking.userId,
-                title: userTitle,
-                message: userMsg,
-                type: userType,
-                href: '/my-bookings',
-                read: false,
-                createdAt: Timestamp.now(),
-            };
-            await addDoc(collection(db, "userNotifications"), userNotification);
-            triggerPushNotification({
-                userId: booking.userId,
-                title: userNotification.title,
-                body: userNotification.message,
-                href: userNotification.href
-            }).catch(err => console.error("Error sending user provider-action push:", err));
-        }
-      } catch (notifyErr) {
-        console.error("Error in provider details status update notifications:", notifyErr);
+      const updateData: any = { status: newStatus, updatedAt: Timestamp.now() };
+      
+      let updatedTotal = booking.totalAmount;
+      if (newStatus === "Completed" && additionalCharges && additionalCharges.length > 0) {
+        updateData.additionalCharges = additionalCharges;
+        const extraTotal = additionalCharges.reduce((sum, c) => sum + c.amount, 0);
+        updatedTotal = (booking.totalAmount || 0) + extraTotal;
+        updateData.totalAmount = updatedTotal;
       }
-      // --- END NOTIFICATIONS ---
+
+      if (newStatus === "Completed" && finalizedPaymentMethod) {
+        updateData.paymentMethod = finalizedPaymentMethod;
+      }
+
+      await updateDoc(bookingDocRef, updateData);
+      toast({ title: "Success", description: `Job status updated to ${newStatus.replace(/([A-Z])/g, ' $1')}.` });
+      setIsCompleteDialogOpen(false);
+
+      // --- TRIGGER POST-PROCESS (Emails, Push, WhatsApp) ---
+      fetch('/api/bookings/post-process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingDocId: booking.id }),
+      }).catch(err => console.error("Provider trigger error:", err));
 
     } catch (error) {
       console.error("Error updating job status:", error);
@@ -312,8 +257,25 @@ export default function ProviderBookingDetailsPage() {
                 <p><strong>Subtotal:</strong> ₹{booking.subTotal.toFixed(2)}</p>
                 {booking.discountAmount && booking.discountAmount > 0 && <p><strong>Discount:</strong> - ₹{booking.discountAmount.toFixed(2)} ({booking.discountCode})</p>}
                 {booking.visitingCharge && booking.visitingCharge > 0 && <p><strong>Visiting Charge:</strong> + ₹{booking.visitingCharge.toFixed(2)}</p>}
+                
+                {booking.appliedPlatformFees && booking.appliedPlatformFees.length > 0 && booking.appliedPlatformFees.map((fee, idx) => (
+                  <p key={idx}><strong>{fee.name}:</strong> + ₹{(fee.calculatedFeeAmount + fee.taxAmountOnFee).toFixed(2)}</p>
+                ))}
+
+                {booking.additionalCharges && booking.additionalCharges.length > 0 && (
+                  <div className="bg-amber-50 p-2 rounded-md border border-amber-100 my-2">
+                    <p className="font-bold text-amber-800 text-xs uppercase mb-1">Additional Charges Added During Service:</p>
+                    {booking.additionalCharges.map((c, i) => (
+                      <div key={i} className="flex justify-between text-amber-900">
+                        <span>{c.name}</span>
+                        <span>+ ₹{c.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
                 <p><strong>Tax:</strong> + ₹{booking.taxAmount.toFixed(2)}</p>
-                <p className="font-bold"><strong>Total Amount:</strong> ₹{booking.totalAmount.toFixed(2)}</p>
+                <p className="font-bold text-lg text-primary mt-2"><strong>Total Amount:</strong> ₹{booking.totalAmount.toFixed(2)}</p>
                 <p><strong>Payment Method:</strong> {booking.paymentMethod}</p>
              </div>
            </section>
@@ -370,7 +332,7 @@ export default function ProviderBookingDetailsPage() {
 
             {booking.status === 'InProgressByProvider' && (
                 <Button 
-                    onClick={() => updateBookingStatus('Completed')} 
+                    onClick={() => setIsCompleteDialogOpen(true)} 
                     disabled={isProcessingAction}
                     className="w-full sm:w-auto bg-green-600 hover:bg-green-700"
                 >
@@ -380,6 +342,17 @@ export default function ProviderBookingDetailsPage() {
             )}
         </CardFooter>
       </Card>
+
+      {booking && (
+        <CompleteBookingDialog 
+          isOpen={isCompleteDialogOpen}
+          onClose={() => setIsCompleteDialogOpen(false)}
+          onConfirm={(charges, pMethod) => updateBookingStatus('Completed', charges, pMethod)}
+          originalAmount={booking.totalAmount}
+          currentPaymentMethod={booking.paymentMethod || "Cash"}
+          isProcessing={isProcessingAction}
+        />
+      )}
     </div>
   );
 }

@@ -413,7 +413,7 @@ export default function ServiceDetailPageClient({
       triggerAuthRedirect(currentPathname);
       return;
     }
-    const newQuantity = 1;
+    const newQuantity = service.hasMinQuantity && service.minQuantity ? service.minQuantity : 1;
     setQuantity(newQuantity);
     updateCartAndShowToast(newQuantity, 'added');
   };
@@ -556,6 +556,13 @@ export default function ServiceDetailPageClient({
                     )}
                 </div>
 
+                {service.hasMinQuantity && service.minQuantity && service.minQuantity > 1 && (
+                    <div className="flex items-center gap-2 text-sm sm:text-base text-amber-700 font-bold bg-amber-50 px-4 py-2 rounded-lg border border-amber-200">
+                        <AlertCircle className="h-5 w-5 flex-shrink-0" />
+                        <span>This service requires a minimum of {service.minQuantity} units per booking.</span>
+                    </div>
+                )}
+
                 <div className="w-full">
                   {!isAvailable ? (
                     <Button size="lg" className="w-full text-sm sm:text-base" disabled>
@@ -568,7 +575,7 @@ export default function ServiceDetailPageClient({
                   ) : (
                     <div className="w-full flex items-center justify-between bg-muted/50 p-2 rounded-xl border border-border/50">
                       <span className="text-xs sm:text-sm font-bold text-foreground ml-2">Quantity:</span>
-                      <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} maxQuantity={service.maxQuantity}/>
+                      <QuantitySelector initialQuantity={quantity} onQuantityChange={handleQuantityChange} minQuantity={0} enforcedMinQuantity={service.hasMinQuantity ? service.minQuantity : 0} maxQuantity={service.maxQuantity}/>
                     </div>
                   )}
                 </div>

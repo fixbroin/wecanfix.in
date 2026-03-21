@@ -182,6 +182,8 @@ export default function AdminServicesPage() {
       priceVariants: data.priceVariants,
       rating: Number(data.rating || 0), 
       reviewCount: Number(data.reviewCount || 0),
+      hasMinQuantity: data.hasMinQuantity,
+      minQuantity: data.hasMinQuantity ? Number(data.minQuantity || 0) : undefined,
       maxQuantity: data.maxQuantity === null ? undefined : Number(data.maxQuantity),
       isActive: data.isActive === undefined ? true : data.isActive,
       imageUrl: data.imageUrl || "", 

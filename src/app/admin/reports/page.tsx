@@ -9,7 +9,7 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ChartTooltipRech
 import { ChartContainer, ChartTooltipContent, type ChartConfig } from "@/components/ui/chart";
 import type { FirestoreBooking } from '@/types/firestore';
 import { db } from '@/lib/firebase';
-import { collection, onSnapshot, query, orderBy } from "firebase/firestore";
+import { collection, onSnapshot, query, orderBy, limit } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 
 
@@ -46,7 +46,7 @@ export default function AdminReportsPage() {
     setIsLoading(true);
     setError(null); 
     const bookingsCollectionRef = collection(db, "bookings");
-    const q = query(bookingsCollectionRef, orderBy("createdAt", "desc")); // Order by creation if needed for other reports
+    const q = query(bookingsCollectionRef, orderBy("createdAt", "desc"), limit(500)); 
 
     const unsubscribe = onSnapshot(q, (querySnapshot) => {
       console.log("AdminReportsPage: onSnapshot received data, docs count:", querySnapshot.docs.length);
