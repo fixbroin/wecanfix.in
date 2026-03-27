@@ -560,16 +560,16 @@ export default function HomePageClient({ citySlug, areaSlug, breadcrumbItems, in
   }, [citySlug, areaSlug, initialData, seoSettings, initialH1Title]);
 
   const setupRealtimeListeners = useCallback(() => {
-    // If it's a bot or not an admin, we don't need realtime listeners.
-    // The initialData from server is enough for the first render.
+    // CRITICAL: We only want real-time listeners for ADMINS to see live changes.
+    // Regular visitors should ONLY use the cached data from initialData.
     if (isVisitorBot.current || !isAdmin) {
         setIsLoadingFeaturesConfig(false);
         setIsLoadingPopular(false);
         setIsLoadingRecent(false);
-        return () => {};
+        return () => {}; // No-op cleanup
     }
 
-    // 1. Features Config Listener
+    // 1. Features Config Listener (Admins Only)
     const configDocRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
     const unsubscribeConfig = onSnapshot(configDocRef, (docSnap) => {
       if (docSnap.exists()) {

@@ -111,23 +111,30 @@ export function useGlobalSettings() {
       return () => unsubscribe();
     } else {
       // Public site and providers use one-time fetch + cache
-      const fetchSettings = async () => {
-        const cached = getCache<GlobalWebSettings>(CACHE_KEY, true);
-        const lastFetch = typeof window !== 'undefined' ? localStorage.getItem(`${CACHE_KEY}-last-fetch`) : null;
-        const now = Date.now();
-
-        if (cached && !isAdmin && lastFetch && (now - parseInt(lastFetch) < CACHE_TTL)) {
-            setIsLoading(false);
-            return;
-        }
-
+    const fetchSettings = async () => {
         try {
+          // Check Global Version (1 read)
+          const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+          const versionSnap = await getDoc(versionDocRef);
+          const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+          
+          const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
+          const cached = getCache<GlobalWebSettings>(CACHE_KEY, true);
+
+          // If versions match, use the lifetime cache and STOP. Zero reads for settings.
+          if (cached && remoteVersion <= localVersion) {
+              setSettings(processSettingsData(cached));
+              setIsLoading(false);
+              return;
+          }
+
+          // Versions don't match or no cache? Read settings (1 read)
           const docSnap = await getDoc(settingsDocRef);
           if (docSnap.exists()) {
             const processed = processSettingsData(docSnap.data() as Partial<GlobalWebSettings>);
             setSettings(processed);
             setCache(CACHE_KEY, processed, true);
-            if (typeof window !== 'undefined') localStorage.setItem(`${CACHE_KEY}-last-fetch`, now.toString());
+            localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
           }
         } catch (err) {
           console.error("Error fetching settings:", err);

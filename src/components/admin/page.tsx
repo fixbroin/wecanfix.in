@@ -53,14 +53,10 @@ const calculateProviderFee = (bookingAmount: number, feeType?: 'fixed' | 'percen
     return 0;
 };
 
+import { useAdminStats } from '@/hooks/useAdminStats';
+
 export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>({
-    completedRevenue: 0,
-    totalBookings: 0,
-    activeUsers: 0,
-    newSignups: 0,
-    earnedCommission: 0,
-  });
+  const { stats: dbStats, isLoading: isStatsLoading, error: statsError } = useAdminStats();
   const [analytics, setAnalytics] = useState<AnalyticsData>({
     topServices: [],
     topSearchTerms: [],
@@ -75,70 +71,12 @@ export default function AdminDashboardPage() {
 
 
   useEffect(() => {
-    setIsLoading(true);
-    setError(null);
+    if (isStatsLoading) return;
+    setIsLoading(false);
+    if (statsError) setError(statsError);
+  }, [isStatsLoading, statsError]);
 
-    const bookingsColRef = collection(db, "bookings");
-    const usersColRef = collection(db, "users");
-
-    const unsubscribeBookingsStats = onSnapshot(bookingsColRef, (snapshot) => {
-      let currentCompletedRevenue = 0;
-      let currentCommission = 0;
-      
-      snapshot.forEach((doc) => {
-        const booking = doc.data() as FirestoreBooking;
-        if (booking.status === 'Completed') {
-            currentCompletedRevenue += booking.totalAmount || 0;
-            currentCommission += calculateProviderFee(booking.totalAmount, appConfig?.providerFeeType, appConfig?.providerFeeValue);
-        }
-      });
-
-      setStats(prevStats => ({
-        ...prevStats,
-        completedRevenue: currentCompletedRevenue,
-        totalBookings: snapshot.size,
-        earnedCommission: currentCommission,
-      }));
-      if (isLoading) setIsLoading(false);
-    }, (err) => {
-      console.error("Error fetching bookings for dashboard stats:", err);
-      setError("Could not load booking data.");
-      setIsLoading(false);
-    });
-
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoTimestamp = Timestamp.fromDate(thirtyDaysAgo);
-
-    const usersQuery = query(usersColRef);
-    const unsubscribeUsersStats = onSnapshot(usersQuery, (snapshot) => {
-      let currentActiveUsers = 0;
-      let currentNewSignups = 0;
-      snapshot.forEach((doc) => {
-        const user = doc.data() as FirestoreUser;
-        if (user.isActive) {
-          currentActiveUsers++;
-        }
-        if (user.createdAt) {
-          const millis = getTimestampMillis(user.createdAt);
-          if (millis && millis >= thirtyDaysAgo.getTime()) {
-            currentNewSignups++;
-          }
-        }
-      });
-      setStats(prevStats => ({
-        ...prevStats,
-        activeUsers: currentActiveUsers,
-        newSignups: currentNewSignups,
-      }));
-      if (isLoading) setIsLoading(false);
-    }, (err) => {
-      console.error("Error fetching users for dashboard stats:", err);
-      setError((prevError) => prevError ? `${prevError} Could not load user data.` : "Could not load user data.");
-      setIsLoading(false);
-    });
-
-    // Fetch Recent Activities
+  useEffect(() => {
     setIsActivitiesLoading(true);
     setActivitiesError(null);
 
@@ -176,8 +114,8 @@ export default function AdminDashboardPage() {
     }, (err) => {
       console.error("Error fetching recent bookings:", err);
       setActivitiesError((prev) => prev ? `${prev} Failed to load recent bookings.` : "Failed to load recent bookings.");
-      bookingsLoaded = true; // Consider it "loaded" to unblock combining if users fail
-      if (usersLoaded) combineAndSetActivities(); // Attempt to show user activities if bookings fail
+      bookingsLoaded = true;
+      if (usersLoaded) combineAndSetActivities();
     });
 
     const unsubscribeRecentUsers = onSnapshot(recentUsersQuery, (snapshot) => {
@@ -190,7 +128,7 @@ export default function AdminDashboardPage() {
           title: 'New User Signup',
           description: `${user.displayName || user.email} just joined.`,
           icon: <UserPlus className="h-5 w-5 text-accent" />,
-          href: `/admin/users`, // General link to users page
+          href: `/admin/users`,
         };
       });
       usersLoaded = true;
@@ -202,22 +140,25 @@ export default function AdminDashboardPage() {
       if (bookingsLoaded) combineAndSetActivities();
     });
 
-    // Fetch Analytics Data
+    // Fetch Analytics Data (Optimized)
     const fetchAnalytics = async () => {
         setIsAnalyticsLoading(true);
         try {
-            // Fetch all services first to get their details
+            // Fetch all services first to get their details (small collection)
             const servicesSnapshot = await getDocs(collection(db, "adminServices"));
             const servicesDataMap = new Map(servicesSnapshot.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() } as FirestoreService]));
 
-            // Top Services
-            const bookingsSnapshot = await getDocs(collection(db, "bookings"));
+            // Top Services - Limit to recent 200 bookings for trending data instead of ALL history
+            const bookingsQuery = query(collection(db, "bookings"), orderBy("createdAt", "desc"), limit(200));
+            const bookingsSnapshot = await getDocs(bookingsQuery);
             const serviceCounts: { [key: string]: number } = {};
             bookingsSnapshot.forEach(doc => {
                 const booking = doc.data() as FirestoreBooking;
-                booking.services.forEach(service => {
-                    serviceCounts[service.serviceId] = (serviceCounts[service.serviceId] || 0) + service.quantity;
-                });
+                if (booking.services) {
+                    booking.services.forEach(service => {
+                        serviceCounts[service.serviceId] = (serviceCounts[service.serviceId] || 0) + (service.quantity || 1);
+                    });
+                }
             });
 
             const topServices = Object.entries(serviceCounts)
@@ -229,7 +170,7 @@ export default function AdminDashboardPage() {
                 .sort((a, b) => b.count - a.count)
                 .slice(0, 10);
 
-            // Top Search Terms
+            // Top Search Terms (already limited to 500)
             const searchActivitiesSnapshot = await getDocs(query(collection(db, "userActivities"), where("eventType", "==", "search"), limit(500)));
             const searchCounts: { [key: string]: number } = {};
             searchActivitiesSnapshot.forEach(doc => {
@@ -251,25 +192,14 @@ export default function AdminDashboardPage() {
     };
     fetchAnalytics();
 
-
-    // Combined check to ensure loading is false
-    const checkLoadingDone = () => {
-        setTimeout(() => {
-            if (isLoading) setIsLoading(false);
-        }, 500); 
-    }
-    checkLoadingDone();
-
     return () => {
-      unsubscribeBookingsStats();
-      unsubscribeUsersStats();
       unsubscribeRecentBookings();
       unsubscribeRecentUsers();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appConfig]); // Re-run if appConfig changes to recalculate commission
+  }, []); // Only run once on mount
 
-  if (isLoading) {
+  if (isLoading || isStatsLoading) {
     return (
       <div className="space-y-6">
         <h2 className="text-2xl font-semibold">Dashboard Overview</h2>
@@ -319,7 +249,7 @@ export default function AdminDashboardPage() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{stats.completedRevenue.toLocaleString()}</div>
+            <div className="text-2xl font-bold">₹{dbStats.completedRevenue.toLocaleString()}</div>
           </CardContent>
         </Card>
          <Card>
@@ -328,7 +258,7 @@ export default function AdminDashboardPage() {
             <HandCoins className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">₹{stats.earnedCommission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
+            <div className="text-2xl font-bold">₹{dbStats.earnedCommission.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</div>
           </CardContent>
         </Card>
         <Card>
@@ -337,7 +267,7 @@ export default function AdminDashboardPage() {
             <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalBookings}</div>
+            <div className="text-2xl font-bold">{dbStats.totalBookings}</div>
           </CardContent>
         </Card>
         <Card>
@@ -346,7 +276,7 @@ export default function AdminDashboardPage() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.activeUsers}</div>
+            <div className="text-2xl font-bold">{dbStats.activeUsers}</div>
           </CardContent>
         </Card>
          <Card>
@@ -355,7 +285,7 @@ export default function AdminDashboardPage() {
             <BarChart className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+{stats.newSignups}</div>
+            <div className="text-2xl font-bold">+{dbStats.newSignups30d}</div>
           </CardContent>
         </Card>
       </div>

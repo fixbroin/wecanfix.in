@@ -1,7 +1,7 @@
 
 import { type NextRequest, NextResponse } from 'next/server';
-import { revalidateTag } from 'next/cache';
 import { adminAuth } from '@/lib/firebaseAdmin';
+import { triggerRefresh } from '@/lib/revalidateUtils';
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,26 +14,23 @@ export async function POST(req: NextRequest) {
     const token = authHeader.split('Bearer ')[1];
     const decodedToken = await adminAuth.verifyIdToken(token);
     
-    // Check if user has admin role (assuming you have custom claims or a way to verify admin)
-    // For now, we verify the token is valid. You might want to add: if (!decodedToken.admin) ...
-    
     const { tag } = await req.json();
 
     if (!tag) {
       return NextResponse.json({ error: 'Tag is required' }, { status: 400 });
     }
 
-    // 2. Revalidate the requested tag
-    // If tag is 'all', we use our master key 'global-cache'
-    const tagToRevalidate = tag === 'all' ? 'global-cache' : tag;
+    // 2. Revalidate the requested tag using our smart trigger
+    // This will also bump the global cache version in Firestore
+    const tagToRefresh = tag === 'all' ? 'global' : tag;
     
-    revalidateTag(tagToRevalidate);
+    await triggerRefresh(tagToRefresh);
 
-    console.log(`[Cache] Revalidated tag: ${tagToRevalidate} by admin ${decodedToken.uid}`);
+    console.log(`[Cache] Full system refresh triggered (Tag: ${tagToRefresh}) by admin ${decodedToken.uid}`);
 
     return NextResponse.json({ 
       success: true, 
-      message: `Cache for tag "${tagToRevalidate}" has been cleared.` 
+      message: `Cache for tag "${tagToRefresh}" has been cleared.` 
     });
 
   } catch (error: any) {

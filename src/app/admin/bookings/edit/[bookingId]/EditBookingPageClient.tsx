@@ -185,6 +185,13 @@ export default function EditBookingPageClient() {
 
       await updateDoc(bookingDocRef, updateData);
 
+      // Trigger post-process API to update system stats, send emails, etc.
+      fetch('/api/bookings/post-process', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ bookingDocId: bookingId }),
+      }).catch(err => console.error("Error calling post-process after edit:", err));
+
       // Create notification for the user
       const userNotificationData: Omit<FirestoreNotification, 'id'> = {
         userId: booking.userId || "anonymous",

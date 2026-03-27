@@ -50,45 +50,39 @@ export function useApplicationConfig(): UseApplicationConfigReturn {
   useEffect(() => {
     const configDocRef = doc(db, APP_CONFIG_COLLECTION, APP_CONFIG_DOC_ID);
 
-    if (isAdmin) {
-      const unsubscribe = onSnapshot(configDocRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const processed = processData(docSnap.data());
-          setConfig(processed);
-          setCache(CACHE_KEY, processed, true);
-        }
-        setIsLoading(false);
-      }, (err) => {
-        console.error("Error fetching config:", err);
-        setError("Failed to load settings.");
-        setIsLoading(false);
-      });
-
-      return () => unsubscribe();
-    } else {
-      // Public site: use one-time fetch if cache is empty or stale
-      const fetchConfig = async () => {
+    const fetchConfig = async () => {
+      try {
+        // Smart Cache Logic:
+        // Check global cache version (1 read)
+        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+        const versionSnap = await getDoc(versionDocRef);
+        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        
+        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
         const cached = getCache<AppSettings>(CACHE_KEY, true);
-        if (cached) {
+        
+        if (cached && remoteVersion <= localVersion) {
+            setConfig(cached);
             setIsLoading(false);
             return;
         }
 
-        try {
-          const docSnap = await getDoc(configDocRef);
-          if (docSnap.exists()) {
-            const processed = processData(docSnap.data());
-            setConfig(processed);
-            setCache(CACHE_KEY, processed, true);
-          }
-        } catch (err) {
-          console.error("Error fetching config:", err);
-        } finally {
-          setIsLoading(false);
+        // Fetch fresh if version changed (1 read)
+        const docSnap = await getDoc(configDocRef);
+        if (docSnap.exists()) {
+          const processed = processData(docSnap.data());
+          setConfig(processed);
+          setCache(CACHE_KEY, processed, true);
+          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
         }
-      };
-      fetchConfig();
-    }
+      } catch (err) {
+        console.error("Error fetching config:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchConfig();
   }, [processData, isAdmin]);
 
   return { config, isLoading, error };

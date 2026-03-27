@@ -119,8 +119,6 @@ export const logUserActivity = async (
     }
 
   } catch (error) {
-    // ... existing error logging ...
-
     // Log the raw error object first for better inspection in browser console
     console.error('Raw error object from Firestore setDoc in activityLogger:', error);
     

@@ -307,6 +307,27 @@ export default function ServiceDetailPageClient({
     const servicesCollectionRef = collection(db, "adminServices");
     const qService = query(servicesCollectionRef, where("slug", "==", serviceSlug), where("isActive", "==", true), limit(1));
 
+    // CRITICAL: Only use realtime listeners for ADMINS.
+    // Regular visitors use the server-cached data.
+    if (!isAdmin) {
+        const fetchServiceOneTime = async () => {
+            try {
+                const querySnapshot = await getDocs(qService);
+                if (!querySnapshot.empty) {
+                    const processed = await processServiceData(querySnapshot.docs[0]);
+                    if (processed) {
+                        setService(processed);
+                        setH1Title(processed.h1_title || processed.name);
+                        fetchReviewsForService(processed.id);
+                    }
+                }
+            } catch (e) { console.error(e); }
+            setIsLoading(false);
+        };
+        fetchServiceOneTime();
+        return () => {};
+    }
+
     const unsubscribe = onSnapshot(qService, async (querySnapshot) => {
       if (querySnapshot.empty) {
         setService(null);
