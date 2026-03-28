@@ -4,18 +4,19 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { 
   BarChart, DollarSign, ShoppingBag, Users, Loader2, AlertTriangle, 
-  UserPlus, TagIcon, History, HandCoins, Search, TrendingUp, Plus, Calendar, ChevronRight, ArrowUpRight
+  UserPlus, TagIcon, History, HandCoins, Search, TrendingUp, Plus, Calendar, ChevronRight, ArrowUpRight, Trash2
 } from "lucide-react";
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { format, formatDistanceToNow } from 'date-fns';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
+import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { motion } from 'framer-motion';
 import { cn } from '@/lib/utils';
 import PwaInstallButton from '@/components/shared/PwaInstallButton';
 import DashboardTrendingServiceCard from '@/components/admin/DashboardTrendingServiceCard';
-import { getDashboardData, type DashboardData } from '@/lib/adminDashboardUtils';
+import { getDashboardData, type DashboardData, clearSearchHotspots } from '@/lib/adminDashboardUtils';
 
 const containerVariants = {
   hidden: { opacity: 0 },
@@ -59,6 +60,35 @@ export default function AdminDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { config: appConfig } = useApplicationConfig();
+  const { toast } = useToast();
+
+  const handleClearSearches = async () => {
+    if (!confirm("Are you sure you want to delete all search hotspots? This cannot be undone.")) return;
+    
+    try {
+      const result = await clearSearchHotspots();
+      if (result.success) {
+        toast({
+          title: "Searches Cleared",
+          description: "Search hotspots data has been deleted.",
+        });
+        loadData(); // Refresh the dashboard data
+      } else {
+        toast({
+          title: "Error",
+          description: result.error || "Failed to clear search hotspots.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error("Error in handleClearSearches:", err);
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -256,9 +286,20 @@ export default function AdminDashboardPage() {
           <motion.div variants={itemVariants}>
             <Card className="border-none shadow-xl rounded-3xl bg-card">
               <CardHeader className="p-8 pb-4">
-                <CardTitle className="text-xl font-black tracking-tight flex items-center">
-                  <Search className="mr-3 h-5 w-5 text-primary"/> Search Hotspots
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-xl font-black tracking-tight flex items-center">
+                    <Search className="mr-3 h-5 w-5 text-primary"/> Search Hotspots
+                  </CardTitle>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-full transition-all"
+                    onClick={handleClearSearches}
+                    title="Clear All Searches"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
               </CardHeader>
               <CardContent className="p-8 pt-0">
                 <ScrollArea className="h-[300px]">
