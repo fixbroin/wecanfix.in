@@ -121,7 +121,7 @@ export default function AdminCategoriesPage() {
       // Refresh the cache
       await triggerRefresh('categories');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting category: ", error);
       toast({ title: "Error", description: "Could not delete category.", variant: "destructive" });
@@ -140,7 +140,7 @@ export default function AdminCategoriesPage() {
         // Refresh the cache
         await triggerRefresh('categories');
         await triggerRefresh('sitemap');
-        await triggerRefresh('global-cache');
+        // Removed global-cache trigger to save reads
     } catch (error) {
         toast({ title: "Error", description: "Could not update category status.", variant: "destructive" });
     } finally {
@@ -179,7 +179,7 @@ export default function AdminCategoriesPage() {
       // Refresh the cache
       await triggerRefresh('categories');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
 
       setIsFormOpen(false);
       setEditingCategory(null);

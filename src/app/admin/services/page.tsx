@@ -118,7 +118,7 @@ export default function AdminServicesPage() {
         toast({ title: "Status Updated", description: `Service "${service.name}" ${!service.isActive ? "enabled" : "disabled"}.` });
         await triggerRefresh('services');
         await triggerRefresh('sitemap');
-        await triggerRefresh('global-cache');
+        // Removed global-cache trigger to save reads
     } catch (error) {
         toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
     } finally {
@@ -137,7 +137,7 @@ export default function AdminServicesPage() {
         toast({ title: "Pay Later Updated", description: `Pay later for "${service.name}" ${!service.allowPayLater ? "enabled" : "disabled"}.` });
         await triggerRefresh('services');
         await triggerRefresh('sitemap');
-        await triggerRefresh('global-cache');
+        // Removed global-cache trigger to save reads
     } catch (error) {
         toast({ title: "Error", description: "Could not update pay later status.", variant: "destructive" });
     } finally {
@@ -161,7 +161,7 @@ export default function AdminServicesPage() {
       await deleteDoc(serviceDocRef);
       await triggerRefresh('services'); // SmartSync: Invalidate cache
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
       setServices(prev => prev.filter(serv => serv.id !== serviceId));
       toast({ title: "Success", description: "Service deleted successfully." });
     } catch (error) {
@@ -230,7 +230,7 @@ export default function AdminServicesPage() {
         await triggerRefresh(`service-${data.slug}`); // Invalidate specific service page cache
       }
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
       setIsFormOpen(false); setEditingService(null); await fetchData();
     } catch (error) {
       console.error("Error saving service: ", error);

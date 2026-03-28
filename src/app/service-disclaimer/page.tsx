@@ -28,7 +28,7 @@ function getTimestampMillis(ts: any): number {
   return typeof ts === 'number' ? ts : 0;
 }
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 const PAGE_SLUG = "service-disclaimer";
 
@@ -49,7 +49,7 @@ const getPageData = cache(async (slug: string): Promise<ContentPage | null> => {
       }
     },
     [`content-page-${slug}`],
-    { revalidate: 3600, tags: ['content'] }
+    { tags: ['content', 'global-cache'] }
   )();
 });
 

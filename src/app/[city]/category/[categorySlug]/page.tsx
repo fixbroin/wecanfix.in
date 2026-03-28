@@ -12,7 +12,7 @@ import JsonLdScript from '@/components/shared/JsonLdScript';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false; // Persistent Cache
 
 interface PageProps {
   params: Promise<{ city: string; categorySlug: string }>;
@@ -54,7 +54,7 @@ const getPageData = cache(async (citySlug: string, categorySlug: string): Promis
       return { city: cityData, category: categoryData };
     },
     [`city-category-data-${citySlug}-${categorySlug}`],
-    { revalidate: 3600, tags: ['cities', 'categories', `city-cat-${citySlug}-${categorySlug}`] }
+    { tags: ['cities', 'categories', `city-cat-${citySlug}-${categorySlug}`, 'global-cache'] }
   )();
 });
 

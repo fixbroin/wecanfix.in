@@ -18,7 +18,7 @@ const REFERRAL_CONFIG_DOC_ID = "referral";
 const WITHDRAWAL_CONFIG_DOC_ID = "withdrawal_referral";
 const CONFIG_COLLECTION = "appConfiguration";
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 import { serializeFirestoreData } from '@/lib/serializeUtils';
 
@@ -34,7 +34,7 @@ const getReferralSettings = unstable_cache(
     }
   },
   ['referral-settings'],
-  { revalidate: 3600, tags: ['config', 'referral-config'] }
+  { tags: ['config', 'referral-config', 'global-cache'] }
 );
 
 const getWithdrawalSettings = unstable_cache(
@@ -61,7 +61,7 @@ const getWithdrawalSettings = unstable_cache(
     }
   },
   ['withdrawal-referral-settings'],
-  { revalidate: 3600, tags: ['config', 'withdrawal-referral-config'] }
+  { tags: ['config', 'withdrawal-referral-config', 'global-cache'] }
 );
 
 

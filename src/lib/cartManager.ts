@@ -99,6 +99,9 @@ export const syncCartToFirestore = async (userId: string, cartEntries: CartEntry
         userId: userId,
         items: cartEntries,
         updatedAt: Timestamp.now(),
+        marketingStatus: {
+          reminderSent: false // Reset flag so they get a new reminder if they abandon this update
+        }
       }, { merge: true });
     } catch (error) {
       console.error("Error syncing cart to Firestore:", error);

@@ -71,7 +71,7 @@ export default function AdminFAQPage() {
       toast({ title: "Success", description: "FAQ deleted successfully." });
       await triggerRefresh('faqs');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting FAQ: ", error);
       toast({ title: "Error", description: "Could not delete FAQ.", variant: "destructive" });
@@ -101,7 +101,7 @@ export default function AdminFAQPage() {
       }
       await triggerRefresh('faqs');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
       setIsFormOpen(false);
       setEditingFAQ(null);
       await fetchFAQs(); 

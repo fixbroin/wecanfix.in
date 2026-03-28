@@ -19,9 +19,6 @@ const firebaseConfig = {
 // Initialize Firebase
 let app: FirebaseApp;
 
-// Add more detailed logging
-console.log("Firebase Config Check: NEXT_PUBLIC_FIREBASE_API_KEY raw value is:", "'" + process.env.NEXT_PUBLIC_FIREBASE_API_KEY + "'");
-
 if (!firebaseConfig.apiKey) {
   console.error("Firebase API Key from process.env.NEXT_PUBLIC_FIREBASE_API_KEY is undefined or empty.");
   throw new Error("Firebase API key is not set. Please check your environment variables NEXT_PUBLIC_FIREBASE_API_KEY.");

@@ -8,6 +8,7 @@ interface LazySectionProps {
   rootMargin?: string;
   threshold?: number | number[];
   className?: string;
+  style?: React.CSSProperties;
   forceVisible?: boolean;
 }
 
@@ -21,6 +22,7 @@ export const LazySection = forwardRef<HTMLDivElement, LazySectionProps>(({
   rootMargin = '200px', 
   threshold = 0.01,
   className,
+  style,
   forceVisible = false
 }, ref) => {
   const [isVisible, setIsVisible] = useState(forceVisible);
@@ -62,7 +64,7 @@ export const LazySection = forwardRef<HTMLDivElement, LazySectionProps>(({
   }, [isVisible, rootMargin, threshold]);
 
   return (
-    <div ref={internalRef} className={className}>
+    <div ref={internalRef} className={className} style={style}>
       {isVisible ? children : (fallback || <div className="min-h-[500px] w-full bg-muted/5 animate-pulse rounded-xl" />)}
     </div>
   );

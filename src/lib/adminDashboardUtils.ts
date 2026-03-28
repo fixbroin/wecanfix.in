@@ -35,11 +35,10 @@ export const getDashboardData = unstable_cache(
       let newSignups = systemStats?.newSignups30d || 0;
       let earnedCommission = systemStats?.earnedCommission || 0;
 
-      // 2. Fetch other small collections/limits
-      const [servicesSnap, searchActivitiesSnap, persistentSearchSnap] = await Promise.all([
-        adminDb.collection('adminServices').get(),
-        adminDb.collection('userActivities').where('eventType', '==', 'search').limit(200).get(),
-        adminDb.collection('searchAnalytics').limit(500).get()
+      // 2. Fetch other small collections/limits - OPTIMIZED: only fetch recent search activities
+      const [searchActivitiesSnap, persistentSearchSnap] = await Promise.all([
+        adminDb.collection('userActivities').where('eventType', '==', 'search').orderBy('timestamp', 'desc').limit(100).get(),
+        adminDb.collection('searchAnalytics').orderBy('count', 'desc').limit(100).get()
       ]);
 
       // If stats don't exist yet, we do a one-time scan to initialize them
@@ -88,12 +87,24 @@ export const getDashboardData = unstable_cache(
         }).catch(e => console.error("Error initializing stats:", e));
       }
 
-      // 3. Analytics: Trending Services (Top 10 bookings - still requires some reads, but we can limit)
-      // For now, keep the recent bookings check for trending services but maybe limit to last 100 bookings
-      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(200).get();
-      const servicesDataMap = new Map(servicesSnap.docs.map(doc => [doc.id, { id: doc.id, ...doc.data() }]));
-      const serviceCounts: { [key: string]: number } = {};
+      // 3. Analytics: Trending Services (Top 10 bookings - OPTIMIZED to reduce massive reads)
+      const trendingBookings = await adminDb.collection('bookings').orderBy('createdAt', 'desc').limit(100).get();
       
+      // Only fetch details for services that actually appear in recent bookings
+      const uniqueServiceIds = new Set<string>();
+      trendingBookings.forEach(doc => {
+        const data = doc.data() as FirestoreBooking;
+        data.services?.forEach(s => uniqueServiceIds.add(s.serviceId));
+      });
+
+      // Batch fetch service details
+      const serviceDetailsPromises = Array.from(uniqueServiceIds).map(id => 
+        adminDb.collection('adminServices').doc(id).get()
+      );
+      const serviceSnaps = await Promise.all(serviceDetailsPromises);
+      const servicesDataMap = new Map(serviceSnaps.map(s => [s.id, { id: s.id, ...s.data() }]));
+
+      const serviceCounts: { [key: string]: number } = {};
       trendingBookings.forEach(doc => {
         const data = doc.data() as FirestoreBooking;
         data.services?.forEach(s => {
@@ -176,7 +187,7 @@ export const getDashboardData = unstable_cache(
     }
   },
   ['admin-dashboard-stats'],
-  { revalidate: 900 }
+  { revalidate: 900, tags: ['global-cache'] }
 );
 
 export const getArchivedBookings = unstable_cache(
@@ -197,7 +208,7 @@ export const getArchivedBookings = unstable_cache(
     }
   },
   ['archived-bookings', 'bookings'],
-  { revalidate: 86400 } // 24 hours
+  { revalidate: 86400, tags: ['global-cache'] } // 24 hours
 );
 
 export const getArchivedUsers = unstable_cache(
@@ -218,7 +229,7 @@ export const getArchivedUsers = unstable_cache(
     }
   },
   ['archived-users', 'users'],
-  { revalidate: 86400, tags: ['users'] }
+  { revalidate: 86400, tags: ['users', 'global-cache'] }
 );
 
 export const getArchivedActivities = unstable_cache(
@@ -239,5 +250,5 @@ export const getArchivedActivities = unstable_cache(
     }
   },
   ['archived-activities'],
-  { revalidate: 86400, tags: ['users'] }
+  { revalidate: 86400, tags: ['users', 'global-cache'] }
 );

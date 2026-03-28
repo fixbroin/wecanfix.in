@@ -11,7 +11,7 @@ import { getGlobalSEOSettings } from '@/lib/seoServerUtils';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 interface CategoryPageProps {
   params: Promise<{ slug: string }>;
@@ -78,7 +78,7 @@ const getCategoryDataForPage = cache(async (slug: string): Promise<{category: Fi
       }
     },
     [`category-summary-${slug}`],
-    { revalidate: 3600, tags: ['categories', `category-summary-${slug}`] }
+    { tags: ['categories', `category-summary-${slug}`, 'global-cache'] }
   )();
 });
 

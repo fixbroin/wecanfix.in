@@ -89,14 +89,11 @@ export async function GET(req: NextRequest) {
         const now = Date.now();
         console.log("Marketing cron job started at:", new Date(now).toISOString());
 
-        // --- 1. Fetch all configurations and common data once ---
-        const [marketingConfigDoc, appConfigDoc, globalSettingsDoc, allServicesSnap, allCategoriesSnap, allSubCategoriesSnap] = await Promise.all([
+        // --- 1. Fetch configurations first ---
+        const [marketingConfigDoc, appConfigDoc, globalSettingsDoc] = await Promise.all([
              db.collection('webSettings').doc('marketingAutomation').get(),
              db.collection('webSettings').doc('applicationConfig').get(),
              db.collection('webSettings').doc('global').get(),
-             db.collection("adminServices").where("isActive", "==", true).orderBy("name", "asc").get(),
-             db.collection("adminCategories").orderBy("order", "asc").get(),
-             db.collection("adminSubCategories").get(),
         ]);
         
         if (!marketingConfigDoc.exists || !appConfigDoc.exists || !globalSettingsDoc.exists) {
@@ -108,122 +105,229 @@ export async function GET(req: NextRequest) {
         const appConfig = appConfigDoc.data() as AppSettings;
         const globalSettings = globalSettingsDoc.data() as GlobalWebSettings;
 
+        // Early Exit: If no marketing features are enabled, stop now.
+        const anyEnabled = marketingConfig.noBookingReminderEnabled || 
+                           marketingConfig.abandonedCartEnabled || 
+                           marketingConfig.recurringEngagementEnabled;
+        
+        if (!anyEnabled) {
+            console.log("No marketing features enabled. Exiting.");
+            return NextResponse.json({ status: 'ok', sent: 0, message: 'No features enabled' });
+        }
+
         const baseUrl = getBaseUrl();
         
-        const allServicesMap = new Map(allServicesSnap.docs.map(doc => [doc.id, doc.data() as FirestoreService]));
-        const allSubCategoriesMap = new Map(allSubCategoriesSnap.docs.map(doc => [doc.id, doc.data() as FirestoreSubCategory]));
+        // Lazy Load Content Variables
+        let contentLoaded = false;
+        let allServicesMap = new Map<string, FirestoreService>();
+        let allSubCategoriesMap = new Map<string, FirestoreSubCategory>();
+        let popularServicesHtml = "";
+        let popularCategoriesHtml = "";
+        let allServicesHtml = "";
+        let allCategoriesHtml = "";
+        let categoryServicesCache = new Map<string, string>();
 
-        // Popular Content
-        const popularServicesQuery = db.collection('adminServices').where('isActive', '==', true).orderBy('rating', 'desc').orderBy('reviewCount', 'desc').limit(5);
-        const popularServicesSnapshot = await popularServicesQuery.get();
-        const popularServices = popularServicesSnapshot.docs.map(doc => doc.data() as FirestoreService);
-        const popularServicesHtml = `<ul>${popularServices.map(s => `<li><a href="${baseUrl}/service/${s.slug}">${s.name}</a></li>`).join('')}</ul>`;
-        
-        const popularCategoriesSnapshot = await db.collection("adminCategories").orderBy('order', 'asc').limit(5).get();
-        const popularCategories = popularCategoriesSnapshot.docs.map(doc => doc.data() as FirestoreCategory);
-        const popularCategoriesHtml = `<ul>${popularCategories.map(c => `<li><a href="${baseUrl}/category/${c.slug}">${c.name}</a></li>`).join('')}</ul>`;
+        const loadContent = async () => {
+            if (contentLoaded) return;
+            console.log("Lazy loading marketing content data...");
+            const [allServicesSnap, allCategoriesSnap, allSubCategoriesSnap] = await Promise.all([
+                db.collection("adminServices").where("isActive", "==", true).orderBy("name", "asc").get(),
+                db.collection("adminCategories").orderBy("order", "asc").get(),
+                db.collection("adminSubCategories").get(),
+            ]);
 
-        // All Content
-        const allServicesHtml = `<ul>${allServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
-        const allCategoriesHtml = `<ul>${allCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+            allServicesMap = new Map(allServicesSnap.docs.map(doc => [doc.id, doc.data() as FirestoreService]));
+            allSubCategoriesMap = new Map(allSubCategoriesSnap.docs.map(doc => [doc.id, doc.data() as FirestoreSubCategory]));
 
-        let emailsSent = 0;
-        const allUsersSnapshot = await db.collection('users').get();
-        
-        // --- 2. Iterate through all users and check conditions ---
-        for (const userDoc of allUsersSnapshot.docs) {
-            const user = { ...userDoc.data(), id: userDoc.id } as FirestoreUser;
-            if (!user.email) continue; 
+            // Popular Content
+            const popularServicesQuery = db.collection('adminServices').where('isActive', '==', true).orderBy('rating', 'desc').orderBy('reviewCount', 'desc').limit(5);
+            const popularServicesSnapshot = await popularServicesQuery.get();
+            const popularServices = popularServicesSnapshot.docs.map(doc => doc.data() as FirestoreService);
+            popularServicesHtml = `<ul>${popularServices.map(s => `<li><a href="${baseUrl}/service/${s.slug}">${s.name}</a></li>`).join('')}</ul>`;
             
-            const userDocRef = userDoc.ref as DocumentReference;
+            const popularCategoriesSnapshot = await db.collection("adminCategories").orderBy('order', 'asc').limit(5).get();
+            const popularCategories = popularCategoriesSnapshot.docs.map(doc => doc.data() as FirestoreCategory);
+            popularCategoriesHtml = `<ul>${popularCategories.map(c => `<li><a href="${baseUrl}/category/${c.slug}">${c.name}</a></li>`).join('')}</ul>`;
+
+            // All Content
+            allServicesHtml = `<ul>${allServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+            allCategoriesHtml = `<ul>${allCategoriesSnap.docs.map(doc => `<li><a href="${baseUrl}/category/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
             
-            const getCategoryServicesHtml = async (configCategoryId?: string, cart?: UserCart | null): Promise<string> => {
-                let categoryIdToFetch: string | undefined = configCategoryId && configCategoryId !== "none" ? configCategoryId : undefined;
+            contentLoaded = true;
+        };
 
-                // Fallback to cart if config doesn't specify a category
-                if (!categoryIdToFetch && cart && cart.items.length > 0) {
-                    const firstServiceInCart = allServicesMap.get(cart.items[0].serviceId);
-                    if (firstServiceInCart) {
-                        const subCat = allSubCategoriesMap.get(firstServiceInCart.subCategoryId);
-                        if (subCat) {
-                            categoryIdToFetch = subCat.parentId;
-                        }
-                    }
-                }
+        const getCategoryServicesHtml = async (configCategoryId?: string, cart?: UserCart | null): Promise<string> => {
+            let categoryIdToFetch: string | undefined = configCategoryId && configCategoryId !== "none" ? configCategoryId : undefined;
 
-                if (!categoryIdToFetch) return '';
-
-                const subCatsSnap = await db.collection("adminSubCategories").where("parentId", "==", categoryIdToFetch).get();
-                const subCatIds = subCatsSnap.docs.map(doc => doc.id);
-                if (subCatIds.length > 0) {
-                    const categoryServicesSnap = await db.collection("adminServices").where("subCategoryId", "in", subCatIds).where("isActive", "==", true).orderBy("name", "asc").get();
-                    if (!categoryServicesSnap.empty) {
-                        return `<ul>${categoryServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
-                    }
-                }
-                return '';
-            };
-            
-            const cartDoc = await db.collection('userCarts').doc(user.id).get();
-            const userCart = cartDoc.exists ? cartDoc.data() as UserCart : null;
-            const cartContentHtml = userCart && userCart.items.length > 0
-                ? `<ul>${userCart.items.map(i => `<li>${allServicesMap.get(i.serviceId)?.name || 'Item'} (x${i.quantity})</li>`).join('')}</ul>`
-                : '';
-
-            // A) No Booking Reminder
-            if (marketingConfig.noBookingReminderEnabled && marketingConfig.noBookingReminderDelay) {
-                const noBookingDelayMs = toMs(marketingConfig.noBookingReminderDelay);
-                const signupMs = getTimestampMillis(user.createdAt);
-                if (signupMs) {
-                    const hasBooking = user.hasBooking || false;
-                    const reminderSent = user.marketingStatus?.bookingReminderSent || false;
-
-                    if (noBookingDelayMs > 0 && !hasBooking && !reminderSent && (now - signupMs) > noBookingDelayMs) {
-                        const categoryServicesHtml = await getCategoryServicesHtml(marketingConfig.noBookingReminderCategoryId, userCart);
-                        const body = replaceMergeTags(marketingConfig.noBookingReminderTemplate || "", user, appConfig, globalSettings, { popularServicesHtml, cartContentHtml, popularCategoriesHtml, allServicesHtml, allCategoriesHtml, categoryServicesHtml });
-                        await sendMarketingEmail({ toEmail: user.email, subject: "A Reminder from " + (globalSettings.websiteName || "Wecanfix"), htmlBody: body.replace(/\n/g, '<br>'), smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail });
-                        await userDocRef.update({ 'marketingStatus.bookingReminderSent': true });
-                        emailsSent++;
+            // Fallback to cart if config doesn't specify a category
+            if (!categoryIdToFetch && cart && cart.items.length > 0) {
+                const firstServiceInCart = allServicesMap.get(cart.items[0].serviceId);
+                if (firstServiceInCart) {
+                    const subCat = allSubCategoriesMap.get(firstServiceInCart.subCategoryId);
+                    if (subCat) {
+                        categoryIdToFetch = subCat.parentId;
                     }
                 }
             }
 
-            // B) Abandoned Cart Reminder
-            if (marketingConfig.abandonedCartEnabled && marketingConfig.abandonedCartDelay && userCart) {
-                const abandonedCartDelayMs = toMs(marketingConfig.abandonedCartDelay);
-                const cartUpdatedAtMs = getTimestampMillis(userCart.updatedAt);
-                if (cartUpdatedAtMs) {
-                    const reminderSent = user.marketingStatus?.cartReminderSent || false;
+            if (!categoryIdToFetch) return '';
+            
+            // Check Cache
+            if (categoryServicesCache.has(categoryIdToFetch)) return categoryServicesCache.get(categoryIdToFetch)!;
 
-                    if (abandonedCartDelayMs > 0 && !reminderSent && (now - cartUpdatedAtMs) > abandonedCartDelayMs) {
+            const subCatsSnap = await db.collection("adminSubCategories").where("parentId", "==", categoryIdToFetch).get();
+            const subCatIds = subCatsSnap.docs.map(doc => doc.id);
+            let html = '';
+            if (subCatIds.length > 0) {
+                const categoryServicesSnap = await db.collection("adminServices").where("subCategoryId", "in", subCatIds).where("isActive", "==", true).orderBy("name", "asc").get();
+                if (!categoryServicesSnap.empty) {
+                    html = `<ul>${categoryServicesSnap.docs.map(doc => `<li><a href="${baseUrl}/service/${doc.data().slug}">${doc.data().name}</a></li>`).join('')}</ul>`;
+                }
+            }
+            categoryServicesCache.set(categoryIdToFetch, html);
+            return html;
+        };
+
+        let emailsSent = 0;
+        const processedUserIds = new Set<string>();
+
+        // We'll found a winner! Load content if not already done.
+        // This is a helper to ensure we only load heavy content if there's someone to send to.
+        const ensureContentLoaded = async () => {
+            if (!contentLoaded) await loadContent();
+        };
+
+        // --- 2. Feature A: No Booking Reminder (Targeted Query) ---
+        if (marketingConfig.noBookingReminderEnabled && marketingConfig.noBookingReminderDelay) {
+            const delayMs = toMs(marketingConfig.noBookingReminderDelay);
+            if (delayMs > 0) {
+                const cutoff = Timestamp.fromMillis(now - delayMs);
+                const snapshot = await db.collection('users')
+                    .where('isActive', '==', true)
+                    .where('hasBooking', '==', false)
+                    .where('marketingStatus.bookingReminderSent', '==', false)
+                    .where('createdAt', '<=', cutoff)
+                    .orderBy('createdAt', 'asc')
+                    .limit(50)
+                    .get();
+
+                for (const userDoc of snapshot.docs) {
+                    if (processedUserIds.has(userDoc.id)) continue;
+                    const user = { ...userDoc.data(), id: userDoc.id } as FirestoreUser;
+                    if (!user.email) continue;
+
+                    await ensureContentLoaded();
+                    const userDocRef = userDoc.ref;
+                    
+                    // Get cart if exists for dynamic content
+                    const cartDoc = await db.collection('userCarts').doc(user.id).get();
+                    const userCart = cartDoc.exists ? cartDoc.data() as UserCart : null;
+                    const cartContentHtml = userCart && userCart.items.length > 0
+                        ? `<ul>${userCart.items.map(i => `<li>${allServicesMap.get(i.serviceId)?.name || 'Item'} (x${i.quantity})</li>`).join('')}</ul>`
+                        : '';
+
+                    const categoryServicesHtml = await getCategoryServicesHtml(marketingConfig.noBookingReminderCategoryId, userCart);
+                    const body = replaceMergeTags(marketingConfig.noBookingReminderTemplate || "", user, appConfig, globalSettings, { popularServicesHtml, cartContentHtml, popularCategoriesHtml, allServicesHtml, allCategoriesHtml, categoryServicesHtml });
+                    await sendMarketingEmail({ toEmail: user.email, subject: "A Reminder from " + (globalSettings.websiteName || "Wecanfix"), htmlBody: body.replace(/\n/g, '<br>'), smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail });
+                    await userDocRef.update({ 'marketingStatus.bookingReminderSent': true });
+                    emailsSent++;
+                    processedUserIds.add(user.id);
+                }
+            }
+        }
+
+        // --- 3. Feature B: Abandoned Cart Reminder (Ultra-Targeted Query) ---
+        if (marketingConfig.abandonedCartEnabled && marketingConfig.abandonedCartDelay) {
+            const delayMs = toMs(marketingConfig.abandonedCartDelay);
+            if (delayMs > 0) {
+                const cutoff = Timestamp.fromMillis(now - delayMs);
+                const cartSnapshot = await db.collection('userCarts')
+                    .where('marketingStatus.reminderSent', '==', false) // Only "New Data"
+                    .where('updatedAt', '<=', cutoff)
+                    .orderBy('updatedAt', 'asc')
+                    .limit(100)
+                    .get();
+
+                for (const cartDoc of cartSnapshot.docs) {
+                    const userCart = { ...cartDoc.data(), id: cartDoc.id } as UserCart;
+                    if (processedUserIds.has(userCart.userId)) continue;
+
+                    const userDoc = await db.collection('users').doc(userCart.userId).get();
+                    if (!userDoc.exists) continue;
+                    const user = { ...userDoc.data(), id: userDoc.id } as FirestoreUser;
+                    
+                    if (user.isActive && user.email) {
+                        await ensureContentLoaded();
+                        const userDocRef = userDoc.ref;
+                        const cartDocRef = cartDoc.ref;
+                        const cartContentHtml = `<ul>${userCart.items.map(i => `<li>${allServicesMap.get(i.serviceId)?.name || 'Item'} (x${i.quantity})</li>`).join('')}</ul>`;
+
                         const categoryServicesHtml = await getCategoryServicesHtml(marketingConfig.abandonedCartCategoryId, userCart);
                         const body = replaceMergeTags(marketingConfig.abandonedCartTemplate || "", user, appConfig, globalSettings, { popularServicesHtml, cartContentHtml, popularCategoriesHtml, allServicesHtml, allCategoriesHtml, categoryServicesHtml });
                         await sendMarketingEmail({ toEmail: user.email, subject: "You left something in your cart!", htmlBody: body.replace(/\n/g, '<br>'), smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail });
-                        await userDocRef.update({ 'marketingStatus.cartReminderSent': true });
+                        
+                        // Mark both the user AND the specific cart as reminded
+                        await Promise.all([
+                            userDocRef.update({ 'marketingStatus.cartReminderSent': true }),
+                            cartDocRef.update({ 'marketingStatus.reminderSent': true })
+                        ]);
                         emailsSent++;
-                    }
-                }
-            }
-
-            // C) Recurring Engagement Email
-            if (marketingConfig.recurringEngagementEnabled && marketingConfig.recurringEngagementDelay) {
-                const repeatMs = toMs(marketingConfig.recurringEngagementDelay);
-                const lastSentMs = getTimestampMillis(user.marketingStatus?.lastRecurringSent) || 0;
-                
-                const signupMs = getTimestampMillis(user.createdAt);
-                if (signupMs) {
-                    const eligibleForFirstSend = (now - signupMs) > repeatMs;
-
-                    if (repeatMs > 0 && eligibleForFirstSend && (now - lastSentMs) > repeatMs) {
-                        const categoryServicesHtml = await getCategoryServicesHtml(marketingConfig.recurringEngagementCategoryId, userCart);
-                        const body = replaceMergeTags(marketingConfig.recurringEngagementTemplate || "", user, appConfig, globalSettings, { popularServicesHtml, cartContentHtml, popularCategoriesHtml, allServicesHtml, allCategoriesHtml, categoryServicesHtml });
-                        await sendMarketingEmail({ toEmail: user.email, subject: "A message from " + (globalSettings.websiteName || "Wecanfix"), htmlBody: body.replace(/\n/g, '<br>'), smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail });
-                        await userDocRef.update({ 'marketingStatus.lastRecurringSent': Timestamp.fromMillis(now) });
-                        emailsSent++;
+                        processedUserIds.add(user.id);
                     }
                 }
             }
         }
+
+        // --- 4. Feature C: Recurring Engagement (Targeted Query) ---
+        if (marketingConfig.recurringEngagementEnabled && marketingConfig.recurringEngagementDelay) {
+            const repeatMs = toMs(marketingConfig.recurringEngagementDelay);
+            if (repeatMs > 0) {
+                const cutoff = Timestamp.fromMillis(now - repeatMs);
+                
+                // Query users who already had a recurring email and are due for next one
+                const recurringSnapshot = await db.collection('users')
+                    .where('isActive', '==', true)
+                    .where('marketingStatus.lastRecurringSent', '<=', cutoff)
+                    .orderBy('marketingStatus.lastRecurringSent', 'asc')
+                    .limit(50)
+                    .get();
+
+                // Also query users who have NEVER had a recurring email but are old enough
+                const neverRecurringSnapshot = await db.collection('users')
+                    .where('isActive', '==', true)
+                    .where('marketingStatus.lastRecurringSent', '==', null)
+                    .where('createdAt', '<=', cutoff)
+                    .orderBy('createdAt', 'asc')
+                    .limit(50)
+                    .get();
+
+                const allRecurringDocs = [...recurringSnapshot.docs, ...neverRecurringSnapshot.docs];
+
+                for (const userDoc of allRecurringDocs) {
+                    if (processedUserIds.has(userDoc.id)) continue;
+                    const user = { ...userDoc.data(), id: userDoc.id } as FirestoreUser;
+                    if (!user.email) continue;
+
+                    await ensureContentLoaded();
+                    const userDocRef = userDoc.ref;
+
+                    // Get cart if exists for dynamic content
+                    const cartDoc = await db.collection('userCarts').doc(user.id).get();
+                    const userCart = cartDoc.exists ? cartDoc.data() as UserCart : null;
+                    const cartContentHtml = userCart && userCart.items.length > 0
+                        ? `<ul>${userCart.items.map(i => `<li>${allServicesMap.get(i.serviceId)?.name || 'Item'} (x${i.quantity})</li>`).join('')}</ul>`
+                        : '';
+
+                    const categoryServicesHtml = await getCategoryServicesHtml(marketingConfig.recurringEngagementCategoryId, userCart);
+                    const body = replaceMergeTags(marketingConfig.recurringEngagementTemplate || "", user, appConfig, globalSettings, { popularServicesHtml, cartContentHtml, popularCategoriesHtml, allServicesHtml, allCategoriesHtml, categoryServicesHtml });
+                    await sendMarketingEmail({ toEmail: user.email, subject: "A message from " + (globalSettings.websiteName || "Wecanfix"), htmlBody: body.replace(/\n/g, '<br>'), smtpHost: appConfig.smtpHost, smtpPort: appConfig.smtpPort, smtpUser: appConfig.smtpUser, smtpPass: appConfig.smtpPass, senderEmail: appConfig.senderEmail });
+                    await userDocRef.update({ 'marketingStatus.lastRecurringSent': Timestamp.fromMillis(now) });
+                    emailsSent++;
+                    processedUserIds.add(user.id);
+                }
+            }
+        }
+
         
         console.log(`Marketing cron job finished. Sent ${emailsSent} emails.`);
         return NextResponse.json({ status: 'ok', sent: emailsSent });
@@ -233,3 +337,4 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ status: 'error', error: (error as Error).message }, { status: 500 });
     }
 }
+

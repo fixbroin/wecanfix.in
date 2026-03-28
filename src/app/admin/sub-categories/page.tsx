@@ -120,7 +120,7 @@ export default function AdminSubCategoriesPage() {
         // Refresh the cache
         await triggerRefresh('categories');
         await triggerRefresh('sitemap');
-        await triggerRefresh('global-cache');
+        // Removed global-cache trigger to save reads
     } catch (error) {
         toast({ title: "Error", description: "Could not update status.", variant: "destructive" });
     } finally {
@@ -150,7 +150,7 @@ export default function AdminSubCategoriesPage() {
       // Refresh the cache
       await triggerRefresh('categories');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting sub-category: ", error);
       toast({ title: "Error", description: "Could not delete sub-category.", variant: "destructive" });
@@ -184,7 +184,7 @@ export default function AdminSubCategoriesPage() {
       // Refresh the cache
       await triggerRefresh('categories');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
 
       setIsFormOpen(false); setEditingSubCategory(null); await fetchData();
     } catch (error) {

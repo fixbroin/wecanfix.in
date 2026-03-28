@@ -128,6 +128,7 @@ export default function ServiceDetailPageClient({
   const { toast } = useToast();
   const { user, triggerAuthRedirect } = useAuth();
   const currentPathname = usePathname();
+  const isAdmin = currentPathname?.startsWith('/admin');
   
   const cacheKey = `service-data-${serviceSlug}`;
 
@@ -472,7 +473,7 @@ export default function ServiceDetailPageClient({
     return `${value} ${unit}`;
   };
 
-  if (!isMounted || isLoading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto px-2 sm:px-4 py-8 flex justify-center items-center min-h-[60vh]">
         <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -585,7 +586,9 @@ export default function ServiceDetailPageClient({
                 )}
 
                 <div className="w-full">
-                  {!isAvailable ? (
+                  {!isMounted ? (
+                    <Skeleton className="h-12 w-full rounded-md" />
+                  ) : !isAvailable ? (
                     <Button size="lg" className="w-full text-sm sm:text-base" disabled>
                       <Ban className="mr-2 h-4 w-4 sm:h-5 sm:w-5" /> Currently Unavailable
                     </Button>

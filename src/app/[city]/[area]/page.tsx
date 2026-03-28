@@ -13,7 +13,7 @@ import JsonLdScript from '@/components/shared/JsonLdScript';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 interface AreaPageProps {
   params: Promise<{ city: string; area: string }>;
@@ -60,7 +60,7 @@ const getAreaDataForPage = cache(async (citySlug: string, areaSlug: string): Pro
       }
     },
     [`city-area-data-${citySlug}-${areaSlug}`],
-    { revalidate: 3600, tags: ['cities', 'areas', `city-area-${citySlug}-${areaSlug}`] }
+    { tags: ['cities', 'areas', `city-area-${citySlug}-${areaSlug}`, 'global-cache'] }
   )();
 });
 

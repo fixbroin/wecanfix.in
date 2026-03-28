@@ -12,7 +12,7 @@ import { getCategoryFullData, getAggregateRating } from '@/lib/homepageUtils';
 import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 interface AreaCategoryPageProps {
   params: Promise<{ city: string; area: string; categorySlug: string }>;
@@ -51,7 +51,7 @@ const getPageData = cache(async (citySlug: string, areaSlug: string, categorySlu
       }
     },
     [`area-category-data-${citySlug}-${areaSlug}-${categorySlug}`],
-    { revalidate: 3600, tags: ['cities', 'areas', 'categories'] }
+    { tags: ['cities', 'areas', 'categories', 'global-cache'] }
   )();
 });
 

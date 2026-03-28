@@ -81,7 +81,7 @@ const CategoryCard: React.FC<CategoryCardProps> = ({ category, priority = false,
       className="flex flex-col items-center group cursor-pointer transition-all duration-500"
       role="button"
       tabIndex={0}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(e as any); }}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(e as unknown as React.MouseEvent<HTMLDivElement>); }}
     >
       {/* Ultra-Premium Large Circular Container */}
       <div className="relative mb-4">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { doc, onSnapshot, getDoc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
 import type { MarketingSettings, FirebaseClientConfig } from '@/types/firestore';
 import { getCache, setCache } from '@/lib/client-cache';
@@ -10,7 +10,6 @@ import { usePathname } from 'next/navigation';
 const MARKETING_CONFIG_COLLECTION = "webSettings";
 const MARKETING_CONFIG_DOC_ID = "marketingConfiguration";
 const CACHE_KEY = "marketing-settings";
-const CACHE_TTL = 10 * 60 * 1000; // 10 minutes
 
 const isBot = (): boolean => {
   if (typeof window === 'undefined') return true;
@@ -21,11 +20,6 @@ const isBot = (): boolean => {
   ];
   const ua = navigator.userAgent.toLowerCase();
   return botPatterns.some(pattern => ua.includes(pattern));
-};
-
-const defaultFirebaseClientConfigValues: FirebaseClientConfig = {
-  apiKey: "", authDomain: "", projectId: "", storageBucket: "",
-  messagingSenderId: "", appId: "", measurementId: "",
 };
 
 export const defaultMarketingValues: MarketingSettings = {
@@ -47,7 +41,10 @@ export const defaultMarketingValues: MarketingSettings = {
   customBodyScript: "",
   firebasePublicVapidKey: "",
   firebaseAdminSdkJson: "",
-  firebaseClientConfig: defaultFirebaseClientConfigValues,
+  firebaseClientConfig: {
+    apiKey: "", authDomain: "", projectId: "", storageBucket: "",
+    messagingSenderId: "", appId: "", measurementId: "",
+  },
   whatsAppApiToken: "",
   whatsAppPhoneNumberId: "",
   whatsAppBusinessAccountId: "",
@@ -67,7 +64,6 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith('/admin');
   const hasLoadedRef = useRef(false);
-  const isVisitorBot = useRef(isBot());
 
   const processData = useCallback((firestoreData: Partial<MarketingSettings>): MarketingSettings => {
     return {
@@ -76,68 +72,57 @@ export function useMarketingSettings(): UseMarketingSettingsReturn {
       metaConversionApi: { ...defaultMarketingValues.metaConversionApi, ...firestoreData.metaConversionApi },
       googleMerchantCenter: { ...defaultMarketingValues.googleMerchantCenter, ...firestoreData.googleMerchantCenter },
       facebookCatalog: { ...defaultMarketingValues.facebookCatalog, ...firestoreData.facebookCatalog },
-      firebaseClientConfig: { ...defaultFirebaseClientConfigValues, ...firestoreData.firebaseClientConfig },
+      firebaseClientConfig: { ...defaultMarketingValues.firebaseClientConfig, ...firestoreData.firebaseClientConfig },
     };
   }, []);
 
   useEffect(() => {
     // If it's a bot and we are not in admin, skip fetching to save reads
-    if (isVisitorBot.current && !isAdmin) {
+    if (isBot() && !isAdmin) {
       setIsLoading(false);
       return;
     }
 
-    const settingsDocRef = doc(db, MARKETING_CONFIG_COLLECTION, MARKETING_CONFIG_DOC_ID);
-
     if (!isAdmin && hasLoadedRef.current) return;
 
-    if (isAdmin) {
-      const unsubscribe = onSnapshot(settingsDocRef, (docSnap) => {
+    const fetchMarketing = async () => {
+      try {
+        // Smart Cache Logic: Check global cache version (1 read)
+        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+        const versionSnap = await getDoc(versionDocRef);
+        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        
+        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
+        const cached = getCache<MarketingSettings>(CACHE_KEY, true);
+        
+        if (cached && !isAdmin && remoteVersion <= localVersion) {
+            setSettings(processData(cached));
+            setIsLoading(false);
+            hasLoadedRef.current = true;
+            return;
+        }
+
+        const settingsDocRef = doc(db, MARKETING_CONFIG_COLLECTION, MARKETING_CONFIG_DOC_ID);
+        const docSnap = await getDoc(settingsDocRef);
         if (docSnap.exists()) {
           const processed = processData(docSnap.data());
           setSettings(processed);
           setCache(CACHE_KEY, processed, true);
+          localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
         }
-        setIsLoading(false);
-        hasLoadedRef.current = true;
-      }, (err) => {
+      } catch (err) {
         console.error("Error fetching marketing settings:", err);
         setError("Failed to load settings.");
+      } finally {
         setIsLoading(false);
-      });
-      return () => unsubscribe();
-    } else {
-      const fetchMarketing = async () => {
-        const cached = getCache<MarketingSettings>(CACHE_KEY, true);
-        const lastFetch = typeof window !== 'undefined' ? localStorage.getItem(`${CACHE_KEY}-last-fetch`) : null;
-        const now = Date.now();
-        
-        // Use cache if it's fresh (within TTL)
-        if (cached && !isAdmin && lastFetch && (now - parseInt(lastFetch) < CACHE_TTL)) {
-            setIsLoading(false);
-            return;
-        }
+        hasLoadedRef.current = true;
+      }
+    };
 
-        try {
-          const docSnap = await getDoc(settingsDocRef);
-          if (docSnap.exists()) {
-            const processed = processData(docSnap.data());
-            setSettings(processed);
-            setCache(CACHE_KEY, processed, true);
-            if (typeof window !== 'undefined') localStorage.setItem(`${CACHE_KEY}-last-fetch`, now.toString());
-          }
-        } catch (err) {
-          console.error("Error fetching marketing settings:", err);
-          setError("Failed to load settings.");
-        } finally {
-          setIsLoading(false);
-          hasLoadedRef.current = true;
-        }
-      };
-      fetchMarketing();
-    }
+    fetchMarketing();
   }, [processData, isAdmin]);
 
   return { settings, isLoading, error };
 }
+
 

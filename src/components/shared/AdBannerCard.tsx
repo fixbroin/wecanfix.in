@@ -80,7 +80,7 @@ export default function AdBannerCard({ ad, className }: AdBannerCardProps) {
       role="link"
       tabIndex={0}
       aria-label={`Advertisement: ${ad.name}`}
-      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(e as any);}}
+      onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleClick(e as unknown as React.MouseEvent);}}
       style={{ cursor: 'pointer' }}
     >
       <div className="relative w-full h-[180px] sm:h-[250px] md:h-[300px] lg:h-[400px] xl:h-[450px]"> {/* Match HeroCarousel aspect ratios */}

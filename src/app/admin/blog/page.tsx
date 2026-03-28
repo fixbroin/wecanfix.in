@@ -83,7 +83,7 @@ export default function AdminBlogPage() {
       toast({ title: "Success", description: "Blog post deleted successfully." });
       await triggerRefresh('blog');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting post: ", error);
       toast({ title: "Error", description: (error as Error).message || "Could not delete post.", variant: "destructive" });
@@ -99,7 +99,7 @@ export default function AdminBlogPage() {
       toast({ title: "Status Updated", description: `Post "${post.title}" ${!post.isPublished ? "published" : "unpublished"}.`});
       await triggerRefresh('blog');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       toast({ title: "Error", description: "Could not update post status.", variant: "destructive" });
     } finally {
@@ -134,7 +134,7 @@ export default function AdminBlogPage() {
         await triggerRefresh(`blog-${payload.slug}`);
       }
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
       setIsFormOpen(false);
       setEditingPost(null);
     } catch (error) {

@@ -15,15 +15,23 @@ export async function triggerRefresh(tag: 'services' | 'categories' | 'cities' |
     revalidateTag(tag);
     
     // Bump the global cache version (1 write)
-    // This tells every browser in the world: "Data has changed, re-read now."
+    // Only bump "global" if the change is truly global (settings/SEO)
+    // This prevents every user login/booking from forcing all visitors to re-read settings.
+    const isGlobalChange = ['global', 'app-settings', 'web-settings', 'seo-settings', 'marketing-settings', 'global-cache'].includes(tag);
+    
     const versionDoc = adminDb.collection('appConfiguration').doc('cacheVersions');
-    await versionDoc.set({
+    const updates: any = {
         [tag]: FieldValue.increment(1),
-        global: FieldValue.increment(1),
         updatedAt: new Date()
-    }, { merge: true });
+    };
+    
+    if (isGlobalChange) {
+        updates.global = FieldValue.increment(1);
+    }
+    
+    await versionDoc.set(updates, { merge: true });
 
-    console.log(`[SmartSync] Cache invalidated for tag: ${tag} and version bumped.`);
+    console.log(`[SmartSync] Cache invalidated for tag: ${tag} and version bumped (Global: ${isGlobalChange}).`);
     return { success: true };
   } catch (error) {
     console.error(`[SmartSync] Failed to invalidate tag: ${tag}`, error);

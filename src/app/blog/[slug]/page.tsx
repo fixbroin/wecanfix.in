@@ -16,7 +16,7 @@ import { cache } from 'react';
 import { unstable_cache } from 'next/cache';
 import Breadcrumbs from '@/components/shared/Breadcrumbs';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false; // Persistent Cache
 
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.
@@ -59,7 +59,7 @@ const getBlogPost = cache(async (slug: string): Promise<FirestoreBlogPost | null
       }
     },
     [`blog-post-${slug}`],
-    { revalidate: 3600, tags: ['blog', `blog-${slug}`] }
+    { tags: ['blog', `blog-${slug}`, 'global-cache'] }
   )();
 });
 
@@ -99,7 +99,7 @@ const getRelatedPosts = cache(async (currentSlug: string, categoryId?: string): 
       }
     },
     [`related-posts-${currentSlug}`],
-    { revalidate: 3600, tags: ['blog'] }
+    { tags: ['blog', 'global-cache'] }
   )();
 });
 

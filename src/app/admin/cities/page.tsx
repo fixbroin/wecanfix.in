@@ -76,7 +76,7 @@ export default function AdminCitiesPage() {
       // Refresh the cache
       await triggerRefresh('cities');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting city: ", error);
       toast({ title: "Error", description: "Could not delete city. It might have areas associated with it.", variant: "destructive" });
@@ -141,7 +141,7 @@ export default function AdminCitiesPage() {
       // Refresh the cache
       await triggerRefresh('cities');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
 
       setIsFormOpen(false);
       setEditingCity(null);

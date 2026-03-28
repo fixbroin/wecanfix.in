@@ -127,6 +127,9 @@ export interface UserCart {
   userId: string;
   items: CartEntry[];
   updatedAt: Timestamp;
+  marketingStatus?: {
+    reminderSent?: boolean;
+  };
 }
 
 export type BookingStatus =

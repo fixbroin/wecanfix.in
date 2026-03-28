@@ -80,7 +80,7 @@ export default function AdminAreasPage() {
       // Refresh the cache
       await triggerRefresh('areas');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
     } catch (error) {
       console.error("Error deleting area: ", error);
       toast({ title: "Error", description: "Could not delete area.", variant: "destructive" });
@@ -152,7 +152,7 @@ export default function AdminAreasPage() {
       // Refresh the cache
       await triggerRefresh('areas');
       await triggerRefresh('sitemap');
-      await triggerRefresh('global-cache');
+      // Removed global-cache trigger to save reads
 
       setIsFormOpen(false);
       setEditingArea(null);

@@ -7,7 +7,7 @@ import type { FirestoreCategory } from '@/types/firestore';
 import { unstable_cache } from 'next/cache';
 import { serializeFirestoreData } from '@/lib/serializeUtils';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false;
 
 const getCategories = unstable_cache(
   async () => {
@@ -21,7 +21,7 @@ const getCategories = unstable_cache(
     }
   },
   ['admin-categories-list'],
-  { revalidate: 3600, tags: ['categories'] }
+  { tags: ['categories', 'global-cache'] }
 );
 
 

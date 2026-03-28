@@ -9,7 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Loader2, UserCircle, Mail, Search, Users, Circle } from 'lucide-react';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, where, documentId } from "firebase/firestore";
+import { collection, query, orderBy, onSnapshot, where, documentId, limit } from "firebase/firestore";
 import type { FirestoreUser, ChatSession } from '@/types/firestore';
 import { cn } from '@/lib/utils';
 import { formatDistanceToNowStrict } from 'date-fns';
@@ -36,7 +36,9 @@ export default function AdminUserListForChat({
   useEffect(() => {
     setIsLoading(true);
     const usersCollectionRef = collection(db, "users");
-    const q = query(usersCollectionRef, orderBy("createdAt", "desc"));
+    // Added limit(100) to prevent fetching ALL users at once.
+    // This significantly reduces reads while still showing recent conversations.
+    const q = query(usersCollectionRef, orderBy("createdAt", "desc"), limit(20));
 
     const unsubscribeUsers = onSnapshot(q, (querySnapshot) => {
       const fetchedUsers = querySnapshot.docs

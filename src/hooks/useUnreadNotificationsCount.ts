@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from './useAuth'; // Assuming useAuth is in the same hooks directory or adjust path
 import { db } from '@/lib/firebase';
-import { collection, query, where, onSnapshot, queryEqual } from "firebase/firestore";
+import { collection, query, where, onSnapshot, queryEqual, limit } from "firebase/firestore";
 import type { FirestoreNotification } from '@/types/firestore';
 
 interface UseUnreadNotificationsCountReturn {
@@ -34,10 +34,13 @@ export function useUnreadNotificationsCount(userIdOverride?: string): UseUnreadN
 
     setIsLoading(true);
     const notificationsCollectionRef = collection(db, "userNotifications");
+    // Added limit(20) to prevent excessive reads if a user has many unread notifications.
+    // Most UI badges only show "9+" or "99+", so 20 is sufficient for a "9+" badge.
     const newQuery = query(
       notificationsCollectionRef,
       where("userId", "==", effectiveUserId),
-      where("read", "==", false)
+      where("read", "==", false),
+      limit(20)
     );
 
     // Only create a new listener if the query has changed

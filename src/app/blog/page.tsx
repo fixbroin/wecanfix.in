@@ -14,7 +14,7 @@ import JsonLdScript from '@/components/shared/JsonLdScript';
 
 import type { BreadcrumbItem } from '@/types/ui';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false; // Persistent Cache
 
 const getPublishedPosts = unstable_cache(
   async (): Promise<ClientBlogPost[]> => {
@@ -43,7 +43,7 @@ const getPublishedPosts = unstable_cache(
     }
   },
   ['published-blog-posts'],
-  { revalidate: 3600, tags: ['blog'] }
+  { tags: ['blog', 'global-cache'] }
 );
 
 export async function generateMetadata(): Promise<Metadata> {

@@ -265,6 +265,19 @@ export const getAggregateRating = cache(async (): Promise<{ ratingValue: string,
     return unstable_cache(
         async () => {
             try {
+                // Read from pre-calculated stats to save massive reads
+                const statsDoc = await adminDb.collection('appConfiguration').doc('stats').get();
+                if (statsDoc.exists) {
+                    const data = statsDoc.data();
+                    if (data?.ratingValue && data?.reviewCount) {
+                        return {
+                            ratingValue: String(data.ratingValue),
+                            reviewCount: Number(data.reviewCount)
+                        };
+                    }
+                }
+
+                // Fallback to calculation ONLY if stats doc doesn't have it
                 const snapshot = await adminDb.collection('adminServices')
                     .where('isActive', '==', true)
                     .where('rating', '>', 0)

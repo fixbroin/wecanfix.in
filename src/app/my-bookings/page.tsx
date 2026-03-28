@@ -128,10 +128,12 @@ export default function MyBookingsPage() {
 
     setIsLoadingBookings(true);
     const bookingsCollectionRef = collection(db, "bookings");
+    // Added limit(50) to prevent excessive reads while showing recent history
     const q = query(
       bookingsCollectionRef,
       where("userId", "==", user.uid),
-      orderBy("createdAt", "desc")
+      orderBy("createdAt", "desc"),
+      limit(20)
     );
 
     const unsubscribe = onSnapshot(q, async (querySnapshot) => {

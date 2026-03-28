@@ -94,6 +94,7 @@ export default function CategoryPageClient({
   const [error, setError] = useState<string | null>(null);
   const [isMounted, setIsMounted] = useState(false);
   const [manuallyAwakenedSubCats, setManuallyAwakenedSubCats] = useState<Set<string>>(new Set());
+  const pendingScrollRef = useRef<string | null>(null);
 
   const [seoPageH1, setSeoPageH1] = useState<string | null>(() => initialData?.category.h1_title || getCache<CategoryPageCache>(cacheKey, true)?.h1 || null);
   const [displayPageH1, setDisplayPageH1] = useState<string | null>(() => initialData?.category.h1_title || getCache<CategoryPageCache>(cacheKey, true)?.displayH1 || null);
@@ -107,6 +108,7 @@ export default function CategoryPageClient({
   // State for scroll-responsive header sync
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
   const lastScrollY = useRef(0);
+  const [headerHeight, setHeaderHeight] = useState(64);
 
   const loadSubCategoryServices = useCallback(async (subCategoryId: string) => {
     if (loadingSubCats.has(subCategoryId)) return;
@@ -150,6 +152,13 @@ export default function CategoryPageClient({
 
   useEffect(() => {
     setIsMounted(true);
+    
+    // Measure actual header height if possible
+    const headerElement = document.querySelector('[data-site-header]');
+    if (headerElement) {
+        setHeaderHeight(headerElement.clientHeight);
+    }
+
     if (initialData) {
       setCache(cacheKey, {
         category: initialData.category,
@@ -167,6 +176,14 @@ export default function CategoryPageClient({
 
     const controlHeader = () => {
       const currentScrollY = window.scrollY;
+      // Re-measure header if needed
+      if (currentScrollY < 100) {
+          const headerElement = document.querySelector('[data-site-header]');
+          if (headerElement && headerElement.clientHeight > 0) {
+              setHeaderHeight(headerElement.clientHeight);
+          }
+      }
+
       if (currentScrollY < lastScrollY.current || currentScrollY < 80) {
         setIsHeaderVisible(true);
       } else {
@@ -185,7 +202,6 @@ export default function CategoryPageClient({
   useEffect(() => {
     const fetchCategoryAndSubcategories = async () => {
       if (!categorySlug || !isMounted) {
-        setIsLoading(true);
         return;
       }
 
@@ -314,9 +330,10 @@ export default function CategoryPageClient({
             loadSubCategoryServices(initialSubCats[0].id);
         }
         
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error("Error fetching category data:", err);
-        setError(err.message || "Failed to load category details.");
+        const errorMessage = err instanceof Error ? err.message : "Failed to load category details.";
+        setError(errorMessage);
         setIsLoading(false);
       }
     };
@@ -334,22 +351,49 @@ export default function CategoryPageClient({
         loadSubCategoryServices(subCat.id);
     }
 
-    const element = subCategoryRefs.current[slug];
-    if (element) {
-        const headerOffset = 64; 
-        const subNavHeight = 80;
-        const elementPosition = element.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerOffset - subNavHeight;
-        window.scrollTo({ top: offsetPosition, behavior: 'smooth' });
-    }
+    // Set pending scroll to be handled in useEffect after state update
+    pendingScrollRef.current = slug;
 
     const subCatIndex = subCategoriesWithServices.findIndex(sc => sc.slug === slug);
     if (carouselApi && subCatIndex > -1) {
       carouselApi.scrollTo(subCatIndex, false);
     }
   }, [carouselApi, subCategoriesWithServices, loadSubCategoryServices]);
+
+  // Effect to handle pending scrolls after content is forced visible and services are loaded
+  useEffect(() => {
+    if (pendingScrollRef.current) {
+        const slug = pendingScrollRef.current;
+        const subCat = subCategoriesWithServices.find(sc => sc.slug === slug);
+        
+        // Wait until it's ready: found, started loading (LazySection active), and services fetched
+        if (subCat && subCat.hasStartedLoading && !subCat.isLoadingServices) {
+            const element = subCategoryRefs.current[slug];
+            
+            if (element) {
+                const timer = setTimeout(() => {
+                    const actualHeaderOffset = isHeaderVisible ? headerHeight : 0;
+                    const subNavHeight = stickyNavRef.current?.clientHeight || 80;
+                    
+                    // Re-measure element position in case previous sections loaded/expanded
+                    const elementPosition = element.getBoundingClientRect().top;
+                    const offsetPosition = elementPosition + window.pageYOffset - actualHeaderOffset - subNavHeight + 12;
+                    
+                    window.scrollTo({ 
+                        top: offsetPosition, 
+                        behavior: 'smooth' 
+                    });
+                    
+                    // Clear pending scroll after successful execution
+                    pendingScrollRef.current = null;
+                }, 150); // Slightly longer delay to allow DOM to stabilize after services render
+                return () => clearTimeout(timer);
+            }
+        }
+    }
+  }, [activeSubCategorySlug, subCategoriesWithServices, headerHeight, isHeaderVisible]);
   
-  const handleAuthRequiredNav = (e: React.MouseEvent<any>, intendedHref?: string, action?: () => void) => {
+  const handleAuthRequiredNav = (e: React.MouseEvent<HTMLElement>, intendedHref?: string, action?: () => void) => {
     e.preventDefault();
     const redirectPath = intendedHref || currentPathname;
     if (intendedHref && intendedHref !== currentPathname && !intendedHref.startsWith('#')) showLoading();
@@ -369,7 +413,7 @@ export default function CategoryPageClient({
   };
 
 
-  if (!isMounted) {
+  if (!isMounted && !initialData) {
     return (
       <div className="container mx-auto px-4 py-8">
         <Skeleton className="h-5 w-1/2 mb-6" />
@@ -427,7 +471,10 @@ export default function CategoryPageClient({
         <>
           <div
             ref={stickyNavRef}
-            className="bg-muted/80 backdrop-blur-md py-3 -mx-4 px-4 border-b mb-6 shadow-sm"
+            className="sticky z-30 bg-background/95 backdrop-blur-md py-3 -mx-4 px-4 border-b mb-6 shadow-sm transition-all duration-300"
+            style={{ 
+              top: isHeaderVisible ? `${headerHeight}px` : '0px',
+            }}
           >
             <Carousel setApi={setCarouselApi} opts={{ align: "start", dragFree: true }} className="w-full relative">
               <CarouselContent className="-ml-2">
@@ -484,23 +531,22 @@ export default function CategoryPageClient({
           )}
 
             {subCategoriesWithServices.map((subCat) => (
-              <LazySection 
+              <div 
                 key={subCat.id} 
-                className="scroll-mt-40 md:scroll-mt-32 pt-2"
-                rootMargin="200px"
-                threshold={0.01}
-                forceVisible={manuallyAwakenedSubCats.has(subCat.id)}
-                ref={(el) => { subCategoryRefs.current[subCat.slug] = el; }}
+                id={`section-${subCat.slug}`}
+                ref={(el) => { 
+                    subCategoryRefs.current[subCat.slug] = el;
+                    // Trigger the loading when the section mounts if not already loaded
+                    if (el && !subCat.hasStartedLoading) {
+                        loadSubCategoryServices(subCat.id);
+                    }
+                }}
+                className="pt-2"
+                style={{
+                    scrollMarginTop: `${(isHeaderVisible ? headerHeight : 0) + (stickyNavRef.current?.clientHeight || 80) + 10}px`
+                } as React.CSSProperties}
               >
-                <div 
-                    id={`section-${subCat.slug}`}
-                    ref={(el) => { 
-                        // Trigger the loading when the section becomes visible
-                        if (el && !subCat.hasStartedLoading) {
-                            loadSubCategoryServices(subCat.id);
-                        }
-                    }}
-                >
+                <div>
                     <div className="flex items-center mb-6">
                     {subCat.imageUrl ? (
                         <div className="w-10 h-10 relative rounded-md overflow-hidden mr-3 shadow">
@@ -511,7 +557,8 @@ export default function CategoryPageClient({
                     </div>
                     {subCat.isLoadingServices ? (
                         <div className="grid grid-cols-1 gap-4">
-                        {[...Array(2)].map((_, i) => <Skeleton key={i} className="h-36 w-full" />)}
+                        {/* Match skeleton height to prevent jumps */}
+                        {[...Array(3)].map((_, i) => <Skeleton key={i} className="h-40 w-full rounded-xl" />)}
                         </div>
                     ) : subCat.services.length > 0 ? (
                     <div className="grid grid-cols-1 gap-4">
@@ -523,7 +570,7 @@ export default function CategoryPageClient({
                     <p className="text-muted-foreground text-center py-4">No services available in this sub-category yet.</p>
                     )}
                 </div>
-              </LazySection>
+              </div>
             ))}
           </div>
         </>

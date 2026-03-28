@@ -12,7 +12,7 @@ import { unstable_cache } from 'next/cache';
 import { notFound } from 'next/navigation';
 import { getAggregateRating } from '@/lib/homepageUtils';
 
-export const revalidate = 3600; // Revalidate every hour
+export const revalidate = false; // Persistent Cache (Smart Revalidation Only)
 
 /**
  * Server-side helper to safely get milliseconds from various timestamp formats.
@@ -121,7 +121,7 @@ const getServiceData = cache(async (slug: string): Promise<ClientServiceData | n
       }
     },
     [`service-data-${slug}`],
-    { revalidate: 3600, tags: ['services', `service-${slug}`] }
+    { tags: ['services', `service-${slug}`, 'global-cache'] }
   )();
 });
 

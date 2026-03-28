@@ -1,95 +1,122 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
-import { doc, onSnapshot } from "firebase/firestore";
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { doc, getDoc } from "firebase/firestore";
 import { db } from '@/lib/firebase';
-import type { FeaturesConfiguration, MarketingAutomationSettings } from '@/types/firestore'; // Import MarketingAutomationSettings
+import type { FeaturesConfiguration, MarketingAutomationSettings } from '@/types/firestore';
+import { getCache, setCache } from '@/lib/client-cache';
 
 const FEATURES_CONFIG_COLLECTION = "webSettings";
 const FEATURES_CONFIG_DOC_ID = "featuresConfiguration";
-const MARKETING_AUTOMATION_DOC_ID = "marketingAutomation"; // Added
+const MARKETING_AUTOMATION_DOC_ID = "marketingAutomation";
+const CACHE_KEY = "features-and-marketing-config";
 
 const defaultFeaturesConfig: FeaturesConfiguration = {
   showMostPopularServices: true,
   showRecentlyAddedServices: true,
   showCategoryWiseServices: true,
   showBlogSection: true,
-  showCustomServiceButton: true, // Changed default to true
+  showCustomServiceButton: true,
   homepageCategoryVisibility: {},
   ads: [],
 };
 
-// Combined type for the hook's return value
 interface UseFeaturesAndAutomationConfigReturn {
   featuresConfig: FeaturesConfiguration;
   marketingConfig: MarketingAutomationSettings | null;
   isLoading: boolean;
 }
 
+const isBot = (): boolean => {
+  if (typeof window === 'undefined') return true;
+  const botPatterns = [
+      'bot', 'crawler', 'spider', 'crawling', 'googlebot', 'bingbot', 'yandexbot', 
+      'slurp', 'duckduckbot', 'baiduspider', 'adsbot', 'mediapartners-google',
+      'lighthouse', 'gtmetrix', 'pingdom', 'facebookexternalhit', 'whatsapp', 'linkedinbot'
+  ];
+  const ua = navigator.userAgent.toLowerCase();
+  return botPatterns.some(pattern => ua.includes(pattern));
+};
+
 export function useFeaturesConfig(): UseFeaturesAndAutomationConfigReturn {
-  const [featuresConfig, setFeaturesConfig] = useState<FeaturesConfiguration>(defaultFeaturesConfig);
-  const [marketingConfig, setMarketingConfig] = useState<MarketingAutomationSettings | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [featuresConfig, setFeaturesConfig] = useState<FeaturesConfiguration>(() => {
+    const cached = getCache<{features: FeaturesConfiguration, marketing: MarketingAutomationSettings | null}>(CACHE_KEY, true);
+    return cached ? cached.features : defaultFeaturesConfig;
+  });
+  const [marketingConfig, setMarketingConfig] = useState<MarketingAutomationSettings | null>(() => {
+    const cached = getCache<{features: FeaturesConfiguration, marketing: MarketingAutomationSettings | null}>(CACHE_KEY, true);
+    return cached ? cached.marketing : null;
+  });
+  const [isLoading, setIsLoading] = useState(!getCache(CACHE_KEY, true));
+  const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    let featuresUnsubscribe: () => void;
-    let marketingUnsubscribe: () => void;
+    // If it's a bot, skip fetching to save reads
+    if (isBot()) {
+      setIsLoading(false);
+      return;
+    }
 
-    const fetchConfigs = () => {
-      setIsLoading(true);
+    // Skip if already loaded in this session
+    if (hasLoadedRef.current) return;
 
-      const featuresConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
-      featuresUnsubscribe = onSnapshot(featuresConfigRef, (docSnap) => {
-        if (docSnap.exists()) {
-          const firestoreData = docSnap.data() as Partial<FeaturesConfiguration>;
-          setFeaturesConfig({ ...defaultFeaturesConfig, ...firestoreData });
-        } else {
-          setFeaturesConfig(defaultFeaturesConfig);
+    const fetchConfigs = async () => {
+      try {
+        // Smart Cache Logic: Check global cache version (1 read)
+        const versionDocRef = doc(db, "appConfiguration", "cacheVersions");
+        const versionSnap = await getDoc(versionDocRef);
+        const remoteVersion = versionSnap.exists() ? (versionSnap.data().global || 0) : 0;
+        
+        const localVersion = parseInt(localStorage.getItem(`${CACHE_KEY}-version`) || "0");
+        const cached = getCache<{features: FeaturesConfiguration, marketing: MarketingAutomationSettings | null}>(CACHE_KEY, true);
+        
+        if (cached && remoteVersion <= localVersion) {
+            setFeaturesConfig(cached.features);
+            setMarketingConfig(cached.marketing);
+            setIsLoading(false);
+            hasLoadedRef.current = true;
+            return;
         }
-      }, (error) => {
-        console.error("Error fetching features configuration:", error);
-        setFeaturesConfig(defaultFeaturesConfig);
-      });
 
-      const marketingConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, MARKETING_AUTOMATION_DOC_ID);
-      marketingUnsubscribe = onSnapshot(marketingConfigRef, (docSnap) => {
-        if (docSnap.exists()) {
-          setMarketingConfig(docSnap.data() as MarketingAutomationSettings);
-        } else {
-          setMarketingConfig(null);
+        // Fetch fresh if version changed (2 reads for features and marketing)
+        const featuresConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, FEATURES_CONFIG_DOC_ID);
+        const marketingConfigRef = doc(db, FEATURES_CONFIG_COLLECTION, MARKETING_AUTOMATION_DOC_ID);
+        
+        const [featuresSnap, marketingSnap] = await Promise.all([
+            getDoc(featuresConfigRef),
+            getDoc(marketingConfigRef)
+        ]);
+
+        let finalFeatures = defaultFeaturesConfig;
+        let finalMarketing = null;
+
+        if (featuresSnap.exists()) {
+          finalFeatures = { ...defaultFeaturesConfig, ...(featuresSnap.data() as Partial<FeaturesConfiguration>) };
         }
-      }, (error) => {
-        console.error("Error fetching marketing automation configuration:", error);
-        setMarketingConfig(null);
-      });
-      
-      // Consider loading complete after both have had a chance to fetch.
-      // A more robust solution might use Promise.all if it was a one-time fetch.
-      // With onSnapshot, we can set loading to false after the first snapshot of both.
-      let featuresLoaded = false;
-      let marketingLoaded = false;
-      const checkLoadingDone = () => {
-          if (featuresLoaded && marketingLoaded) {
-              setIsLoading(false);
-          }
-      };
+        
+        if (marketingSnap.exists()) {
+          finalMarketing = marketingSnap.data() as MarketingAutomationSettings;
+        }
 
-      const featuresUnsub = onSnapshot(featuresConfigRef, () => { featuresLoaded = true; checkLoadingDone(); });
-      const marketingUnsub = onSnapshot(marketingConfigRef, () => { marketingLoaded = true; checkLoadingDone(); });
+        setFeaturesConfig(finalFeatures);
+        setMarketingConfig(finalMarketing);
+        
+        const dataToCache = { features: finalFeatures, marketing: finalMarketing };
+        setCache(CACHE_KEY, dataToCache, true);
+        localStorage.setItem(`${CACHE_KEY}-version`, remoteVersion.toString());
 
-      // Need to re-assign the main unsubscribes for cleanup
-      featuresUnsubscribe = featuresUnsub;
-      marketingUnsubscribe = marketingUnsub;
+      } catch (error) {
+        console.error("Error fetching configurations in useFeaturesConfig:", error);
+      } finally {
+        setIsLoading(false);
+        hasLoadedRef.current = true;
+      }
     };
     
     fetchConfigs();
-
-    return () => {
-      if (featuresUnsubscribe) featuresUnsubscribe();
-      if (marketingUnsubscribe) marketingUnsubscribe();
-    };
   }, []);
 
   return { featuresConfig, marketingConfig, isLoading };
 }
+
