@@ -18,6 +18,7 @@ import { useLoading } from '@/contexts/LoadingContext';
 import { useApplicationConfig } from '@/hooks/useApplicationConfig';
 import { triggerPushNotification } from '@/lib/fcmUtils';
 import { ADMIN_EMAIL } from '@/contexts/AuthContext';
+import { cn } from '@/lib/utils';
 
 const POPUP_SESSION_STORAGE_KEY_PREFIX = 'wecanfixPopupShown_';
 const POPUP_DAY_STORAGE_KEY_PREFIX = 'wecanfixPopupDayShown_'; 
@@ -41,11 +42,28 @@ export default function PopupDisplayManager() {
   const [isSubmittedSuccessfully, setIsSubmittedSuccessfully] = useState(false); // New state
   const { config: appConfig } = useApplicationConfig();
   const countryCode = appConfig?.defaultOtpCountryCode || '+91';
+  const [isInputFocused, setIsInputFocused] = useState(false);
 
   const popupShownThisLoadRef = useRef(false);
   const exitIntentListenerRef = useRef<(() => void) | null>(null);
   const scrollListenerRef = useRef<(() => void) | null>(null);
   const timerRefs = useRef<NodeJS.Timeout[]>([]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+
+    const handleVisualViewportResize = () => {
+      if (!window.visualViewport) return;
+      // If the height is significantly smaller than the screen height, keyboard is probably open
+      const isKeyboardOpen = window.visualViewport.height < window.innerHeight * 0.85;
+      setIsInputFocused(isKeyboardOpen);
+    };
+
+    window.visualViewport.addEventListener('resize', handleVisualViewportResize);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleVisualViewportResize);
+    };
+  }, []);
 
   const validateEmail = (email: string) => {
     return /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
@@ -506,7 +524,10 @@ export default function PopupDisplayManager() {
 
   return (
     <Dialog open={isPopupVisible} onOpenChange={(open) => { if (!open) handlePopupClose(); }}>
-      <DialogContent className="max-w-[90%] sm:max-w-md md:max-w-lg p-0 overflow-hidden shadow-2xl rounded-xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+      <DialogContent className={cn(
+        "max-w-[90%] sm:max-w-md md:max-w-lg p-0 overflow-hidden shadow-2xl rounded-xl transition-all duration-300",
+        isInputFocused ? "!-translate-y-[85%] sm:!-translate-y-[50%] top-[50%]" : ""
+      )}>
         {currentPopupToDisplay.showCloseButton !== false && (
           <DialogClose asChild>
             <Button
@@ -527,7 +548,7 @@ export default function PopupDisplayManager() {
           style={currentPopupToDisplay.popupType === 'video' && currentPopupToDisplay.targetUrl ? { cursor: 'pointer' } : {}}
         >
           {currentPopupToDisplay.imageUrl && currentPopupToDisplay.popupType !== 'video' && (
-          <div className="flex items-center justify-center">
+          <div className={cn("flex items-center justify-center transition-all duration-300", isInputFocused ? "h-0 opacity-0 overflow-hidden" : "h-auto opacity-100")}>
             <div 
               className="relative aspect-square w-48 md:w-64 overflow-hidden"
               onClick={currentPopupToDisplay.targetUrl ? () => handleActionClick(currentPopupToDisplay.targetUrl) : undefined}
@@ -545,7 +566,7 @@ export default function PopupDisplayManager() {
           )}
           
           {currentPopupToDisplay.popupType === 'video' && currentPopupToDisplay.videoUrl && (
-            <div className="relative w-full aspect-video bg-black">
+            <div className={cn("relative w-full aspect-video bg-black transition-all duration-300", isInputFocused ? "h-0 opacity-0 overflow-hidden" : "h-auto opacity-100")}>
               {isDirectVideoLink ? (
                  <video
                     src={embedUrl}
@@ -631,6 +652,8 @@ export default function PopupDisplayManager() {
                                 placeholder="Full Name"
                                 value={nameForSubscription}
                                 onChange={(e) => setNameForSubscription(e.target.value)}
+                                onFocus={() => setIsInputFocused(true)}
+                                onBlur={() => setIsInputFocused(false)}
                                 required={currentPopupToDisplay.showNameInput} 
                                 className="h-10 text-base"
                                 disabled={isSubscribing}
@@ -646,6 +669,8 @@ export default function PopupDisplayManager() {
                                 placeholder="you@example.com"
                                 value={emailForSubscription}
                                 onChange={(e) => setEmailForSubscription(e.target.value)}
+                                onFocus={() => setIsInputFocused(true)}
+                                onBlur={() => setIsInputFocused(false)}
                                 required={currentPopupToDisplay.showEmailInput}
                                 className="h-10 text-base"
                                 disabled={isSubscribing}
@@ -665,6 +690,8 @@ export default function PopupDisplayManager() {
                                     placeholder="10-digit mobile number"
                                     value={mobileForSubscription}
                                     onChange={(e) => setMobileForSubscription(e.target.value.replace(/\D/g, '').slice(0, 10))}
+                                    onFocus={() => setIsInputFocused(true)}
+                                    onBlur={() => setIsInputFocused(false)}
                                     required={currentPopupToDisplay.showMobileInput} 
                                     className="h-10 text-base"
                                     disabled={isSubscribing}
